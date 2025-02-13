@@ -148,9 +148,7 @@ const LandingPage = () => {
                 Help
               </a>
             </div>
-            <div className="text-gray-400">
-              © {new Date().getFullYear()} FocusSpace
-            </div>
+            <div></div>
           </div>
         </div>
       </footer>
