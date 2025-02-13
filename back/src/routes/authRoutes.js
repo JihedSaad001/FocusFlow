@@ -41,23 +41,17 @@ router.post("/signup", async (req, res) => {
 router.put("/update-user", authenticateJWT, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { username, oldPassword, newPassword } = req.body;
+    const { username, profilePic } = req.body; // ✅ Get profilePic from request
 
-    // ✅ Fetch user from database
-    const user = await User.findById(userId);
+    // ✅ Fetch user from MongoDB
+    let user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // ✅ If updating password, check old password
-    if (oldPassword && newPassword) {
-      const isMatch = await bcrypt.compare(oldPassword, user.password);
-      if (!isMatch) {
-        return res.status(400).json({ success: false, message: "Incorrect old password" });
-      }
-
-      // ✅ Assign the new password directly (No Hashing Here)
-      user.password = newPassword; // Hashing will happen automatically in UserSchema
+    // ✅ Update profilePic if provided
+    if (profilePic) {
+      user.profilePic = profilePic;
     }
 
     // ✅ Update username if provided
@@ -65,10 +59,10 @@ router.put("/update-user", authenticateJWT, async (req, res) => {
       user.username = username;
     }
 
-    await user.save(); // ✅ Hashing will occur automatically due to `pre("save")`
-    res.json({ success: true, message: "Profile updated successfully" });
+    await user.save(); // ✅ Save the updated user data
+    res.json({ success: true, message: "Profile updated successfully", user });
   } catch (error) {
-    console.error("🔥 Update Error:", error);
+    console.error("🔥 MongoDB Update Failed:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
