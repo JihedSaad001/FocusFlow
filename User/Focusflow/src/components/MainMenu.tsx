@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import {
-  Sparkles,
+  
   Timer,
   ListTodo,
   Music2,

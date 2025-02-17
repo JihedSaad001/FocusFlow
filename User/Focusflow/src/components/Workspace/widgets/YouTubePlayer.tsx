@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Play, X, Move } from "lucide-react";
 
 const YouTubePlayer = () => {
@@ -9,7 +9,7 @@ const YouTubePlayer = () => {
   const isDragging = useRef(false);
   const isResizing = useRef(false);
   const lastMousePosition = useRef({ x: 0, y: 0 });
-  const animationFrame = useRef<number | null>(null);
+  
   const searchBarRef = useRef<HTMLDivElement | null>(null);
 
   // Extract Video ID from YouTube URL
@@ -115,7 +115,7 @@ const YouTubePlayer = () => {
         />
         <button
           onClick={handlePlay}
-          className="p-3 bg-[#ff4e50] text-white rounded-xl shadow-lg hover:bg-[#e0443e] transition-all duration-300"
+          className="p-3 bg-gradient-to-r from-red-500 to-red-700 text-white rounded-xl shadow-lg hover:bg-[#e0443e] transition-all duration-300"
         >
           <Play className="w-6 h-6" />
         </button>

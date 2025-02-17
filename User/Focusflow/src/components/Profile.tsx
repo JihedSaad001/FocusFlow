@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { updateUser, uploadProfilePic } from "../Api";
 import { isTokenExpired } from "../utils/auth";
+import { Camera, Save, User } from "lucide-react";
 
 const defaultProfilePic =
-  "https://qhedchvmvmuflflstcwx.supabase.co/storage/v1/object/public/profile-pictures/image_2025-02-08_215223222.png"; // ✅ Default Profile Pic
+  "https://qhedchvmvmuflflstcwx.supabase.co/storage/v1/object/public/profile-pictures/default-avatar.png";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -14,9 +15,9 @@ const Profile = () => {
     profilePic?: string;
   } | null>(null);
   const [newUsername, setNewUsername] = useState("");
-  const [oldPassword, setOldPassword] = useState(""); // ✅ Require Old Password
+  const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState(""); // ✅ Confirm New Password
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const token = localStorage.getItem("userToken");
@@ -25,8 +26,8 @@ const Profile = () => {
     const storedUser = localStorage.getItem("user");
     if (storedUser && token) {
       const parsedUser = JSON.parse(storedUser);
-      console.log("🔍 Profile Picture URL:", parsedUser.profilePic);
       setUser(parsedUser);
+      setNewUsername(parsedUser.username || "");
     } else {
       navigate("/signin");
     }
@@ -41,13 +42,11 @@ const Profile = () => {
       return;
     }
 
-    // ✅ Ensure new password matches confirmation
     if (newPassword && newPassword !== confirmPassword) {
       alert("New passwords do not match!");
       return;
     }
 
-    // ✅ Require old password when changing password
     if (newPassword && !oldPassword) {
       alert("Please enter your old password to confirm changes.");
       return;
@@ -65,7 +64,6 @@ const Profile = () => {
         updatedData.username = newUsername;
       }
 
-      // ✅ Send both old and new passwords when updating
       if (oldPassword.trim() && newPassword.trim()) {
         updatedData.oldPassword = oldPassword;
         updatedData.newPassword = newPassword;
@@ -78,6 +76,11 @@ const Profile = () => {
         localStorage.setItem("user", JSON.stringify(updatedUser));
         setUser(updatedUser);
         alert("Profile updated successfully!");
+
+        // Clear password fields after successful update
+        setOldPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
       } else {
         alert(
           response.message ||
@@ -85,7 +88,7 @@ const Profile = () => {
         );
       }
     } catch (error) {
-      console.error("🔥 Update Error:", error);
+      console.error("Update Error:", error);
       alert("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
@@ -98,25 +101,34 @@ const Profile = () => {
       return;
     }
 
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size must be less than 5MB");
+      return;
+    }
+
     setUploading(true);
 
     try {
-      console.log("Uploading file:", file.name);
-
       const uploadedUrl = await uploadProfilePic(file, token);
-      console.log("Profile Picture Uploaded:", uploadedUrl);
 
+      // Update user profile with new image URL
       await updateUser({ profilePic: uploadedUrl }, token);
 
       const updatedUser = { ...user, profilePic: uploadedUrl };
       setUser(updatedUser);
       localStorage.setItem("user", JSON.stringify(updatedUser));
 
-      alert("Profile picture updated!");
-      window.dispatchEvent(new Event("storage"));
+      alert("Profile picture updated successfully!");
     } catch (error) {
-      console.error("🔥 Upload failed:", error);
-      alert("Failed to upload profile picture.");
+      console.error("Upload failed:", error);
+      alert("Failed to upload profile picture. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -131,94 +143,128 @@ const Profile = () => {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#121212] text-white px-6">
-      <div className="bg-[#1E1E1E] p-8 rounded-lg shadow-lg w-full max-w-lg text-center">
-        <h1 className="text-3xl font-bold mb-6 text-gray-200">
-          Profile Settings
-        </h1>
+      <div className="bg-[#1E1E1E] p-12 rounded-2xl shadow-2xl w-full max-w-4xl">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-700">
+            Profile Settings
+          </h1>
+          <p className="text-gray-400 mt-2">Manage your account preferences</p>
+        </div>
 
-        {/* Profile Picture Upload */}
-        <div className="relative flex justify-center mb-6">
-          <input
-            type="file"
-            id="fileInput"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) =>
-              e.target.files && handleFileUpload(e.target.files[0])
-            }
-          />
-          <div className="relative group">
-            <img
-              src={user?.profilePic || defaultProfilePic}
-              alt="Profile"
-              className="w-28 h-28 rounded-full border-4 border-gray-600 shadow-lg transition-transform duration-300 hover:scale-110 cursor-pointer"
-              onClick={handleImageClick}
-            />
-            {/* Upload Indicator */}
-            {uploading && (
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full">
-                <span className="text-white font-semibold text-sm animate-pulse">
-                  Uploading...
-                </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          <div className="flex flex-col items-center space-y-8">
+            <div className="relative">
+              <input
+                type="file"
+                id="fileInput"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) =>
+                  e.target.files && handleFileUpload(e.target.files[0])
+                }
+              />
+              <div
+                className="relative group cursor-pointer w-40 h-40"
+                onClick={handleImageClick}
+              >
+                <img
+                  src={user?.profilePic || defaultProfilePic}
+                  alt="Profile"
+                  className="w-full h-full rounded-full object-cover border-4 border-red-500/30 shadow-lg transition-all duration-300 group-hover:border-red-500"
+                />
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 group-hover:bg-black/40 transition-all duration-300">
+                  <Camera
+                    className="text-white opacity-0 group-hover:opacity-100 transition-all duration-300"
+                    size={32}
+                  />
+                </div>
+                {uploading && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full backdrop-blur-sm">
+                    <div className="flex flex-col items-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                      <span className="text-white text-sm mt-2">
+                        Uploading...
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+
+            <div className="w-full space-y-2">
+              <label className="flex items-center text-gray-300 font-medium">
+                <User size={18} className="mr-2" />
+                Username
+              </label>
+              <input
+                type="text"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
+                placeholder="Enter new username"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-gray-300 mb-6">
+              Change Password
+            </h3>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-gray-400">Current Password</label>
+                <input
+                  type="password"
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
+                  placeholder="Enter current password"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-gray-400">New Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
+                  placeholder="Enter new password"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-gray-400">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
+                  placeholder="Confirm new password"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Username Input */}
-        <label className="block mb-2 text-left text-gray-400 font-semibold">
-          Username:
-        </label>
-        <input
-          type="text"
-          value={newUsername}
-          onChange={(e) => setNewUsername(e.target.value)}
-          className="w-full bg-black text-white p-3 rounded-lg shadow-md focus:ring-2 focus:ring-red-500 transition"
-        />
-
-        {/* Old Password Input */}
-        <label className="block mt-4 mb-2 text-left text-gray-400 font-semibold">
-          Old Password:
-        </label>
-        <input
-          type="password"
-          value={oldPassword}
-          onChange={(e) => setOldPassword(e.target.value)}
-          className="w-full bg-black text-white p-3 rounded-lg shadow-md focus:ring-2 focus:ring-red-500 transition"
-        />
-
-        {/* New Password Input */}
-        <label className="block mt-4 mb-2 text-left text-gray-400 font-semibold">
-          New Password:
-        </label>
-        <input
-          type="password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          className="w-full bg-black text-white p-3 rounded-lg shadow-md focus:ring-2 focus:ring-red-500 transition"
-        />
-
-        {/* Confirm New Password Input */}
-        <label className="block mt-4 mb-2 text-left text-gray-400 font-semibold">
-          Confirm New Password:
-        </label>
-        <input
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          className="w-full bg-black text-white p-3 rounded-lg shadow-md focus:ring-2 focus:ring-red-500 transition"
-        />
-
-        {/* Buttons */}
-        <div className="flex space-x-3 mt-6 justify-center">
+        <div className="mt-12">
           <button
             onClick={handleUpdate}
-            className={`bg-red-500 px-5 py-2 rounded-lg text-white font-semibold shadow-lg transform transition-all hover:scale-105 hover:bg-red-600 ${
-              loading ? "opacity-60 cursor-not-allowed" : ""
-            }`}
             disabled={loading}
+            className="w-full bg-gradient-to-r from-red-500 to-red-700 text-white py-4 rounded-lg font-semibold shadow-lg transform transition-all duration-200 hover:scale-[1.02] hover:shadow-red-500/20 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center space-x-2"
           >
-            {loading ? "Saving..." : "Save Changes"}
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <Save size={20} />
+                <span>Save Changes</span>
+              </>
+            )}
           </button>
         </div>
       </div>

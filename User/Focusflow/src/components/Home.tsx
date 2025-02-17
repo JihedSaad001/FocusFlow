@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Timer, ListTodo, Music2, Calendar } from "lucide-react";
+
 
 const quotes = [
   "Productivity is never an accident. It is always the result of a commitment to excellence, intelligent planning, and focused effort.",
@@ -11,7 +10,7 @@ const quotes = [
 ];
 
 const Home = () => {
-  const navigate = useNavigate();
+  
   const [user, setUser] = useState<{ username: string } | null>(null);
   const [quote, setQuote] = useState("");
 

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+
 import { Timer, CheckSquare, Music2, Headphones, Image } from "lucide-react";
 
 const WidgetSidebar = ({

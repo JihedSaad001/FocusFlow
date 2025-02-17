@@ -39,36 +39,52 @@ export const updateUser = async (data: any, token: string) => {
 };
 
 // Function to upload profile picture
+
+
 export const uploadProfilePic = async (file: File, token: string) => {
   if (!supabase) throw new Error("Supabase is not initialized");
 
   try {
-    const fileName = `${Date.now()}-${file.name}`;
-    console.log("Uploading file to Supabase:", fileName); // Debugging
+    const fileExt = file.name.split(".").pop(); // Extract file extension
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
 
-    // Upload the file to Supabase
+    console.log(`📤 Uploading file: ${fileName} with token: ${token}`);
+
+    // ✅ Store token for debugging
+    localStorage.setItem("lastUploadToken", token);
+
+    // Upload file to Supabase storage
     const { data, error } = await supabase.storage
-      .from("profile-pictures") // Ensure the bucket name is correct
-      .upload(fileName, file);
+      .from("profile-pictures")
+      .upload(fileName, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
 
     if (error) {
-      console.error("Supabase upload error:", error); // Debugging
+      console.error("🔥 Supabase upload error:", error);
       throw error;
     }
 
-    // Get the public URL of the uploaded file
-    const { data: publicUrlData } = supabase.storage
-      .from("profile-pictures")
-      .getPublicUrl(fileName);
+    if (!data) {
+      throw new Error("Upload failed - no data returned");
+    }
 
-    if (!publicUrlData) {
+    // ✅ Correctly getting public URL (Fix for TS2339)
+    const { data: publicUrlData } = supabase.storage.from("profile-pictures").getPublicUrl(fileName);
+
+    if (!publicUrlData || !publicUrlData.publicUrl) {
       throw new Error("Failed to retrieve image URL");
     }
 
-    console.log("Public URL:", publicUrlData.publicUrl); // Debugging
-    return publicUrlData.publicUrl;
+    const publicUrl = publicUrlData.publicUrl;
+    console.log("✅ Upload successful! Public URL:", publicUrl);
+
+    return publicUrl;
   } catch (error) {
     console.error("🔥 Upload failed:", error);
     throw error;
   }
 };
+
+
