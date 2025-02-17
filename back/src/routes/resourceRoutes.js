@@ -1,22 +1,33 @@
 const express = require("express");
 const Resource = require("../models/Resource");
-
-const { authenticateJWT, isAdmin } = require("../middleware/authMiddleware"); 
-
+const { authenticateJWT, isAdmin } = require("../middleware/authMiddleware");
 const multer = require("multer");
 const { supabase } = require("../config/supabase");
 
-
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() }); // Store files in memory before upload
+const upload = multer({ storage: multer.memoryStorage() });
 
-// Create a new resource (Admin Only)
+/**
+ * @route   POST /api/resources/add
+ * @desc    Manually add a new resource (Admin Only)
+ * @access  Private (Admin)
+ */
 router.post("/add", authenticateJWT, isAdmin, async (req, res) => {
   try {
-    const { type, name, url } = req.body;
-    if (!type || !name || !url) return res.status(400).json({ message: "All fields are required" });
+    const { type, name, url, category, tags } = req.body;
+    if (!type || !name || !url) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
 
-    const newResource = new Resource({ type, name, url, uploadedBy: req.user.id });
+    const newResource = new Resource({
+      type,
+      name,
+      url,
+      category,
+      tags,
+      uploadedBy: req.user.id,
+    });
+
     await newResource.save();
 
     res.status(201).json({ message: "Resource added successfully", resource: newResource });
@@ -25,35 +36,53 @@ router.post("/add", authenticateJWT, isAdmin, async (req, res) => {
   }
 });
 
-// Get all resources
-router.get("/", async (req, res) => {
+/**
+ * @route   GET /api/resources/wallpapers
+ * @desc    Fetch all active wallpapers
+ * @access  Public
+ */
+router.get("/wallpapers", async (req, res) => {
   try {
-    const resources = await Resource.find();
-    res.json(resources);
+    const wallpapers = await Resource.find({ type: "wallpaper", isActive: true });
+    res.json(wallpapers);
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 
-// Delete a resource (Admin Only)
-router.delete("/:id", authenticateJWT, isAdmin, async (req, res) => {
+/**
+ * @route   GET /api/resources/wallpapers/:id
+ * @desc    Fetch a single wallpaper by ID
+ * @access  Public
+ */
+router.get("/wallpapers/:id", async (req, res) => {
   try {
-    const deletedResource = await Resource.findByIdAndDelete(req.params.id);
-    if (!deletedResource) return res.status(404).json({ message: "Resource not found" });
-
-    res.json({ message: "Resource deleted successfully" });
+    const wallpaper = await Resource.findById(req.params.id);
+    if (!wallpaper) {
+      return res.status(404).json({ message: "Wallpaper not found" });
+    }
+    res.json(wallpaper);
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
-router.post("/upload", authenticateJWT, upload.single("file"), async (req, res) => {
+
+/**
+ * @route   POST /api/resources/upload-wallpaper
+ * @desc    Admin uploads a wallpaper to Supabase
+ * @access  Private (Admin)
+ */
+router.post("/upload-wallpaper", authenticateJWT, isAdmin, upload.single("file"), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
 
-    const fileName = `${Date.now()}-${req.file.originalname}`;
+    const fileName = `wallpapers/${Date.now()}-${req.file.originalname}`;
 
+    // Upload image to Supabase Storage
     const { data, error } = await supabase.storage
-      .from("profile-pictures") // Ensure this matches your bucket name
+      .from("wallpapers")
       .upload(fileName, req.file.buffer, {
         contentType: req.file.mimetype,
         cacheControl: "3600",
@@ -61,19 +90,51 @@ router.post("/upload", authenticateJWT, upload.single("file"), async (req, res) 
 
     if (error) throw error;
 
-    // Get the public URL of the uploaded image
-    const { publicURL } = supabase.storage
-      .from("profile-pictures")
+    // Retrieve the public URL
+    const { data: publicUrlData } = supabase.storage
+      .from("wallpapers")
       .getPublicUrl(fileName);
 
-    // ✅ Update the user profile in MongoDB with the new profile picture URL
-    await User.findByIdAndUpdate(req.user.id, { profilePic: publicURL });
+    if (!publicUrlData) {
+      return res.status(500).json({ message: "Failed to get public URL from Supabase" });
+    }
 
-    res.status(200).json({ message: "Profile picture updated successfully", url: publicURL });
+    const publicUrl = publicUrlData.publicUrl;
+
+    // Save the wallpaper in MongoDB
+    const newWallpaper = new Resource({
+      type: "wallpaper",
+      name: req.file.originalname,
+      url: publicUrl,
+      uploadedBy: req.user.id,
+      category: req.body.category || "abstract", // Default category
+      tags: req.body.tags ? req.body.tags.split(",") : [],
+    });
+
+    await newWallpaper.save();
+
+    res.status(200).json({ message: "Wallpaper uploaded successfully", url: publicUrl, wallpaper: newWallpaper });
   } catch (error) {
     res.status(500).json({ message: "Upload error", error: error.message });
   }
 });
 
-  
+/**
+ * @route   DELETE /api/resources/:id
+ * @desc    Delete a resource (Admin Only)
+ * @access  Private (Admin)
+ */
+router.delete("/:id", authenticateJWT, isAdmin, async (req, res) => {
+  try {
+    const deletedResource = await Resource.findByIdAndDelete(req.params.id);
+    if (!deletedResource) {
+      return res.status(404).json({ message: "Resource not found" });
+    }
+
+    res.json({ message: "Resource deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
 module.exports = router;
