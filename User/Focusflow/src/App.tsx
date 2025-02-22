@@ -10,7 +10,7 @@ import SignIn from "./components/SignIn"; // ✅ Ensure this exists
 import SignUp from "./components/SignUp"; // ✅ Ensure this exists
 import Home from "./components/Home"; // ✅ Ensure this exists
 import Workspace from "./components/Workspace/Workspace";
-import { Helmet } from "react-helmet-async"; // ✅ Ensure this exists
+// ✅ Ensure this exists
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("user"));
 
@@ -26,7 +26,6 @@ const App = () => {
 
   return (
     <Router>
-      
       <div className="min-h-screen bg-[#121212]">
         {/* ✅ Show Sidebar when logged in, Navbar when logged out */}
         {isLoggedIn && <Sidebar />}
