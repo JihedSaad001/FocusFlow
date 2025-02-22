@@ -1,16 +1,16 @@
-import { useState } from 'react';
-import { User, Mail, Lock } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from "react";
+import { User, Mail, Lock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 function SignUp() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -19,29 +19,35 @@ function SignUp() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match!');
+      setError("Passwords do not match!");
       return;
     }
 
     setLoading(true);
     try {
-      const response = await fetch('https://focus-flow-dusky.vercel.app/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: formData.username,
-          email: formData.email,
-          password: formData.password,
-        }),
-      });
+      const response = await fetch(
+        "https://focusflow-production.up.railway.app/api/auth/signup",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: formData.username,
+            email: formData.email,
+            password: formData.password,
+          }),
+        }
+      );
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Signup failed');
+      // ✅ Ensure response is not empty before parsing JSON
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : {};
 
-      navigate('/signin'); // Redirect to login after successful signup
+      if (!response.ok) throw new Error(data.message || "Signup failed");
+
+      navigate("/signin"); // Redirect after signup
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -112,18 +118,18 @@ function SignUp() {
             disabled={loading}
             className={`w-full py-3 rounded-lg bg-gradient-to-r from-[#830E13] to-[#6B1E07] text-white font-medium transition-all duration-300 ${
               loading
-                ? 'opacity-60 cursor-not-allowed'
-                : 'hover:shadow-[0_0_25px_rgba(131,14,19,0.8)] hover:opacity-95 hover:scale-[1.02]'
+                ? "opacity-60 cursor-not-allowed"
+                : "hover:shadow-[0_0_25px_rgba(131,14,19,0.8)] hover:opacity-95 hover:scale-[1.02]"
             }`}
           >
-            {loading ? 'Signing Up...' : 'Sign Up'}
+            {loading ? "Signing Up..." : "Sign Up"}
           </button>
 
           <p className="text-center text-gray-400">
-            Already have an account?{' '}
+            Already have an account?{" "}
             <button
               type="button"
-              onClick={() => navigate('/signin')}
+              onClick={() => navigate("/signin")}
               className="text-white hover:text-[#830E13] transition"
             >
               Sign In
