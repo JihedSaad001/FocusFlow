@@ -19,17 +19,12 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
+    env_file:
+      - ./User/Focusflow/.env
     networks:
       - app-network
 
-  admin-frontend:
-    build:
-      context: ./Admin/front
-      dockerfile: Dockerfile
-    ports:
-      - "3001:3001"
-    networks:
-      - app-network
+  
 
   mongo:
     image: mongo
