@@ -1,0 +1,43 @@
+version: '3.8'
+services:
+  backend:
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./back/.env
+    depends_on:
+      - mongo
+    networks:
+      - app-network
+
+  user-frontend:
+    build:
+      context: ./User/Focusflow
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+
+  admin-frontend:
+    build:
+      context: ./Admin/front
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    networks:
+      - app-network
+
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

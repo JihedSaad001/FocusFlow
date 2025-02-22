@@ -9,7 +9,7 @@ import AdminLogin from "./pages/AdminLogin";
 import UserManagement from "./pages/UserManagement";
 import ResourcesDatabase from "./pages/ResourcesDatabase";
 import Dashboards from "./pages/Dashboards";
-import Navbar from "./components/Navbar"; // ✅ Import Navbar
+import Navbar from "./components/NavBarAdmin"; // ✅ Import Navbar
 
 function ProtectedRoute({ element }: { element: JSX.Element }) {
   const token = localStorage.getItem("adminToken");

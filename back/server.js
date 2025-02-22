@@ -14,7 +14,7 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch(err => console.log("❌ MongoDB Error:", err));
 
-// Routes
+
 const authRoutes = require("./src/routes/authRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const resourceRoutes = require("./src/routes/resourceRoutes");

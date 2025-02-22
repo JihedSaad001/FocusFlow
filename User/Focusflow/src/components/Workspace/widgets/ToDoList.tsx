@@ -85,7 +85,7 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
         zIndex: 50,
         transition: isDragging.current ? "none" : "transform 0.1s ease-out",
       }}
-      className="fixed w-[460px] bg-[#121212]  text-white border border-[#ff4e50] rounded-xl shadow-2xl p-6 transition-all cursor-grab active:cursor-grabbing"
+      className="fixed w-[460px] bg-[#121212]  text-white border-3 border-[#ff4e50] rounded-xl shadow-2xl p-6 transition-all cursor-grab active:cursor-grabbing"
     >
       {/* Header (Draggable) */}
       <div

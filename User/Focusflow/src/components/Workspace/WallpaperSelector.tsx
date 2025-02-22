@@ -46,7 +46,7 @@ const WallpaperSelector = ({
 
   return (
     <div
-      className="fixed bg-[#1a1a1a] shadow-xl border border-[#ff4e50] rounded-lg overflow-hidden z-50"
+      className="fixed bg-[#1a1a1a] shadow-xl border-3 border-[#ff4e50] rounded-lg overflow-hidden z-50"
       style={{
         left: `${position.x - 10}px`, // ✅ Moves it to the left of the sidebar
         top: `${position.y - 60}px`,
