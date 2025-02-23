@@ -20,7 +20,7 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - ./User/Focusflow/.env
+      - ./User/Focusflow/src/.env
     networks:
       - app-network
 
