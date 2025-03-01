@@ -44,6 +44,36 @@ const WallpaperSelector = ({
     }
   };
 
+  // Function to save the selected wallpaper to the backend
+  const saveWallpaperToBackend = async (url: string) => {
+    try {
+      const token = localStorage.getItem("token"); // Get the user's token from localStorage
+      if (!token) throw new Error("User not authenticated");
+
+      const response = await fetch("/api/user/wallpaper", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ wallpaperUrl: url }),
+      });
+
+      if (!response.ok) throw new Error("Failed to save wallpaper");
+
+      console.log("Wallpaper saved successfully:", url);
+    } catch (err) {
+      console.error("Error saving wallpaper:", err);
+    }
+  };
+
+  const handleWallpaperSelect = (url: string) => {
+    console.log("Selected wallpaper:", url);
+    localStorage.setItem("workspaceWallpaper", url); // Save to localStorage
+    onWallpaperChange(url); // Update the UI
+    saveWallpaperToBackend(url); // Save to backend
+  };
+
   return (
     <div
       className="fixed bg-[#1a1a1a] shadow-xl border-3 border-[#ff4e50] rounded-lg overflow-hidden z-50"
@@ -80,11 +110,7 @@ const WallpaperSelector = ({
               <div
                 key={index}
                 className="relative group cursor-pointer overflow-hidden rounded-lg transition-transform duration-300 hover:scale-105 border border-gray-200 shadow-sm"
-                onClick={() => {
-                  console.log("Selected wallpaper:", url);
-                  localStorage.setItem("workspaceWallpaper", url);
-                  onWallpaperChange(url);
-                }}
+                onClick={() => handleWallpaperSelect(url)}
               >
                 <img
                   src={url}

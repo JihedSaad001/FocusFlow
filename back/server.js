@@ -21,10 +21,12 @@ mongoose.connect(process.env.MONGO_URI)
 const authRoutes = require("./src/routes/authRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const resourceRoutes = require("./src/routes/resourceRoutes");
+const userDataRoutes = require("./src/routes/userDataRoutes"); 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/resources", resourceRoutes);
 
+app.use("/api/user", userDataRoutes);
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
 
