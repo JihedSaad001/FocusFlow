@@ -1,4 +1,4 @@
-import  { useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Home,
@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Menu,
   LibraryBig,
+  Kanban,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -76,6 +77,14 @@ const Sidebar = () => {
             <LibraryBig className="w-5 h-5 text-gray-400 group-hover:text-[#ff4e50] transition-colors" />
             {isExpanded && <span className="ml-3 opacity-100">Workspace</span>}
           </Link>
+
+          <Link
+            to="/kanban"
+            className="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group hover:bg-white/[0.08] active:bg-white/[0.12]"
+          >
+            <Kanban className="w-5 h-5 text-gray-400 group-hover:text-[#ff4e50] transition-colors" />
+            {isExpanded && <span className="ml-3 opacity-100">Kanban</span>}
+          </Link>
         </div>
       </nav>
 
@@ -129,6 +138,7 @@ const Sidebar = () => {
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout
                 </button>
+                <button></button>
               </div>
             </div>
           )}

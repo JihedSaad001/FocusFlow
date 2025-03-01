@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 
-
 const quotes = [
   "Productivity is never an accident. It is always the result of a commitment to excellence, intelligent planning, and focused effort.",
   "Focus on being productive instead of busy.",
@@ -10,7 +9,6 @@ const quotes = [
 ];
 
 const Home = () => {
-  
   const [user, setUser] = useState<{ username: string } | null>(null);
   const [quote, setQuote] = useState("");
 
