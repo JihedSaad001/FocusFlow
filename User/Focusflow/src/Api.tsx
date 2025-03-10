@@ -25,14 +25,17 @@ export const updateUser = async (data: any, token: string) => {
     throw new Error("Session expired. Please log in again.");
   }
 
-  const response = await fetch("http://localhost:5000/api/auth/update-user", {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(data),
-  });
+  const response = await fetch(
+    "https://focusflow-production.up.railway.app/api/auth/update-user",
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    }
+  );
 
   if (!response.ok) throw new Error("Failed to update user");
   return response.json();
@@ -40,13 +43,14 @@ export const updateUser = async (data: any, token: string) => {
 
 // Function to upload profile picture
 
-
 export const uploadProfilePic = async (file: File, token: string) => {
   if (!supabase) throw new Error("Supabase is not initialized");
 
   try {
     const fileExt = file.name.split(".").pop(); // Extract file extension
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const fileName = `${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2)}.${fileExt}`;
 
     console.log(`📤 Uploading file: ${fileName} with token: ${token}`);
 
@@ -71,7 +75,9 @@ export const uploadProfilePic = async (file: File, token: string) => {
     }
 
     // ✅ Correctly getting public URL (Fix for TS2339)
-    const { data: publicUrlData } = supabase.storage.from("profile-pictures").getPublicUrl(fileName);
+    const { data: publicUrlData } = supabase.storage
+      .from("profile-pictures")
+      .getPublicUrl(fileName);
 
     if (!publicUrlData || !publicUrlData.publicUrl) {
       throw new Error("Failed to retrieve image URL");
@@ -86,5 +92,3 @@ export const uploadProfilePic = async (file: File, token: string) => {
     throw error;
   }
 };
-
-

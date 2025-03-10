@@ -89,7 +89,7 @@ function ProjectDetails() {
       }
       try {
         const response = await fetch(
-          `http://localhost:5000/api/projects/${id}`,
+          `https://focusflow-production.up.railway.app/api/projects/${id}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -116,7 +116,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/backlog`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/backlog`,
         {
           method: "POST",
           headers: {
@@ -150,7 +150,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/backlog/${taskId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/backlog/${taskId}`,
         {
           method: "DELETE",
           headers: {
@@ -176,7 +176,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints`,
         {
           method: "POST",
           headers: {
@@ -212,7 +212,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints/${sprintId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${sprintId}`,
         {
           method: "DELETE",
           headers: {
@@ -243,7 +243,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints/${activeSprint?._id}/tasks`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/tasks`,
         {
           method: "POST",
           headers: {
@@ -275,7 +275,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints/${activeSprint?._id}/tasks/${taskId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/tasks/${taskId}`,
         {
           method: "DELETE",
           headers: {
@@ -309,7 +309,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints/${activeSprint?._id}/tasks/${taskId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/tasks/${taskId}`,
         {
           method: "PUT",
           headers: {
@@ -341,7 +341,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints/${activeSprint?._id}/review`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/review`,
         {
           method: "POST",
           headers: {
@@ -374,7 +374,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints/${activeSprint?._id}/review/${noteIndex}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/review/${noteIndex}`,
         {
           method: "DELETE",
           headers: {
@@ -405,7 +405,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints/${activeSprint?._id}/retrospective`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/retrospective`,
         {
           method: "POST",
           headers: {
@@ -438,7 +438,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints/${activeSprint?._id}/retrospective/${noteIndex}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/retrospective/${noteIndex}`,
         {
           method: "DELETE",
           headers: {

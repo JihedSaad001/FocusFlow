@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:5000";
+const API_BASE_URL = "https://focusflow-production.up.railway.app";
 // Change to your backend URL
 export const fetchResources = async () => {
   try {
@@ -20,12 +20,15 @@ export const loginAdmin = async (email: string, password: string) => {
 };
 export const deleteResource = async (id: string, token: string) => {
   try {
-    const response = await fetch(`http://localhost:5000/api/resources/${id}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await fetch(
+      `https://focusflow-production.up.railway.app/api/resources/${id}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to delete resource: ${response.statusText}`);
@@ -68,27 +71,33 @@ export const uploadFile = async (
 };
 // src/api.ts
 export const updateUser = async (updatedData: any, token: string) => {
-  const response = await fetch("http://localhost:5000/api/auth/update-user", {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(updatedData),
-  });
+  const response = await fetch(
+    "https://focusflow-production.up.railway.app/api/auth/update-user",
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(updatedData),
+    }
+  );
 
   if (!response.ok) throw new Error("Failed to update user");
 };
 
 export const fetchUsers = async (token: string) => {
   try {
-    const response = await fetch("http://localhost:5000/api/admin/users", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await fetch(
+      "https://focusflow-production.up.railway.app/api/admin/users",
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`API error: ${response.statusText}`);
@@ -103,7 +112,7 @@ export const fetchUsers = async (token: string) => {
 
 export const deleteUser = async (token: string, userId: string) => {
   const response = await fetch(
-    `http://localhost:5000/api/admin/delete-user/${userId}`,
+    `https://focusflow-production.up.railway.app/api/admin/delete-user/${userId}`,
     {
       method: "DELETE",
       headers: {
