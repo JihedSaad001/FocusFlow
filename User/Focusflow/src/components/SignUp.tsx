@@ -29,7 +29,7 @@ function SignUp() {
     setLoading(true);
     try {
       const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/auth/signup",
+        "http://localhost:5000/api/auth/signup",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -20,7 +20,7 @@ const SignIn = () => {
     setLoading(true);
 
     try {
-      const response = await fetch("https://focusflow-production.up.railway.app/api/auth/login", {
+      const response = await fetch("http://localhost:5000/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -30,9 +30,15 @@ const SignIn = () => {
 
       if (!response.ok) throw new Error(data.message || "Login failed");
 
+      if (!data.token) {
+        throw new Error("Login failed: No token received.");
+      }
+
+      console.log("✅ Token received:", data.token); // Debugging log
+
       // Store user data and token in localStorage
       localStorage.setItem("user", JSON.stringify(data.user));
-      localStorage.setItem("userToken", data.token);
+      localStorage.setItem("token", data.token);
 
       // Notify other components about the storage update
       window.dispatchEvent(new Event("storage"));
@@ -41,6 +47,7 @@ const SignIn = () => {
       navigate("/dashboard");
     } catch (err: any) {
       setError(err.message);
+      console.error("❌ Login Error:", err.message); // Debugging log
     } finally {
       setLoading(false);
     }

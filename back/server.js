@@ -22,6 +22,8 @@ const authRoutes = require("./src/routes/authRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const resourceRoutes = require("./src/routes/resourceRoutes");
 const userDataRoutes = require("./src/routes/userDataRoutes"); 
+const projectRoutes = require("./src/routes/projectRoutes");
+app.use("/api/projects", projectRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/resources", resourceRoutes);

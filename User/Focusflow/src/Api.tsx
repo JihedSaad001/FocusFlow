@@ -25,7 +25,7 @@ export const updateUser = async (data: any, token: string) => {
     throw new Error("Session expired. Please log in again.");
   }
 
-  const response = await fetch("https://focusflow-production.up.railway.app/api/auth/update-user", {
+  const response = await fetch("http://localhost:5000/api/auth/update-user", {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",

@@ -11,6 +11,9 @@ import SignUp from "./components/SignUp"; // ✅ Ensure this exists
 import Home from "./components/Home"; // ✅ Ensure this exists
 import Workspace from "./components/Workspace/Workspace";
 import KanbanBoard from "./components/KanbanBoard";
+import Projects from "./components/Projects";
+import CreateProject from "./components/CreateProject";
+import ProjectDetails from "./components/ProjectDetails";
 // ✅ Ensure this exists
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("user"));
@@ -42,6 +45,9 @@ const App = () => {
             <Route path="/signup" element={<SignUp />} />
             <Route path="/workspace" element={<Workspace />} />
             <Route path="/kanban" element={<KanbanBoard />} />
+            <Route path="/createProject" element={<CreateProject />} />
+            <Route path="/projects/:id" element={<ProjectDetails />} />
+            <Route path="/projects" element={<Projects />} />
           </Routes>
         </div>
       </div>

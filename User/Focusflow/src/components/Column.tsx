@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Column as ColumnType, Task } from "../types";
 import TaskCard from "./TaskCard";
-import { Plus, Check, X, Edit2 } from "lucide-react";
+import { Plus, MoreHorizontal, Check, X, Edit2 } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -76,7 +76,7 @@ const Column: React.FC<ColumnProps> = ({
   return (
     <div
       ref={setNodeRef}
-      className="min-w-[400px] bg-[#1E1E1E] rounded-md p-3 flex flex-col max-h-[calc(100vh-200px)]"
+      className="min-w-[300px] bg-[#1E1E1E] rounded-md p-3 flex flex-col max-h-[calc(100vh-200px)]"
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center">
@@ -121,6 +121,17 @@ const Column: React.FC<ColumnProps> = ({
             </>
           )}
         </div>
+        <div className="flex">
+          <button className="p-1 text-gray-400 hover:text-gray-300">
+            <MoreHorizontal size={16} />
+          </button>
+          <button
+            className="p-1 text-gray-400 hover:text-gray-300"
+            onClick={() => setShowForm(true)}
+          >
+            <Plus size={16} />
+          </button>
+        </div>
       </div>
 
       <div className="overflow-y-auto flex-1">
@@ -139,7 +150,7 @@ const Column: React.FC<ColumnProps> = ({
         </SortableContext>
       </div>
 
-      {showForm && (
+      {showForm ? (
         <form
           onSubmit={handleSubmit}
           className="bg-gray-800 p-3 rounded-lg shadow mt-3"
@@ -174,10 +185,10 @@ const Column: React.FC<ColumnProps> = ({
               value={newTask.icon}
               onChange={(e) => setNewTask({ ...newTask, icon: e.target.value })}
             >
-              <option value="📝">📝 Document</option>
+              <option value="📝">📝 Note</option>
               <option value="🐛">🐛 Bug</option>
               <option value="✨">✨ Feature</option>
-              <option value="🔄">🔄 Redesing</option>
+              <option value="🔄">🔄 Refactor</option>
               <option value="📱">📱 Mobile</option>
             </select>
           </div>
@@ -198,16 +209,16 @@ const Column: React.FC<ColumnProps> = ({
             </button>
           </div>
         </form>
-      )}
-
-      {!showForm && (
-        <button
-          className="w-full py-2 flex items-center justify-center text-gray-400 hover:bg-gray-800 rounded mt-3"
-          onClick={() => setShowForm(true)}
-        >
-          <Plus size={16} className="mr-1" />
-          <span className="text-sm">New</span>
-        </button>
+      ) : (
+        column.tasks.length === 0 && (
+          <button
+            className="w-full py-2 flex items-center justify-center text-gray-400 hover:bg-gray-800 rounded"
+            onClick={() => setShowForm(true)}
+          >
+            <Plus size={16} className="mr-1" />
+            <span className="text-sm">New</span>
+          </button>
+        )
       )}
     </div>
   );

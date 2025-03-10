@@ -20,10 +20,12 @@ const Profile = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const token = localStorage.getItem("userToken");
+  const token = localStorage.getItem("token");
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
+    const token = localStorage.getItem("token"); // ✅ Fix case sensitivity
+
     if (storedUser && token) {
       const parsedUser = JSON.parse(storedUser);
       setUser(parsedUser);
@@ -31,13 +33,13 @@ const Profile = () => {
     } else {
       navigate("/signin");
     }
-  }, [navigate, token]);
+  }, [navigate]);
 
   const handleUpdate = async () => {
     if (!user || !token || isTokenExpired(token)) {
       alert("Your session has expired. Please log in again.");
       localStorage.removeItem("user");
-      localStorage.removeItem("userToken");
+      localStorage.removeItem("token");
       navigate("/signin");
       return;
     }
