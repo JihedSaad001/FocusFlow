@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FolderPlus, FileText, Loader2 } from "lucide-react";
+import { FolderPlus, FileText } from "lucide-react";
 
 function CreateProject() {
   const [formData, setFormData] = useState({ name: "", description: "" });
