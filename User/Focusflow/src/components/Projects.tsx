@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   Folder,
   Plus,
-  Loader2,
   Search,
   Clock,
   Calendar,
