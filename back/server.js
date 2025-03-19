@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "https://focusflow-production.up.railway.app", // Allow frontend origin (adjust for production)
+    origin: "focus-flow-dusky.vercel.app", // Allow frontend origin (adjust for production)
     methods: ["GET", "POST"],
     credentials: true,
   },
