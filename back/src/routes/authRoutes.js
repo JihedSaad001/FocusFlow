@@ -147,7 +147,7 @@ router.post("/google-login", async (req, res) => {
     }
 
     const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
+      expiresIn: "24h",
     });
 
     res.json({
@@ -180,7 +180,7 @@ router.post("/login", async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid password" });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "24h" });
 
     // ✅ Include `profilePic` in the response
     res.json({

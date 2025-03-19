@@ -37,6 +37,27 @@ const ProjectSchema = new mongoose.Schema({
       retrospectiveNotes: [String],
     },
   ],
+  activePokerSession: {
+    issues: [
+      {
+        _id: { type: mongoose.Schema.Types.ObjectId, default: mongoose.Types.ObjectId },
+        title: { type: String, required: true },
+        description: String,
+        status: {
+          type: String,
+          enum: ["Not Started", "Voting", "Revealed", "Finished"],
+          default: "Not Started",
+        },
+        finalEstimate: String,
+        votes: [
+          {
+            user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+            vote: String,
+          },
+        ],
+      },
+    ],
+  },
 });
 
 module.exports = mongoose.model("Project", ProjectSchema);

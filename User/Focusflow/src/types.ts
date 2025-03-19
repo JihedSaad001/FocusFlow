@@ -15,3 +15,11 @@ export interface Column {
 export interface Board {
   columns: Column[];
 }
+
+export interface Issue {
+  _id: string;
+  title: string;
+  description?: string;
+  status?: string;
+  votes?: { user: string; vote: string }[];
+}

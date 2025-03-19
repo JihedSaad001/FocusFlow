@@ -4,7 +4,6 @@ import {
   Folder,
   Loader2,
   Users,
-  FileText,
   Plus,
   CheckSquare,
   ChevronDown,
@@ -16,7 +15,11 @@ import {
   UserCircle,
   ArrowRight,
   Trash2,
+  PlayCircle,
+  UserPlus,
+  UserMinus,
 } from "lucide-react";
+import { jwtDecode } from "jwt-decode";
 
 // Define interfaces for type safety
 interface Task {
@@ -49,6 +52,24 @@ interface Project {
   members: { _id: string; username: string; email: string }[];
   backlog: Task[];
   sprints: Sprint[];
+  activePokerSession?: {
+    issues: {
+      _id: string;
+      title: string;
+      description: string;
+      status: "Not Started" | "Voting" | "Revealed" | "Finished";
+      finalEstimate?: string;
+      votes: { user: string; vote: string }[];
+    }[];
+  };
+}
+
+interface DecodedToken {
+  id: string;
+  username: string;
+  email: string;
+  iat: number;
+  exp: number;
 }
 
 function ProjectDetails() {
@@ -71,13 +92,27 @@ function ProjectDetails() {
     goals: [""],
   });
   const [activeSprint, setActiveSprint] = useState<Sprint | null>(null);
-  const [reviewNote, setReviewNote] = useState("");
-  const [retrospectiveNote, setRetrospectiveNote] = useState("");
   const [showBacklog, setShowBacklog] = useState(true);
   const [showSprintPlanning, setShowSprintPlanning] = useState(true);
   const [showSprintBoard, setShowSprintBoard] = useState(true);
-  const [showSprintReview, setShowSprintReview] = useState(true);
-  const [showSprintRetrospective, setShowSprintRetrospective] = useState(true);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [memberEmail, setMemberEmail] = useState("");
+  const [addMemberError, setAddMemberError] = useState<string | null>(null);
+  const [addMemberSuccess, setAddMemberSuccess] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        const decoded: DecodedToken = jwtDecode(token);
+        setCurrentUserId(decoded.id);
+      } catch (error) {
+        console.error("❌ Error decoding token:", error);
+        navigate("/signin");
+      }
+    }
+  }, [navigate]);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -113,6 +148,11 @@ function ProjectDetails() {
   }, [id, navigate]);
 
   const addTaskToBacklog = async () => {
+    if (!project) {
+      setError("Project not loaded yet");
+      return;
+    }
+
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
@@ -128,11 +168,7 @@ function ProjectDetails() {
       );
       if (!response.ok) throw new Error("Failed to add task");
       const updatedProject = await response.json();
-      setProject((prev) => ({
-        ...prev,
-        ...updatedProject,
-        members: prev?.members || [],
-      }));
+      setProject(updatedProject);
       setNewTask({
         title: "",
         description: "",
@@ -147,6 +183,11 @@ function ProjectDetails() {
   };
 
   const deleteTaskFromBacklog = async (taskId: string) => {
+    if (!project) {
+      setError("Project not loaded yet");
+      return;
+    }
+
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
@@ -161,11 +202,7 @@ function ProjectDetails() {
       );
       if (!response.ok) throw new Error("Failed to delete task");
       const updatedProject = await response.json();
-      setProject((prev) => ({
-        ...prev,
-        ...updatedProject,
-        members: prev?.members || [],
-      }));
+      setProject(updatedProject);
     } catch (error: any) {
       console.error("❌ Error deleting task:", error);
       setError("Error deleting task from backlog.");
@@ -173,6 +210,11 @@ function ProjectDetails() {
   };
 
   const createSprint = async () => {
+    if (!project) {
+      setError("Project not loaded yet");
+      return;
+    }
+
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
@@ -191,14 +233,7 @@ function ProjectDetails() {
         throw new Error(`Failed to create sprint: ${errorText}`);
       }
       const data = await response.json();
-      console.log("API Response from createSprint:", data); // Debug log to check the response
-      // If the API returns the full project object, use data directly
-      setProject((prev) => ({
-        ...prev,
-        ...data, // Merge the entire updated project
-        members: prev?.members || [], // Preserve members
-      }));
-      // Find the newly created sprint (it should be the last one if the API appends it)
+      setProject(data);
       const newSprintData = data.sprint;
       setActiveSprint(newSprintData);
       setNewSprint({ name: "", startDate: "", endDate: "", goals: [""] });
@@ -207,7 +242,13 @@ function ProjectDetails() {
       setError(`Error creating sprint: ${error.message}`);
     }
   };
+
   const deleteSprint = async (sprintId: string) => {
+    if (!project) {
+      setError("Project not loaded yet");
+      return;
+    }
+
     if (!window.confirm("Are you sure you want to delete this sprint?")) return;
     const token = localStorage.getItem("token");
     try {
@@ -223,11 +264,7 @@ function ProjectDetails() {
       );
       if (!response.ok) throw new Error("Failed to delete sprint");
       const updatedProject = await response.json();
-      setProject((prev) => ({
-        ...prev,
-        ...updatedProject,
-        members: prev?.members || [],
-      }));
+      setProject(updatedProject);
       setActiveSprint(null);
     } catch (error: any) {
       console.error("❌ Error deleting sprint:", error);
@@ -240,10 +277,15 @@ function ProjectDetails() {
     assignedTo: string,
     deadline: string
   ) => {
+    if (!project || !activeSprint) {
+      setError("Project or active sprint not loaded yet");
+      return;
+    }
+
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/tasks`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint._id}/tasks`,
         {
           method: "POST",
           headers: {
@@ -255,14 +297,10 @@ function ProjectDetails() {
       );
       if (!response.ok) throw new Error("Failed to add task to sprint");
       const updatedProject = await response.json();
-      setProject((prev) => ({
-        ...prev,
-        ...updatedProject,
-        members: prev?.members || [],
-      }));
+      setProject(updatedProject);
       setActiveSprint(
         updatedProject.sprints.find(
-          (s: Sprint) => s._id === activeSprint?._id
+          (s: Sprint) => s._id === activeSprint._id
         ) || null
       );
     } catch (error: any) {
@@ -272,10 +310,15 @@ function ProjectDetails() {
   };
 
   const deleteTaskFromSprint = async (taskId: string) => {
+    if (!project || !activeSprint) {
+      setError("Project or active sprint not loaded yet");
+      return;
+    }
+
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/tasks/${taskId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
         {
           method: "DELETE",
           headers: {
@@ -286,14 +329,10 @@ function ProjectDetails() {
       );
       if (!response.ok) throw new Error("Failed to delete task");
       const updatedProject = await response.json();
-      setProject((prev) => ({
-        ...prev,
-        ...updatedProject,
-        members: prev?.members || [],
-      }));
+      setProject(updatedProject);
       setActiveSprint(
         updatedProject.sprints.find(
-          (s: Sprint) => s._id === activeSprint?._id
+          (s: Sprint) => s._id === activeSprint._id
         ) || null
       );
     } catch (error: any) {
@@ -306,10 +345,15 @@ function ProjectDetails() {
     taskId: string,
     status: "To Do" | "In Progress" | "Done"
   ) => {
+    if (!project || !activeSprint) {
+      setError("Project or active sprint not loaded yet");
+      return;
+    }
+
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/tasks/${taskId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
         {
           method: "PUT",
           headers: {
@@ -321,14 +365,10 @@ function ProjectDetails() {
       );
       if (!response.ok) throw new Error("Failed to update task status");
       const updatedProject = await response.json();
-      setProject((prev) => ({
-        ...prev,
-        ...updatedProject,
-        members: prev?.members || [],
-      }));
+      setProject(updatedProject);
       setActiveSprint(
         updatedProject.sprints.find(
-          (s: Sprint) => s._id === activeSprint?._id
+          (s: Sprint) => s._id === activeSprint._id
         ) || null
       );
     } catch (error: any) {
@@ -337,44 +377,80 @@ function ProjectDetails() {
     }
   };
 
-  const addReviewNote = async () => {
+  const handleAddMember = async () => {
+    if (!memberEmail) {
+      setAddMemberError("Please enter an email address");
+      return;
+    }
+
+    if (!project) {
+      setAddMemberError("Project not loaded yet");
+      return;
+    }
+
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/review`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/members`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ note: reviewNote }),
+          body: JSON.stringify({ email: memberEmail }),
         }
       );
-      if (!response.ok) throw new Error("Failed to add review note");
-      const updatedProject = await response.json();
-      setProject((prev) => ({
-        ...prev,
-        ...updatedProject,
-        members: prev?.members || [],
-      }));
-      setActiveSprint(
-        updatedProject.sprints.find(
-          (s: Sprint) => s._id === activeSprint?._id
-        ) || null
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to add member: ${errorText}`);
+      }
+
+      // Re-fetch the project data
+      const fetchProjectResponse = await fetch(
+        `https://focusflow-production.up.railway.app/api/projects/${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
-      setReviewNote("");
+      if (!fetchProjectResponse.ok) {
+        const errorText = await fetchProjectResponse.text();
+        throw new Error(`Failed to fetch updated project: ${errorText}`);
+      }
+      const updatedProject = await fetchProjectResponse.json();
+      setProject(updatedProject);
+
+      setAddMemberSuccess("Member added successfully!");
+      setAddMemberError(null);
+      setMemberEmail("");
+      setShowAddMember(false);
+
+      setTimeout(() => setAddMemberSuccess(null), 3000);
     } catch (error: any) {
-      console.error("❌ Error adding review note:", error);
-      setError("Error adding review note.");
+      console.error("❌ Error adding member:", error);
+      setAddMemberError(error.message);
+      setAddMemberSuccess(null);
     }
   };
 
-  const deleteReviewNote = async (noteIndex: number) => {
+  const handleRemoveMember = async (memberId: string) => {
+    if (!project) {
+      setError("Project not loaded yet");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Are you sure you want to remove this member from the project?"
+      )
+    )
+      return;
+
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/review/${noteIndex}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/members/${memberId}`,
         {
           method: "DELETE",
           headers: {
@@ -383,86 +459,72 @@ function ProjectDetails() {
           },
         }
       );
-      if (!response.ok) throw new Error("Failed to delete review note");
-      const updatedProject = await response.json();
-      setProject((prev) => ({
-        ...prev,
-        ...updatedProject,
-        members: prev?.members || [],
-      }));
-      setActiveSprint(
-        updatedProject.sprints.find(
-          (s: Sprint) => s._id === activeSprint?._id
-        ) || null
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to remove member: ${errorText}`);
+      }
+
+      // Re-fetch the project data
+      const fetchProjectResponse = await fetch(
+        `https://focusflow-production.up.railway.app/api/projects/${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
+      if (!fetchProjectResponse.ok) {
+        const errorText = await fetchProjectResponse.text();
+        throw new Error(`Failed to fetch updated project: ${errorText}`);
+      }
+      const updatedProject = await fetchProjectResponse.json();
+      setProject(updatedProject);
+
+      setAddMemberSuccess("Member removed successfully!");
+      setAddMemberError(null);
+
+      setTimeout(() => setAddMemberSuccess(null), 3000);
     } catch (error: any) {
-      console.error("❌ Error deleting review note:", error);
-      setError("Error deleting review note.");
+      console.error("❌ Error removing member:", error);
+      setAddMemberError(error.message);
+      setAddMemberSuccess(null);
     }
   };
 
-  const addRetrospectiveNote = async () => {
-    const token = localStorage.getItem("token");
-    try {
-      const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/retrospective`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ note: retrospectiveNote }),
-        }
-      );
-      if (!response.ok) throw new Error("Failed to add retrospective note");
-      const updatedProject = await response.json();
-      setProject((prev) => ({
-        ...prev,
-        ...updatedProject,
-        members: prev?.members || [],
-      }));
-      setActiveSprint(
-        updatedProject.sprints.find(
-          (s: Sprint) => s._id === activeSprint?._id
-        ) || null
-      );
-      setRetrospectiveNote("");
-    } catch (error: any) {
-      console.error("❌ Error adding retrospective note:", error);
-      setError("Error adding retrospective note.");
+  const handlePokerSession = async () => {
+    if (!project) {
+      setError("Project not loaded yet");
+      return;
     }
-  };
 
-  const deleteRetrospectiveNote = async (noteIndex: number) => {
     const token = localStorage.getItem("token");
-    try {
-      const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint?._id}/retrospective/${noteIndex}`,
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      if (!response.ok) throw new Error("Failed to delete retrospective note");
-      const updatedProject = await response.json();
-      setProject((prev) => ({
-        ...prev,
-        ...updatedProject,
-        members: prev?.members || [],
-      }));
-      setActiveSprint(
-        updatedProject.sprints.find(
-          (s: Sprint) => s._id === activeSprint?._id
-        ) || null
-      );
-    } catch (error: any) {
-      console.error("❌ Error deleting retrospective note:", error);
-      setError("Error deleting retrospective note.");
+    if (!token) {
+      console.warn("❌ No token found, redirecting to login.");
+      navigate("/signin");
+      return;
     }
+
+    if (!project.activePokerSession) {
+      try {
+        const response = await fetch(
+          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/start`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (!response.ok) throw new Error("Failed to start poker session");
+        const updatedProject = await response.json();
+        setProject(updatedProject);
+      } catch (error: any) {
+        console.error("❌ Error starting poker session:", error);
+        setError("Error starting poker session.");
+        return;
+      }
+    }
+    navigate(`/projects/${id}/poker`);
   };
 
   if (loading)
@@ -481,6 +543,8 @@ function ProjectDetails() {
         </div>
       </div>
     );
+
+  const isProjectOwner = currentUserId && project?.owner._id === currentUserId;
 
   return (
     <div className="min-h-screen bg-[#121212] text-white p-6">
@@ -506,7 +570,53 @@ function ProjectDetails() {
                   </div>
                 </div>
               </div>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setShowAddMember(!showAddMember)}
+                  className="bg-gradient-to-r from-blue-500 to-blue-700 text-white px-4 py-2 rounded-lg font-semibold shadow-lg transform transition-all duration-200 hover:scale-[1.02] hover:shadow-blue-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <UserPlus className="w-5 h-5" />
+                  Add Member
+                </button>
+                <button
+                  onClick={handlePokerSession}
+                  className="bg-gradient-to-r from-red-500 to-red-700 text-white px-4 py-2 rounded-lg font-semibold shadow-lg transform transition-all duration-200 hover:scale-[1.02] hover:shadow-red-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <PlayCircle className="w-5 h-5" />
+                  {project?.activePokerSession
+                    ? "Go to Poker Session"
+                    : "Start Poker Session"}
+                </button>
+              </div>
             </div>
+            {showAddMember && (
+              <div className="mt-4 p-4 bg-black/30 rounded-lg border border-gray-700">
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  Add Member to Project
+                </h3>
+                <div className="flex gap-4 items-center">
+                  <input
+                    type="email"
+                    value={memberEmail}
+                    onChange={(e) => setMemberEmail(e.target.value)}
+                    placeholder="Enter member's email"
+                    className="p-2 rounded-lg bg-black/50 border border-gray-700 text-white w-full"
+                  />
+                  <button
+                    onClick={handleAddMember}
+                    className="px-4 py-2 bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors text-white"
+                  >
+                    Add
+                  </button>
+                </div>
+                {addMemberError && (
+                  <p className="text-red-400 mt-2">{addMemberError}</p>
+                )}
+                {addMemberSuccess && (
+                  <p className="text-green-400 mt-2">{addMemberSuccess}</p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="p-8">
@@ -525,7 +635,6 @@ function ProjectDetails() {
 
               {showBacklog && (
                 <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
-                  {/* Input Form */}
                   <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-3">
                     <input
                       value={newTask.title}
@@ -581,7 +690,6 @@ function ProjectDetails() {
                     </button>
                   </div>
 
-                  {/* Task Cards */}
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {project?.backlog.map((task: Task) => (
                       <div
@@ -779,7 +887,6 @@ function ProjectDetails() {
 
                 {showSprintBoard && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* To Do Column */}
                     <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
                       <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
                         <ListTodo className="w-5 h-5 mr-2 text-gray-400" />
@@ -820,7 +927,6 @@ function ProjectDetails() {
                       </div>
                     </div>
 
-                    {/* In Progress Column */}
                     <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
                       <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
                         <Loader2 className="w-5 h-5 mr-2 text-yellow-500" />
@@ -861,7 +967,6 @@ function ProjectDetails() {
                       </div>
                     </div>
 
-                    {/* Done Column */}
                     <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
                       <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
                         <CheckSquare className="w-5 h-5 mr-2 text-green-500" />
@@ -896,131 +1001,18 @@ function ProjectDetails() {
               </div>
             )}
 
-            {/* Sprint Review Section */}
-            {activeSprint && (
-              <div className="mb-8">
-                <div
-                  className="flex items-center justify-between cursor-pointer p-4 bg-black/30 rounded-lg mb-4 hover:bg-black/40 transition-colors duration-200"
-                  onClick={() => setShowSprintReview(!showSprintReview)}
-                >
-                  <div className="flex items-center">
-                    <FileText className="w-6 h-6 mr-3 text-red-500" />
-                    <h2 className="text-2xl font-semibold">Sprint Review</h2>
-                  </div>
-                  {showSprintReview ? <ChevronUp /> : <ChevronDown />}
-                </div>
-
-                {showSprintReview && (
-                  <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
-                    <div className="flex gap-4 mb-6">
-                      <input
-                        value={reviewNote}
-                        onChange={(e) => setReviewNote(e.target.value)}
-                        placeholder="Add review note"
-                        className="flex-1 bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
-                      />
-                      <button
-                        onClick={addReviewNote}
-                        className="bg-gradient-to-r from-red-500 to-red-700 text-white px-6 py-3 rounded-lg font-semibold shadow-lg transform transition-all duration-200 hover:scale-[1.02] hover:shadow-red-500/20 active:scale-[0.98] flex items-center"
-                      >
-                        <Plus className="w-5 h-5 mr-2" /> Add
-                      </button>
-                    </div>
-                    <div className="space-y-3">
-                      {activeSprint.reviewNotes?.map(
-                        (note: string, index: number) => (
-                          <div
-                            key={index}
-                            className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex justify-between items-start"
-                          >
-                            <p className="text-gray-300">{note}</p>
-                            <button
-                              onClick={() => deleteReviewNote(index)}
-                              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 p-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )
-                      ) || (
-                        <p className="text-gray-500">No review notes yet.</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Sprint Retrospective Section */}
-            {activeSprint && (
-              <div className="mb-8">
-                <div
-                  className="flex items-center justify-between cursor-pointer p-4 bg-black/30 rounded-lg mb-4 hover:bg-black/40 transition-colors duration-200"
-                  onClick={() =>
-                    setShowSprintRetrospective(!showSprintRetrospective)
-                  }
-                >
-                  <div className="flex items-center">
-                    <FileText className="w-6 h-6 mr-3 text-red-500" />
-                    <h2 className="text-2xl font-semibold">
-                      Sprint Retrospective
-                    </h2>
-                  </div>
-                  {showSprintRetrospective ? <ChevronUp /> : <ChevronDown />}
-                </div>
-
-                {showSprintRetrospective && (
-                  <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
-                    <div className="flex gap-4 mb-6">
-                      <input
-                        value={retrospectiveNote}
-                        onChange={(e) => setRetrospectiveNote(e.target.value)}
-                        placeholder="Add retrospective note"
-                        className="flex-1 bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
-                      />
-                      <button
-                        onClick={addRetrospectiveNote}
-                        className="bg-gradient-to-r from-red-500 to-red-700 text-white px-6 py-3 rounded-lg font-semibold shadow-lg transform transition-all duration-200 hover:scale-[1.02] hover:shadow-red-500/20 active:scale-[0.98] flex items-center"
-                      >
-                        <Plus className="w-5 h-5 mr-2" /> Add
-                      </button>
-                    </div>
-                    <div className="space-y-3">
-                      {activeSprint.retrospectiveNotes?.map(
-                        (note: string, index: number) => (
-                          <div
-                            key={index}
-                            className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex justify-between items-start"
-                          >
-                            <p className="text-gray-300">{note}</p>
-                            <button
-                              onClick={() => deleteRetrospectiveNote(index)}
-                              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 p-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )
-                      ) || (
-                        <p className="text-gray-500">
-                          No retrospective notes yet.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Project Members Section */}
             <div className="mb-8">
               <h2 className="text-2xl font-semibold text-white mb-6 flex items-center">
                 <Users className="w-6 h-6 mr-3 text-red-500" />
-                Project Members
+                Project Members ({project?.members.length || 0})
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {project &&
-                  project.members.map(
+              {project?.members.length === 0 ? (
+                <p className="text-gray-400 text-center">
+                  No members in this project yet.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {project?.members.map(
                     (member: {
                       _id: string;
                       username: string;
@@ -1028,25 +1020,35 @@ function ProjectDetails() {
                     }) => (
                       <div
                         key={member._id}
-                        className="bg-black/30 rounded-lg p-4 border border-gray-700/50"
+                        className="bg-black/30 rounded-lg p-3 border border-gray-700/50 flex items-center justify-between gap-3"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
                             <UserCircle className="w-6 h-6 text-red-500" />
                           </div>
-                          <div>
-                            <p className="font-medium text-white">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-white truncate">
                               {member.username}
                             </p>
-                            <p className="text-gray-400 text-sm">
+                            <p className="text-gray-400 text-sm truncate">
                               {member.email}
                             </p>
                           </div>
                         </div>
+                        {isProjectOwner && (
+                          <button
+                            onClick={() => handleRemoveMember(member._id)}
+                            className="text-red-400 hover:text-red-300 text-sm font-medium flex items-center gap-1 transition-colors duration-200 whitespace-nowrap"
+                          >
+                            <UserMinus className="w-4 h-4" />
+                            Remove
+                          </button>
+                        )}
                       </div>
                     )
                   )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
