@@ -41,12 +41,9 @@ const KanbanBoard: React.FC = () => {
       try {
         const token = localStorage.getItem("token");
         if (!token) return;
-        const response = await fetch(
-          "https://focusflow-production.up.railway.app/api/user/kanban",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const response = await fetch("http://localhost:5000/api/user/kanban", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!response.ok) throw new Error("Failed to fetch board");
         const data = await response.json();
         console.log("Fetched Kanban board:", data);
@@ -64,17 +61,14 @@ const KanbanBoard: React.FC = () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
-      const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/user/kanban",
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updatedBoard),
-        }
-      );
+      const response = await fetch("http://localhost:5000/api/user/kanban", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedBoard),
+      });
       const data = await response.json();
       console.log("Save response:", data);
       if (!response.ok) throw new Error("Failed to save board");

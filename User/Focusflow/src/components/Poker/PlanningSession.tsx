@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   Plus,
 } from "lucide-react";
-import { Issue } from "../../types";
+import { Issue, Vote } from "../../types";
 
 const CARD_VALUES = ["0", "1", "2", "3", "5", "8", "13", "21", "?"];
 
@@ -26,6 +26,11 @@ interface RouteParams {
 interface DecodedToken {
   id: string;
   [key: string]: any;
+}
+
+interface VotingUser {
+  userId: string;
+  username: string;
 }
 
 export function PlanningSession() {
@@ -43,8 +48,9 @@ export function PlanningSession() {
     mostCommon: 0,
     range: { min: Infinity, max: -Infinity },
   });
+  const [votingUsers, setVotingUsers] = useState<VotingUser[]>([]);
   const socket = useRef(
-    io("http://localhost:5000", {
+    io("https://focusflow-production.up.railway.app", {
       withCredentials: true,
     })
   );
@@ -71,46 +77,109 @@ export function PlanningSession() {
       console.log("Socket.IO connected:", socket.current.id);
     });
 
-    socket.current.on("voteUpdate", ({ issueId, vote, userId }) => {
-      console.log("Received voteUpdate event:", { issueId, vote, userId });
-      console.log("Current issue:", currentIssue?._id);
-      setIssues((prevIssues) => {
-        console.log("Previous issues state:", prevIssues);
-        const updatedIssues = prevIssues.map((issue) =>
-          issue._id === issueId
-            ? {
-                ...issue,
-                votes: issue.votes?.some((v) => v.user === userId)
-                  ? issue.votes.map((v) =>
-                      v.user === userId ? { ...v, vote } : v
-                    )
-                  : [...(issue.votes || []), { user: userId, vote }],
-              }
-            : issue
-        );
-        console.log("Updated issues state:", updatedIssues);
-        return updatedIssues;
-      });
-    });
+    socket.current.on(
+      "voteUpdate",
+      ({
+        issueId,
+        vote,
+        userId,
+        username,
+      }: {
+        issueId: string;
+        vote: string;
+        userId: string;
+        username: string;
+      }) => {
+        console.log("Received voteUpdate event:", {
+          issueId,
+          vote,
+          userId,
+          username,
+        });
+        console.log("Current issue:", currentIssue?._id);
+        setIssues((prevIssues) => {
+          console.log("Previous issues state:", prevIssues);
+          const updatedIssues = prevIssues.map((issue) =>
+            issue._id === issueId
+              ? {
+                  ...issue,
+                  votes: issue.votes?.some((v) => {
+                    const user = v.user;
+                    return typeof user === "string"
+                      ? user === userId
+                      : user._id === userId;
+                  })
+                    ? issue.votes.map((v) => {
+                        const user = v.user;
+                        return (
+                          typeof user === "string"
+                            ? user === userId
+                            : user._id === userId
+                        )
+                          ? { ...v, vote }
+                          : v;
+                      })
+                    : [
+                        ...(issue.votes || []),
+                        { user: { _id: userId, username }, vote },
+                      ],
+                }
+              : issue
+          );
+          console.log("Updated issues state:", updatedIssues);
+          return updatedIssues;
+        });
 
-    socket.current.on("votesRevealed", ({ issueId, votes }) => {
-      console.log("Received votesRevealed event:", { issueId, votes });
-      setIssues((prevIssues) =>
-        prevIssues.map((issue) =>
-          issue._id === issueId ? { ...issue, votes } : issue
-        )
-      );
-      if (currentIssue && currentIssue._id === issueId) {
-        setVotesRevealed(true);
-        updateVoteStats(votes);
+        // Update voting users if the updated issue is the current issue
+        if (currentIssue?._id === issueId) {
+          setVotingUsers((prev) => {
+            const newUsers = prev.some((u) => u.userId === userId)
+              ? prev.map((u) =>
+                  u.userId === userId ? { userId, username } : u
+                )
+              : [...prev, { userId, username }];
+            return newUsers;
+          });
+          // Update currentIssue to reflect the latest votes
+          setCurrentIssue((prev) => {
+            if (!prev || prev._id !== issueId) return prev;
+            const updatedIssue = issues.find((i) => i._id === issueId);
+            return updatedIssue ? { ...prev, votes: updatedIssue.votes } : prev;
+          });
+        }
       }
-    });
+    );
 
-    socket.current.on("issueAdded", ({ issue }) => {
+    socket.current.on(
+      "votesRevealed",
+      ({ issueId, votes }: { issueId: string; votes: Vote[] }) => {
+        console.log("Received votesRevealed event:", { issueId, votes });
+        setIssues((prevIssues) =>
+          prevIssues.map((issue) =>
+            issue._id === issueId ? { ...issue, votes } : issue
+          )
+        );
+        if (currentIssue && currentIssue._id === issueId) {
+          setVotesRevealed(true);
+          updateVoteStats(votes);
+          setVotingUsers(
+            votes.map((vote) => ({
+              userId: typeof vote.user === "string" ? vote.user : vote.user._id,
+              username:
+                typeof vote.user === "string" ? "Unknown" : vote.user.username,
+            }))
+          );
+          // Update currentIssue to reflect the revealed votes
+          setCurrentIssue((prev) => (prev ? { ...prev, votes } : prev));
+        }
+      }
+    );
+
+    socket.current.on("issueAdded", ({ issue }: { issue: Issue }) => {
       setIssues((prevIssues) => [...prevIssues, issue]);
     });
 
-    socket.current.on("issueDeleted", ({ issueId }) => {
+    socket.current.on("issueDeleted", ({ issueId }: { issueId: string }) => {
       setIssues((prevIssues) =>
         prevIssues.filter((issue) => issue._id !== issueId)
       );
@@ -122,6 +191,7 @@ export function PlanningSession() {
           mostCommon: 0,
           range: { min: Infinity, max: -Infinity },
         });
+        setVotingUsers([]);
       }
     });
 
@@ -144,14 +214,25 @@ export function PlanningSession() {
     fetchPokerSession();
   }, [id]);
 
-  // Update voteStats whenever issues or currentIssue changes
+  // Update voteStats, votingUsers, and currentIssue whenever issues changes
   useEffect(() => {
     if (currentIssue) {
-      const currentIssueVotes =
-        issues.find((i) => i._id === currentIssue._id)?.votes || [];
-      updateVoteStats(currentIssueVotes);
+      const updatedIssue = issues.find((i) => i._id === currentIssue._id);
+      if (updatedIssue) {
+        setCurrentIssue(updatedIssue); // Sync currentIssue with the latest data from issues
+        updateVoteStats(updatedIssue.votes || []);
+        setVotingUsers(
+          (updatedIssue.votes || []).map((vote) => ({
+            userId: typeof vote.user === "string" ? vote.user : vote.user._id,
+            username:
+              typeof vote.user === "string" ? "Unknown" : vote.user.username,
+          }))
+        );
+      }
+    } else {
+      setVotingUsers([]);
     }
-  }, [issues, currentIssue]);
+  }, [issues]);
 
   const fetchPokerSession = async () => {
     const token = localStorage.getItem("token");
@@ -163,7 +244,7 @@ export function PlanningSession() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/poker`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/poker`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -196,7 +277,7 @@ export function PlanningSession() {
 
       try {
         const response = await fetch(
-          `http://localhost:5000/api/projects/${id}/poker/issue/${currentIssue._id}/vote`,
+          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/vote`,
           {
             method: "POST",
             body: JSON.stringify({ vote: value }),
@@ -247,7 +328,7 @@ export function PlanningSession() {
     }
   };
 
-  const updateVoteStats = (votes: { user: string; vote: string }[] = []) => {
+  const updateVoteStats = (votes: Vote[] = []) => {
     console.log("Votes passed to updateVoteStats:", votes);
     const allVotes = votes
       .map((v) => (v.vote ? parseInt(v.vote, 10) : 0))
@@ -379,12 +460,21 @@ export function PlanningSession() {
                   </div>
                 )}
                 <IssueList
-                  issues={issues}
+                  issues={issues.map((issue) => ({
+                    ...issue,
+                    votes: issue.votes?.map((vote) => ({
+                      user:
+                        typeof vote.user === "string"
+                          ? vote.user
+                          : vote.user._id,
+                      vote: vote.vote,
+                    })),
+                  }))}
                   onIssueSelect={handleIssueSelect}
                   currentIssueId={currentIssue?._id}
                   onDeleteIssue={(issueId) => {
                     fetch(
-                      `http://localhost:5000/api/projects/${id}/poker/issue/${issueId}`,
+                      `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${issueId}`,
                       {
                         method: "DELETE",
                         headers: {
@@ -411,6 +501,33 @@ export function PlanningSession() {
                         {currentIssue.description}
                       </p>
                     )}
+                    {/* Display the list of voting users */}
+                    <div className="mb-6 p-3 bg-black/30 rounded-lg border border-gray-700">
+                      <p className="text-gray-400">
+                        {votingUsers.length} user
+                        {votingUsers.length !== 1 ? "s" : ""} have voted
+                      </p>
+                      {votingUsers.length > 0 ? (
+                        <div className="mt-2 flex gap-2 flex-wrap">
+                          {votingUsers.map((user) => (
+                            <div
+                              key={user.userId}
+                              className="flex items-center gap-1 bg-gray-700/50 rounded-full px-3 py-1 text-sm text-gray-300"
+                            >
+                              <span>{user.username}</span>
+                              <CheckCircle2
+                                size={14}
+                                className="text-green-500"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-400 text-sm mt-2">
+                          No votes yet.
+                        </p>
+                      )}
+                    </div>
                     {votesRevealed && (
                       <div className="mb-6 p-3 bg-black/30 rounded-lg border border-gray-700">
                         <div className="grid grid-cols-3 gap-4">
@@ -439,6 +556,35 @@ export function PlanningSession() {
                             </span>
                           </div>
                         </div>
+                        {/* Display individual votes when revealed */}
+                        {votesRevealed && (
+                          <div className="mt-4">
+                            <h3 className="text-gray-400 mb-2">Votes</h3>
+                            <div className="flex gap-2 flex-wrap">
+                              {votingUsers.map((user) => {
+                                const userVote = currentIssue.votes?.find(
+                                  (v) => {
+                                    const voteUser = v.user;
+                                    return typeof voteUser === "string"
+                                      ? voteUser === user.userId
+                                      : voteUser._id === user.userId;
+                                  }
+                                )?.vote;
+                                return (
+                                  <div
+                                    key={user.userId}
+                                    className="flex items-center gap-1 bg-gray-700/50 rounded-full px-3 py-1 text-sm text-gray-300"
+                                  >
+                                    <span>{user.username}:</span>
+                                    <span className="text-red-400 font-semibold">
+                                      {userVote || "N/A"}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                         {voteStats.average === voteStats.mostCommon &&
                           voteStats.average !== 0 && (
                             <p className="text-green-500 mt-2 flex items-center gap-1">
