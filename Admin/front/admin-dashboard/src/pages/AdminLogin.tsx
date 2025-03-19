@@ -11,7 +11,7 @@ export default function AdminLogin() {
     event.preventDefault();
     try {
       const response = await fetch(
-        "http://localhost:5000/api/auth/admin-login",
+        "https://focusflow-production.up.railway.app/api/auth/admin-login",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
