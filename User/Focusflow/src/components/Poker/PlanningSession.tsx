@@ -52,6 +52,8 @@ export function PlanningSession() {
   const socket = useRef(
     io("https://focusflow-production.up.railway.app", {
       withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
     })
   );
 
@@ -75,6 +77,16 @@ export function PlanningSession() {
 
     socket.current.on("connect", () => {
       console.log("Socket.IO connected:", socket.current.id);
+      socket.current.emit("joinRoom", id); // Re-join room on reconnect
+    });
+
+    socket.current.on("connect_error", (err) => {
+      console.error("Socket.IO connection error:", err.message);
+      setError("Real-time updates unavailable. Please refresh the page.");
+    });
+
+    socket.current.on("disconnect", () => {
+      console.log("Socket.IO disconnected");
     });
 
     socket.current.on(
@@ -138,12 +150,17 @@ export function PlanningSession() {
                   u.userId === userId ? { userId, username } : u
                 )
               : [...prev, { userId, username }];
+            console.log("Updated votingUsers:", newUsers);
             return newUsers;
           });
           // Update currentIssue to reflect the latest votes
           setCurrentIssue((prev) => {
             if (!prev || prev._id !== issueId) return prev;
             const updatedIssue = issues.find((i) => i._id === issueId);
+            console.log(
+              "Updating currentIssue with votes:",
+              updatedIssue?.votes
+            );
             return updatedIssue ? { ...prev, votes: updatedIssue.votes } : prev;
           });
         }
@@ -176,10 +193,12 @@ export function PlanningSession() {
     );
 
     socket.current.on("issueAdded", ({ issue }: { issue: Issue }) => {
+      console.log("Received issueAdded event:", issue);
       setIssues((prevIssues) => [...prevIssues, issue]);
     });
 
     socket.current.on("issueDeleted", ({ issueId }: { issueId: string }) => {
+      console.log("Received issueDeleted event:", issueId);
       setIssues((prevIssues) =>
         prevIssues.filter((issue) => issue._id !== issueId)
       );
@@ -199,7 +218,7 @@ export function PlanningSession() {
       console.log("Disconnecting Socket.IO");
       socket.current.disconnect();
     };
-  }, [id, currentIssue]);
+  }, [id]);
 
   useEffect(() => {
     if (!id || id.trim() === "") {
@@ -219,7 +238,7 @@ export function PlanningSession() {
     if (currentIssue) {
       const updatedIssue = issues.find((i) => i._id === currentIssue._id);
       if (updatedIssue) {
-        setCurrentIssue(updatedIssue); // Sync currentIssue with the latest data from issues
+        setCurrentIssue(updatedIssue);
         updateVoteStats(updatedIssue.votes || []);
         setVotingUsers(
           (updatedIssue.votes || []).map((vote) => ({
@@ -318,11 +337,31 @@ export function PlanningSession() {
         projectId: id,
         issueId: currentIssue._id,
       });
-      setVotesRevealed(true);
-      const currentIssueVotes =
-        issues.find((i) => i._id === currentIssue._id)?.votes || [];
-      updateVoteStats(currentIssueVotes);
-      setIsUpdating(false);
+
+      try {
+        const response = await fetch(
+          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/reveal`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Failed to reveal votes:", errorText);
+          setError(`Failed to reveal votes: ${errorText}`);
+          return;
+        }
+        console.log("Votes revealed successfully");
+      } catch (error: any) {
+        console.error("Error revealing votes:", error);
+        setError(`Error revealing votes: ${error.message}`);
+      } finally {
+        setIsUpdating(false);
+      }
     } else {
       setVotesRevealed(false);
     }
@@ -463,10 +502,7 @@ export function PlanningSession() {
                   issues={issues.map((issue) => ({
                     ...issue,
                     votes: issue.votes?.map((vote) => ({
-                      user:
-                        typeof vote.user === "string"
-                          ? vote.user
-                          : vote.user._id,
+                      user: typeof vote.user === "string" ? vote.user : vote.user._id,
                       vote: vote.vote,
                     })),
                   }))}

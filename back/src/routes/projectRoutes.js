@@ -252,6 +252,7 @@ module.exports = (io) => {
       }
       project.activePokerSession.issues.splice(issueIndex, 1);
       await project.save();
+      console.log(`Emitting issueDeleted event to room ${projectId} for issue ${issueId}`);
       req.io.to(projectId).emit("issueDeleted", { issueId });
       res.status(200).json({ message: "Issue deleted successfully" });
     } catch (error) {
@@ -316,8 +317,8 @@ module.exports = (io) => {
     console.log("Incoming request to fetch poker session for project", req.params.projectId);
     try {
       const project = await Project.findById(req.params.projectId)
-        .populate("members", "username") // Populate members to get usernames
-        .populate("activePokerSession.issues.votes.user", "username"); // Populate votes.user to get usernames
+        .populate("members", "username")
+        .populate("activePokerSession.issues.votes.user", "username");
       if (!project) {
         console.log("Project not found");
         return res.status(404).json({ message: "Project not found" });
@@ -349,6 +350,7 @@ module.exports = (io) => {
       const newIssue = { _id: new mongoose.Types.ObjectId(), title, description, status: "Not Started", votes: [] };
       project.activePokerSession.issues.push(newIssue);
       await project.save();
+      console.log(`Emitting issueAdded event to room ${projectId} for issue ${newIssue._id}`);
       req.io.to(projectId).emit("issueAdded", { issue: newIssue });
       res.status(201).json(newIssue);
     } catch (error) {
@@ -400,11 +402,20 @@ module.exports = (io) => {
         (m) => m._id.toString() === userId
       );
 
+      const username = votingUser ? votingUser.username : "Unknown";
+      console.log(`Emitting voteUpdate event to room ${projectId}:`, {
+        issueId,
+        vote,
+        userId,
+        username,
+        totalVotes: issue.votes.length,
+      });
+
       req.io.to(projectId).emit("voteUpdate", {
         issueId,
         vote,
         userId,
-        username: votingUser ? votingUser.username : "Unknown",
+        username,
         totalVotes: issue.votes.length,
       });
 
@@ -417,7 +428,8 @@ module.exports = (io) => {
 
   router.post("/:projectId/poker/issue/:issueId/reveal", authenticateJWT, async (req, res) => {
     try {
-      const project = await Project.findById(req.params.projectId);
+      const project = await Project.findById(req.params.projectId)
+        .populate("activePokerSession.issues.votes.user", "username");
       if (!project) return res.status(404).json({ message: "Project not found" });
 
       const issue = project.activePokerSession.issues.id(req.params.issueId);
@@ -425,6 +437,12 @@ module.exports = (io) => {
 
       issue.status = "Revealed";
       await project.save();
+
+      console.log(`Emitting votesRevealed event to room ${req.params.projectId}:`, {
+        issueId: req.params.issueId,
+        votes: issue.votes,
+        status: issue.status,
+      });
 
       req.io.to(req.params.projectId).emit("votesRevealed", {
         issueId: req.params.issueId,
@@ -434,6 +452,7 @@ module.exports = (io) => {
 
       res.status(200).json({ message: "Votes revealed" });
     } catch (error) {
+      console.error("Error revealing votes:", error);
       res.status(500).json({ message: "Error revealing votes", error: error.message });
     }
   });
