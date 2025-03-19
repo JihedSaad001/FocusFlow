@@ -132,15 +132,17 @@ export function PlanningSession() {
               (issue) => issue._id === issueId
             );
             if (updatedIssue) {
-              console.log("Updating currentIssue with new votes:", updatedIssue);
+              console.log(
+                "Updating currentIssue with new votes:",
+                updatedIssue
+              );
               setCurrentIssue(updatedIssue); // Sync currentIssue with the updated issue
               const currentIssueVotes = updatedIssue.votes || [];
               setTotalVotes(totalVotes);
               setVotingUsers(
                 currentIssueVotes.map((vote) => {
                   const user = vote.user as unknown as string | PopulatedUser;
-                  const userId =
-                    typeof user === "string" ? user : user._id;
+                  const userId = typeof user === "string" ? user : user._id;
                   const userName =
                     typeof user === "string" ? "Unknown" : user.username;
                   return {
@@ -167,9 +169,7 @@ export function PlanningSession() {
       );
       if (currentIssue && currentIssue._id === issueId) {
         setVotesRevealed(true);
-        setCurrentIssue((prev) =>
-          prev ? { ...prev, votes, status } : prev
-        );
+        setCurrentIssue((prev) => (prev ? { ...prev, votes, status } : prev));
         updateVoteStats(votes);
         setVotingUsers(
           votes.map((vote: { user: string | PopulatedUser; vote: string }) => {
