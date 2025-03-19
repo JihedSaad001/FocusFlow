@@ -1,17 +1,19 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const dotenv = require("dotenv");
 const http = require("http");
 const { Server } = require("socket.io");
 
+dotenv.config();
 const app = express();
-const PORT = 5000; // Hardcoded since no .env
+const PORT = process.env.PORT || 5000;
 
 // Create HTTP server and integrate with Socket.IO
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "https://focus-flow-dusky.vercel.app",
+    origin: "https://focus-flow-dusky.vercel.app", // Allow frontend origin (adjust for production)
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -21,7 +23,7 @@ app.use(cors());
 app.use(express.json());
 
 // MongoDB connection
-mongoose.connect("mongodb://your-mongodb-uri") // Replace with your MongoDB URI
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("Connected to MongoDB"))
   .catch(err => console.log("MongoDB Error:", err));
 
@@ -47,6 +49,16 @@ io.on("connection", (socket) => {
   socket.on("joinRoom", (projectId) => {
     socket.join(projectId);
     console.log(`User ${socket.id} joined room ${projectId}`);
+  });
+
+  socket.on("vote", ({ projectId, issueId, vote, userId }) => {
+    // Broadcast the vote update to all users in the room
+    io.to(projectId).emit("voteUpdate", { issueId, vote, userId });
+  });
+
+  socket.on("revealVotes", ({ projectId, issueId }) => {
+    // Broadcast the reveal event to all users in the room
+    io.to(projectId).emit("votesRevealed", { issueId });
   });
 
   socket.on("disconnect", () => {
