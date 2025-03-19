@@ -80,6 +80,10 @@ export function PlanningSession() {
       console.log("Socket.IO connected:", socket.current.id);
     });
 
+    socket.current.on("connect_error", (error) => {
+      console.error("Socket.IO connection error:", error);
+    });
+
     socket.current.on(
       "voteUpdate",
       ({ issueId, vote, userId, username, totalVotes }) => {
@@ -90,7 +94,8 @@ export function PlanningSession() {
           username,
           totalVotes,
         });
-        console.log("Current issue:", currentIssue?._id);
+        console.log("Current issue ID:", currentIssue?._id);
+
         setIssues((prevIssues) => {
           console.log("Previous issues state:", prevIssues);
           const updatedIssues = prevIssues.map((issue) =>
@@ -121,21 +126,26 @@ export function PlanningSession() {
           );
           console.log("Updated issues state:", updatedIssues);
 
-          // Update votingUsers and voteStats directly here for the current issue
+          // Update currentIssue, votingUsers, and voteStats if the updated issue is the current issue
           if (currentIssue && currentIssue._id === issueId) {
             const updatedIssue = updatedIssues.find(
               (issue) => issue._id === issueId
             );
             if (updatedIssue) {
+              console.log("Updating currentIssue with new votes:", updatedIssue);
+              setCurrentIssue(updatedIssue); // Sync currentIssue with the updated issue
               const currentIssueVotes = updatedIssue.votes || [];
               setTotalVotes(totalVotes);
               setVotingUsers(
                 currentIssueVotes.map((vote) => {
                   const user = vote.user as unknown as string | PopulatedUser;
+                  const userId =
+                    typeof user === "string" ? user : user._id;
+                  const userName =
+                    typeof user === "string" ? "Unknown" : user.username;
                   return {
-                    userId: typeof user === "string" ? user : user._id,
-                    username:
-                      typeof user === "string" ? "Unknown" : user.username,
+                    userId,
+                    username: userId === userId ? username : userName, // Use the username from the event if it's the user who voted
                   };
                 })
               );
@@ -157,9 +167,10 @@ export function PlanningSession() {
       );
       if (currentIssue && currentIssue._id === issueId) {
         setVotesRevealed(true);
-        setCurrentIssue((prev) => (prev ? { ...prev, status } : prev));
+        setCurrentIssue((prev) =>
+          prev ? { ...prev, votes, status } : prev
+        );
         updateVoteStats(votes);
-        // Update votingUsers after votes are revealed
         setVotingUsers(
           votes.map((vote: { user: string | PopulatedUser; vote: string }) => {
             const user = vote.user as unknown as string | PopulatedUser;
@@ -197,7 +208,7 @@ export function PlanningSession() {
       console.log("Disconnecting Socket.IO");
       socket.current.disconnect();
     };
-  }, [id, currentIssue]);
+  }, [id]);
 
   useEffect(() => {
     if (!id || id.trim() === "") {
@@ -211,9 +222,6 @@ export function PlanningSession() {
     }
     fetchPokerSession();
   }, [id]);
-
-  // Remove the useEffect that updates votingUsers and voteStats
-  // since we're now handling this in the voteUpdate event handler
 
   const fetchPokerSession = async () => {
     const token = localStorage.getItem("token");
@@ -281,8 +289,6 @@ export function PlanningSession() {
           vote: value,
           userId,
         });
-
-        // No need to call fetchPokerSession here since the voteUpdate event will handle the update
       } catch (error: any) {
         console.error("Error recording vote:", error);
         setError(`Error recording vote: ${error.message}`);
@@ -347,6 +353,7 @@ export function PlanningSession() {
   };
 
   const handleIssueSelect = (issue: Issue) => {
+    console.log("Selected issue:", issue);
     setCurrentIssue(issue);
     setSelectedCard(null);
     setVotesRevealed(false);
