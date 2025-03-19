@@ -1,18 +1,12 @@
+// IssueList.tsx
 import { Trash2 } from "lucide-react";
-
-interface Issue {
-  _id: string; // Unique identifier for the issue
-  title: string;
-  description?: string;
-  status?: string;
-  votes?: { user: string; vote: string }[];
-}
+import { Issue } from "../../types"; // Import the Issue type from ../../types
 
 interface IssueListProps {
-  issues: Issue[]; // Typed as an array of Issue objects
-  onIssueSelect: (issue: Issue) => void; // Callback when an issue is selected
-  currentIssueId?: string; // The ID of the currently selected issue
-  onDeleteIssue: (id: string) => void; // Callback to delete an issue
+  issues: Issue[]; // Use the imported Issue type
+  onIssueSelect: (issue: Issue) => void;
+  currentIssueId?: string;
+  onDeleteIssue: (id: string) => void;
 }
 
 export function IssueList({
@@ -62,3 +56,5 @@ export function IssueList({
     </div>
   );
 }
+
+export default IssueList;

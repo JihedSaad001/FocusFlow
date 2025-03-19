@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   Plus,
 } from "lucide-react";
-import { Issue } from "../../types";
+import { Issue, PopulatedUser, Vote } from "../../types";
 
 const CARD_VALUES = ["0", "1", "2", "3", "5", "8", "13", "21", "?"];
 
@@ -26,11 +26,6 @@ interface RouteParams {
 interface DecodedToken {
   id: string;
   [key: string]: any;
-}
-
-interface PopulatedUser {
-  _id: string;
-  username: string;
 }
 
 export function PlanningSession() {
@@ -55,6 +50,8 @@ export function PlanningSession() {
   const socket = useRef(
     io("https://focusflow-production.up.railway.app", {
       withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
     })
   );
 
@@ -73,125 +70,202 @@ export function PlanningSession() {
   useEffect(() => {
     if (!id) return;
 
-    console.log("Setting up Socket.IO listeners for projectId:", id);
-    socket.current.emit("joinRoom", id);
-
+    // Debug Socket.IO connection
     socket.current.on("connect", () => {
       console.log("Socket.IO connected:", socket.current.id);
+      socket.current.emit("joinRoom", id); // Ensure room is joined on reconnect
+    });
+    socket.current.on("disconnect", () => {
+      console.log("Socket.IO disconnected");
+    });
+    socket.current.on("connect_error", (err) => {
+      console.error("Socket.IO connection error:", err.message);
+      setError("Real-time updates unavailable. Please refresh manually.");
     });
 
-    socket.current.on("connect_error", (error) => {
-      console.error("Socket.IO connection error:", error);
-    });
-
+    // Socket.IO event listeners
     socket.current.on(
       "voteUpdate",
-      ({ issueId, vote, userId, username, totalVotes }) => {
-        console.log("Received voteUpdate event:", {
+      ({
+        issueId,
+        vote,
+        userId,
+        username,
+        totalVotes,
+      }: {
+        issueId: string;
+        vote: string;
+        userId: string;
+        username: string;
+        totalVotes: number;
+      }) => {
+        console.log("Received voteUpdate:", {
           issueId,
           vote,
           userId,
           username,
           totalVotes,
         });
-        console.log("Current issue ID:", currentIssue?._id);
-
-        setIssues((prevIssues) => {
-          console.log("Previous issues state:", prevIssues);
-          const updatedIssues = prevIssues.map((issue) =>
-            issue._id === issueId
-              ? {
-                  ...issue,
-                  votes: issue.votes?.some((v) => {
-                    const user = v.user as unknown as string | PopulatedUser;
-                    return typeof user === "string"
+        setIssues((prevIssues: Issue[]) => {
+          const newIssues = prevIssues.map((issue) => {
+            if (issue._id !== issueId) return issue;
+            const updatedVotes = issue.votes?.some((v) => {
+              const user = v.user;
+              return typeof user === "string"
+                ? user === userId
+                : user._id === userId;
+            })
+              ? issue.votes.map((v) => {
+                  const user = v.user;
+                  return (
+                    typeof user === "string"
                       ? user === userId
-                      : user._id === userId;
-                  })
-                    ? issue.votes.map((v) => {
-                        const user = v.user as unknown as
-                          | string
-                          | PopulatedUser;
-                        return (
-                          typeof user === "string"
-                            ? user === userId
-                            : user._id === userId
-                        )
-                          ? { ...v, vote }
-                          : v;
-                      })
-                    : [...(issue.votes || []), { user: userId, vote }],
-                }
-              : issue
-          );
-          console.log("Updated issues state:", updatedIssues);
-
-          // Update currentIssue, votingUsers, and voteStats if the updated issue is the current issue
-          if (currentIssue && currentIssue._id === issueId) {
-            const updatedIssue = updatedIssues.find(
-              (issue) => issue._id === issueId
-            );
-            if (updatedIssue) {
-              console.log(
-                "Updating currentIssue with new votes:",
-                updatedIssue
-              );
-              setCurrentIssue(updatedIssue); // Sync currentIssue with the updated issue
-              const currentIssueVotes = updatedIssue.votes || [];
-              setTotalVotes(totalVotes);
-              setVotingUsers(
-                currentIssueVotes.map((vote) => {
-                  const user = vote.user as unknown as string | PopulatedUser;
-                  const userId = typeof user === "string" ? user : user._id;
-                  const userName =
-                    typeof user === "string" ? "Unknown" : user.username;
-                  return {
-                    userId,
-                    username: userId === userId ? username : userName, // Use the username from the event if it's the user who voted
-                  };
+                      : user._id === userId
+                  )
+                    ? { ...v, vote }
+                    : v;
                 })
-              );
-              updateVoteStats(currentIssueVotes);
-            }
-          }
-
-          return updatedIssues;
+              : [
+                  ...(issue.votes || []),
+                  { user: { _id: userId, username }, vote },
+                ];
+            return { ...issue, votes: updatedVotes };
+          });
+          console.log("Updated issues:", newIssues);
+          return [...newIssues]; // Force re-render
         });
+
+        if (currentIssue?._id === issueId) {
+          setCurrentIssue((prev: Issue | null) => {
+            if (!prev) return prev;
+            const updatedVotes = prev.votes?.some((v) => {
+              const user = v.user;
+              return typeof user === "string"
+                ? user === userId
+                : user._id === userId;
+            })
+              ? prev.votes.map((v) => {
+                  const user = v.user;
+                  return (
+                    typeof user === "string"
+                      ? user === userId
+                      : user._id === userId
+                  )
+                    ? { ...v, vote }
+                    : v;
+                })
+              : [
+                  ...(prev.votes || []),
+                  { user: { _id: userId, username }, vote },
+                ];
+            return { ...prev, votes: updatedVotes };
+          });
+          setTotalVotes(totalVotes);
+          setVotingUsers((prev) => {
+            const newUsers = prev.some((u) => u.userId === userId)
+              ? prev.map((u) =>
+                  u.userId === userId ? { userId, username } : u
+                )
+              : [...prev, { userId, username }];
+            return [...newUsers];
+          });
+          setVoteStats((prev) => {
+            const votes =
+              currentIssue?.votes
+                ?.map((v) => parseInt(v.vote, 10))
+                .filter((v) => !isNaN(v)) || [];
+            const average = votes.length
+              ? votes.reduce((a, b) => a + b, 0) / votes.length
+              : 0;
+            const mostCommon = votes.length
+              ? votes
+                  .sort(
+                    (a, b) =>
+                      votes.filter((v) => v === a).length -
+                      votes.filter((v) => v === b).length
+                  )
+                  .pop() || 0
+              : 0;
+            const range = votes.length
+              ? { min: Math.min(...votes), max: Math.max(...votes) }
+              : { min: 0, max: 0 };
+            return { average, mostCommon, range };
+          });
+        }
       }
     );
 
-    socket.current.on("votesRevealed", ({ issueId, votes, status }) => {
-      console.log("Received votesRevealed event:", { issueId, votes, status });
-      setIssues((prevIssues) =>
-        prevIssues.map((issue) =>
-          issue._id === issueId ? { ...issue, votes, status } : issue
-        )
-      );
-      if (currentIssue && currentIssue._id === issueId) {
-        setVotesRevealed(true);
-        setCurrentIssue((prev) => (prev ? { ...prev, votes, status } : prev));
-        updateVoteStats(votes);
-        setVotingUsers(
-          votes.map((vote: { user: string | PopulatedUser; vote: string }) => {
-            const user = vote.user as unknown as string | PopulatedUser;
-            return {
-              userId: typeof user === "string" ? user : user._id,
-              username: typeof user === "string" ? "Unknown" : user.username,
-            };
-          })
-        );
+    socket.current.on(
+      "votesRevealed",
+      ({
+        issueId,
+        votes,
+        status,
+      }: {
+        issueId: string;
+        votes: Vote[];
+        status: string;
+      }) => {
+        console.log("Received votesRevealed:", { issueId, votes, status });
+        setIssues((prevIssues: Issue[]) => {
+          const newIssues = prevIssues.map((issue) => {
+            if (issue._id === issueId) {
+              return { ...issue, votes, status };
+            }
+            return issue;
+          });
+          return [...newIssues];
+        });
+
+        if (currentIssue?._id === issueId) {
+          setCurrentIssue((prev: Issue | null) => {
+            if (!prev) return prev;
+            return { ...prev, votes, status };
+          });
+          setVotesRevealed(true);
+          setVotingUsers(
+            votes.map((vote: Vote) => ({
+              userId: typeof vote.user === "string" ? vote.user : vote.user._id,
+              username:
+                typeof vote.user === "string" ? "Unknown" : vote.user.username,
+            }))
+          );
+          setVoteStats((prev) => {
+            const voteValues = votes
+              .map((v: Vote) => parseInt(v.vote, 10))
+              .filter((v) => !isNaN(v));
+            const average = voteValues.length
+              ? voteValues.reduce((a, b) => a + b, 0) / voteValues.length
+              : 0;
+            const mostCommon = voteValues.length
+              ? voteValues
+                  .sort(
+                    (a, b) =>
+                      voteValues.filter((v) => v === a).length -
+                      voteValues.filter((v) => v === b).length
+                  )
+                  .pop() || 0
+              : 0;
+            const range = voteValues.length
+              ? { min: Math.min(...voteValues), max: Math.max(...voteValues) }
+              : { min: 0, max: 0 };
+            return { average, mostCommon, range };
+          });
+        }
       }
+    );
+
+    socket.current.on("issueAdded", ({ issue }: { issue: Issue }) => {
+      console.log("Received issueAdded:", issue);
+      setIssues((prevIssues: Issue[]) => [...prevIssues, issue]);
     });
 
-    socket.current.on("issueAdded", ({ issue }) => {
-      setIssues((prevIssues) => [...prevIssues, issue]);
-    });
-
-    socket.current.on("issueDeleted", ({ issueId }) => {
-      setIssues((prevIssues) =>
+    socket.current.on("issueDeleted", ({ issueId }: { issueId: string }) => {
+      console.log("Received issueDeleted:", issueId);
+      setIssues((prevIssues: Issue[]) =>
         prevIssues.filter((issue) => issue._id !== issueId)
       );
-      if (currentIssue && currentIssue._id === issueId) {
+      if (currentIssue?._id === issueId) {
         setCurrentIssue(null);
         setVotesRevealed(false);
         setVoteStats({
@@ -204,17 +278,22 @@ export function PlanningSession() {
       }
     });
 
+    console.log("Joining room:", id);
+    socket.current.emit("joinRoom", id);
+
     return () => {
-      console.log("Disconnecting Socket.IO");
+      console.log("Cleaning up Socket.IO listeners");
+      socket.current.off("voteUpdate");
+      socket.current.off("votesRevealed");
+      socket.current.off("issueAdded");
+      socket.current.off("issueDeleted");
       socket.current.disconnect();
     };
   }, [id]);
 
   useEffect(() => {
     if (!id || id.trim() === "") {
-      console.error(
-        "Project ID is missing or empty. Cannot fetch poker session."
-      );
+      console.error("Project ID is missing or empty.");
       setError(
         "Project ID is missing or empty. Please navigate to a valid project."
       );
@@ -226,7 +305,7 @@ export function PlanningSession() {
   const fetchPokerSession = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
-      console.warn("❌ No token found, redirecting to login.");
+      console.warn("No token found, redirecting to login.");
       navigate("/signin");
       return;
     }
@@ -247,7 +326,22 @@ export function PlanningSession() {
       }
       const data = await response.json();
       console.log("Fetched poker session data:", data);
-      setIssues(data.issues || []);
+
+      // Ensure the fetched issues match the Issue type
+      const fetchedIssues: Issue[] = (data.issues || []).map((issue: any) => ({
+        _id: issue._id,
+        title: issue.title,
+        description: issue.description,
+        status: issue.status,
+        votes: (issue.votes || []).map((vote: any) => ({
+          user:
+            typeof vote.user === "string"
+              ? vote.user
+              : { _id: vote.user._id, username: vote.user.username },
+          vote: vote.vote,
+        })),
+      }));
+      setIssues(fetchedIssues);
     } catch (error: any) {
       setError(`Error fetching poker session: ${error.message}`);
     }
@@ -282,13 +376,7 @@ export function PlanningSession() {
           setError(`Failed to record vote: ${errorText}`);
           return;
         }
-        console.log("Vote recorded, emitting vote event...");
-        socket.current.emit("vote", {
-          projectId: id,
-          issueId: currentIssue._id,
-          vote: value,
-          userId,
-        });
+        console.log("Vote recorded successfully");
       } catch (error: any) {
         console.error("Error recording vote:", error);
         setError(`Error recording vote: ${error.message}`);
@@ -297,59 +385,13 @@ export function PlanningSession() {
   };
 
   const handleRevealVotes = async () => {
-    if (!votesRevealed && currentIssue) {
-      setIsUpdating(true);
-      socket.current.emit("revealVotes", {
-        projectId: id,
-        issueId: currentIssue._id,
-      });
-      setVotesRevealed(true);
-      setIsUpdating(false);
-    } else {
-      setVotesRevealed(false);
-      setVotingUsers([]);
-      setTotalVotes(0);
-      setSelectedCard(null);
-    }
-  };
-
-  const updateVoteStats = (votes: { user: string; vote: string }[] = []) => {
-    console.log("Votes passed to updateVoteStats:", votes);
-    const allVotes = votes
-      .map((v) => {
-        if (v.vote && v.vote !== "?") {
-          const parsed = parseInt(v.vote, 10);
-          return isNaN(parsed) ? null : parsed;
-        }
-        return null;
-      })
-      .filter((v): v is number => v !== null);
-
-    console.log("Parsed votes:", allVotes);
-    if (allVotes.length === 0) {
-      setVoteStats({
-        average: 0,
-        mostCommon: 0,
-        range: { min: 0, max: 0 },
-      });
-      return;
-    }
-
-    const average = allVotes.reduce((a, b) => a + b, 0) / allVotes.length;
-    const mostCommon =
-      allVotes
-        .sort(
-          (a, b) =>
-            allVotes.filter((v) => v === a).length -
-            allVotes.filter((v) => v === b).length
-        )
-        .pop() || 0;
-    const range = {
-      min: Math.min(...allVotes),
-      max: Math.max(...allVotes),
-    };
-    console.log("Calculated stats:", { average, mostCommon, range });
-    setVoteStats({ average, mostCommon, range });
+    if (!currentIssue) return;
+    setIsUpdating(true);
+    socket.current.emit("revealVotes", {
+      projectId: id,
+      issueId: currentIssue._id,
+    });
+    setIsUpdating(false);
   };
 
   const handleIssueSelect = (issue: Issue) => {
@@ -361,14 +403,33 @@ export function PlanningSession() {
     setTotalVotes(issueVotes.length);
     setVotingUsers(
       issueVotes.map((vote) => {
-        const user = vote.user as unknown as string | PopulatedUser;
+        const user = vote.user;
         return {
           userId: typeof user === "string" ? user : user._id,
           username: typeof user === "string" ? "Unknown" : user.username,
         };
       })
     );
-    updateVoteStats(issueVotes);
+    const voteValues = issueVotes
+      .map((v) => parseInt(v.vote, 10))
+      .filter((v) => !isNaN(v));
+    setVoteStats({
+      average: voteValues.length
+        ? voteValues.reduce((a, b) => a + b, 0) / voteValues.length
+        : 0,
+      mostCommon: voteValues.length
+        ? voteValues
+            .sort(
+              (a, b) =>
+                voteValues.filter((v) => v === a).length -
+                voteValues.filter((v) => v === b).length
+            )
+            .pop() || 0
+        : 0,
+      range: voteValues.length
+        ? { min: Math.min(...voteValues), max: Math.max(...voteValues) }
+        : { min: 0, max: 0 },
+    });
   };
 
   const handleIssueAdded = () => {
@@ -426,6 +487,12 @@ export function PlanningSession() {
                 >
                   <Copy size={20} />
                   Copy Invite Link
+                </button>
+                <button
+                  onClick={fetchPokerSession}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors text-white"
+                >
+                  Refresh
                 </button>
                 <button
                   onClick={handleRevealVotes}
@@ -547,9 +614,7 @@ export function PlanningSession() {
                           <div className="flex gap-2 flex-wrap">
                             {votingUsers.map((user) => {
                               const userVote = currentIssue.votes?.find((v) => {
-                                const voteUser = v.user as unknown as
-                                  | string
-                                  | PopulatedUser;
+                                const voteUser = v.user;
                                 return typeof voteUser === "string"
                                   ? voteUser === user.userId
                                   : voteUser._id === user.userId;

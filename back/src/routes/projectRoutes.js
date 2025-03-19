@@ -42,7 +42,6 @@ module.exports = (io) => {
         .populate("members", "username email")
         .populate("owner", "username");
       if (!project) return res.status(404).json({ message: "Project not found" });
-      console.log("User ID:", req.user.id, "Project Members:", project.members.map(m => m._id.toString()));
       if (!project.members.map(m => m._id.toString()).includes(req.user.id))
         return res.status(403).json({ message: "Unauthorized" });
       res.status(200).json(project);
@@ -56,7 +55,6 @@ module.exports = (io) => {
       const { email } = req.body;
       const project = await Project.findById(req.params.projectId);
       if (!project) return res.status(404).json({ message: "Project not found" });
-
       if (project.owner.toString() !== req.user.id)
         return res.status(403).json({ message: "Only the project owner can invite members" });
 
@@ -266,15 +264,12 @@ module.exports = (io) => {
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
-
       if (!project.members.map(m => m._id.toString()).includes(req.user.id.toString())) {
         return res.status(403).json({ message: "Unauthorized to delete this project" });
       }
-
       if (project.owner._id.toString() !== req.user.id.toString()) {
         return res.status(403).json({ message: "Only the project owner can delete this project" });
       }
-
       await Project.deleteOne({ _id: req.params.projectId });
       res.status(200).json({ message: "Project deleted successfully" });
     } catch (error) {
@@ -300,11 +295,9 @@ module.exports = (io) => {
     try {
       const project = await Project.findById(req.params.projectId);
       if (!project) return res.status(404).json({ message: "Project not found" });
-
       if (!project.activePokerSession) {
         project.activePokerSession = { issues: [] };
       }
-
       await project.save();
       res.status(201).json({ message: "Poker session started" });
     } catch (error) {
@@ -313,13 +306,12 @@ module.exports = (io) => {
   });
 
   router.get("/:projectId/poker", authenticateJWT, async (req, res) => {
-    console.log("Incoming request to fetch poker session for project", req.params.projectId);
+    console.log("Fetching poker session for project:", req.params.projectId);
     try {
       const project = await Project.findById(req.params.projectId)
-        .populate("members", "username") // Populate members to get usernames
-        .populate("activePokerSession.issues.votes.user", "username"); // Populate votes.user to get usernames
+        .populate("members", "username")
+        .populate("activePokerSession.issues.votes.user", "username");
       if (!project) {
-        console.log("Project not found");
         return res.status(404).json({ message: "Project not found" });
       }
       if (!project.members.map(m => m._id.toString()).includes(req.user.id)) {
@@ -363,43 +355,27 @@ module.exports = (io) => {
     const userId = req.user.id;
 
     try {
-      const project = await Project.findById(projectId).populate(
-        "members",
-        "username"
-      );
+      const project = await Project.findById(projectId).populate("members", "username");
       if (!project || !project.activePokerSession) {
         return res.status(404).json({ message: "Project or poker session not found" });
       }
-
       if (!project.members.map((m) => m._id.toString()).includes(userId)) {
         return res.status(403).json({ message: "Unauthorized" });
       }
-
-      const issue = project.activePokerSession.issues.find(
-        (i) => i._id.toString() === issueId
-      );
+      const issue = project.activePokerSession.issues.find((i) => i._id.toString() === issueId);
       if (!issue) {
         return res.status(404).json({ message: "Issue not found" });
       }
 
-      const existingVoteIndex = issue.votes.findIndex(
-        (v) => v.user.toString() === userId
-      );
+      const existingVoteIndex = issue.votes.findIndex((v) => v.user.toString() === userId);
       if (existingVoteIndex !== -1) {
         issue.votes[existingVoteIndex].vote = vote;
-        console.log(`Updated vote for user ${userId} to ${vote} on issue ${issueId}`);
       } else {
         issue.votes.push({ user: userId, vote });
-        console.log(`Added vote ${vote} for user ${userId} on issue ${issueId}`);
       }
-
       await project.save();
-      console.log(`Saved votes for issue ${issueId}:`, issue.votes);
 
-      const votingUser = project.members.find(
-        (m) => m._id.toString() === userId
-      );
-
+      const votingUser = project.members.find((m) => m._id.toString() === userId);
       req.io.to(projectId).emit("voteUpdate", {
         issueId,
         vote,
@@ -407,6 +383,7 @@ module.exports = (io) => {
         username: votingUser ? votingUser.username : "Unknown",
         totalVotes: issue.votes.length,
       });
+      console.log("Emitted voteUpdate:", { issueId, vote, userId, username: votingUser?.username, totalVotes: issue.votes.length });
 
       res.status(200).json({ message: "Vote recorded successfully" });
     } catch (error) {
@@ -419,7 +396,6 @@ module.exports = (io) => {
     try {
       const project = await Project.findById(req.params.projectId);
       if (!project) return res.status(404).json({ message: "Project not found" });
-
       const issue = project.activePokerSession.issues.id(req.params.issueId);
       if (!issue) return res.status(404).json({ message: "Issue not found" });
 
@@ -431,9 +407,11 @@ module.exports = (io) => {
         votes: issue.votes,
         status: issue.status,
       });
+      console.log("Emitted votesRevealed:", { issueId: req.params.issueId, votes: issue.votes, status: issue.status });
 
       res.status(200).json({ message: "Votes revealed" });
     } catch (error) {
+      console.error("Error revealing votes:", error);
       res.status(500).json({ message: "Error revealing votes", error: error.message });
     }
   });

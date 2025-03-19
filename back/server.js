@@ -9,67 +9,43 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Create HTTP server and integrate with Socket.IO
 const server = http.createServer(app);
 
-// Configure allowed origins for CORS
 const allowedOrigins = [
-  
-  "https://focus-flow-dusky.vercel.app", // Deployed frontend URL
+  "https://focus-flow-dusky.vercel.app",
+  "http://localhost:3000", // Add for local testing
 ];
 
-// Configure Socket.IO with CORS
 const io = new Server(server, {
   cors: {
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error("Not allowed by CORS"));
-    },
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
-    credentials: true, // Allow credentials
+    credentials: true,
   },
 });
 
-// Configure Express CORS middleware
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true, // Allow credentials
-  })
-);
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
 
 app.use(express.json());
 
-// MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.log("MongoDB Error:", err));
 
-// Import the Project model
 const Project = require("./src/models/Project");
 
-// WebSocket connection handling
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
 
-  // Join a room based on projectId (for PlanningSession.tsx)
   socket.on("joinRoom", (projectId) => {
     socket.join(projectId);
     console.log(`User ${socket.id} joined room ${projectId}`);
   });
 
-  // Handle voting in planning session
   socket.on("vote", async ({ projectId, issueId, vote, userId, username, totalVotes }) => {
     try {
       const project = await Project.findById(projectId);
@@ -86,7 +62,6 @@ io.on("connection", (socket) => {
         return;
       }
 
-      // Update or add the user's vote
       const existingVote = issue.votes.find((v) => v.user.toString() === userId);
       if (existingVote) {
         existingVote.vote = vote;
@@ -96,7 +71,6 @@ io.on("connection", (socket) => {
 
       await project.save();
 
-      // Broadcast the updated votes to all users in the room
       io.to(projectId).emit("voteUpdate", {
         issueId,
         vote,
@@ -104,13 +78,13 @@ io.on("connection", (socket) => {
         username,
         totalVotes: issue.votes.length,
       });
+      console.log("Emitted voteUpdate:", { issueId, vote, userId, username, totalVotes: issue.votes.length });
     } catch (error) {
       console.error("Error handling vote:", error);
       socket.emit("error", "Failed to record vote");
     }
   });
 
-  // Handle revealing votes
   socket.on("revealVotes", async ({ projectId, issueId }) => {
     try {
       const project = await Project.findById(projectId);
@@ -130,12 +104,12 @@ io.on("connection", (socket) => {
       issue.status = "Revealed";
       await project.save();
 
-      // Broadcast the reveal event to all users in the room
       io.to(projectId).emit("votesRevealed", {
         issueId,
         votes: issue.votes,
         status: issue.status,
       });
+      console.log("Emitted votesRevealed:", { issueId, votes: issue.votes, status: issue.status });
     } catch (error) {
       console.error("Error revealing votes:", error);
       socket.emit("error", "Failed to reveal votes");
@@ -147,19 +121,16 @@ io.on("connection", (socket) => {
   });
 });
 
-// Routes
 const authRoutes = require("./src/routes/authRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const resourceRoutes = require("./src/routes/resourceRoutes");
 const userDataRoutes = require("./src/routes/userDataRoutes");
 const projectRoutes = require("./src/routes/projectRoutes");
 
-// Pass io instance to projectRoutes for WebSocket broadcasting
 app.use("/api/projects", projectRoutes(io));
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api/user", userDataRoutes);
 
-// Start the server
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
