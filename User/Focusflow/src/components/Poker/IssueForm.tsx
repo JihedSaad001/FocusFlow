@@ -1,4 +1,3 @@
-// IssueForm.tsx
 import { useState } from "react";
 
 interface IssueFormProps {
@@ -22,37 +21,28 @@ export function IssueForm({ sessionId, onIssueAdded }: IssueFormProps) {
     e.preventDefault();
     console.log("Submitting with sessionId:", JSON.stringify(sessionId));
     const token = localStorage.getItem("token");
-    if (!token) {
-      setError("No token found. Please log in again.");
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${sessionId}/poker/issue`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ title, description }),
-        }
-      );
-      console.log("Response status:", response.status);
-      if (response.ok) {
-        setTitle("");
-        setDescription("");
-        setError(null);
-        onIssueAdded();
-      } else {
-        const errorText = await response.text();
-        console.error("Failed to add issue:", errorText);
-        setError(`Failed to add issue: ${errorText}`);
+    const response = await fetch(
+      `https://focusflow-production.up.railway.app/api/projects/${sessionId}/poker/issue`,
+      {
+        // Use direct backend URL
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title, description }),
       }
-    } catch (error: any) {
-      console.error("Error adding issue:", error);
-      setError(`Error adding issue: ${error.message}`);
+    );
+    console.log("Response status:", response.status);
+    if (response.ok) {
+      setTitle("");
+      setDescription("");
+      setError(null);
+      onIssueAdded();
+    } else {
+      const errorText = await response.text();
+      console.error("Failed to add issue:", errorText);
+      setError(`Failed to add issue: ${errorText}`);
     }
   };
 

@@ -1,4 +1,3 @@
-// types/index.ts
 export interface Task {
   id: string;
   title: string;
@@ -17,20 +16,10 @@ export interface Board {
   columns: Column[];
 }
 
-export interface PopulatedUser {
-  _id: string;
-  username: string;
-}
-
-export interface Vote {
-  user: string | PopulatedUser;
-  vote: string;
-}
-
 export interface Issue {
   _id: string;
   title: string;
   description?: string;
-  status?: string;
-  votes?: Vote[];
+  status?: string; // Optional status
+  votes?: { user: string; vote: string }[];
 }

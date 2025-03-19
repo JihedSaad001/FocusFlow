@@ -13,7 +13,7 @@ const server = http.createServer(app);
 
 const allowedOrigins = [
   "https://focus-flow-dusky.vercel.app",
-  "http://localhost:3000", // Add for local testing
+  
 ];
 
 const io = new Server(server, {
