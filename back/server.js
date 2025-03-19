@@ -14,7 +14,7 @@ const server = http.createServer(app);
 
 // Configure allowed origins for CORS
 const allowedOrigins = [
-  "http://localhost:5173", // For local development
+  
   "https://focus-flow-dusky.vercel.app", // Deployed frontend URL
 ];
 
