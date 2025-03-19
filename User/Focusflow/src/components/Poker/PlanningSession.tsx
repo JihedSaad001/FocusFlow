@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   Plus,
 } from "lucide-react";
-import { Issue, PopulatedUser, Vote } from "../../types";
+import { Issue, Vote } from "../../types"; // Removed PopulatedUser
 
 const CARD_VALUES = ["0", "1", "2", "3", "5", "8", "13", "21", "?"];
 
@@ -169,7 +169,7 @@ export function PlanningSession() {
               : [...prev, { userId, username }];
             return [...newUsers];
           });
-          setVoteStats((prev) => {
+          setVoteStats(() => {
             const votes =
               currentIssue?.votes
                 ?.map((v) => parseInt(v.vote, 10))
@@ -230,7 +230,7 @@ export function PlanningSession() {
                 typeof vote.user === "string" ? "Unknown" : vote.user.username,
             }))
           );
-          setVoteStats((prev) => {
+          setVoteStats(() => {
             const voteValues = votes
               .map((v: Vote) => parseInt(v.vote, 10))
               .filter((v) => !isNaN(v));
