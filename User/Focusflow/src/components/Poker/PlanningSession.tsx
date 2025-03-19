@@ -120,21 +120,31 @@ export function PlanningSession() {
               : issue
           );
           console.log("Updated issues state:", updatedIssues);
+
+          // Update votingUsers and voteStats directly here for the current issue
+          if (currentIssue && currentIssue._id === issueId) {
+            const updatedIssue = updatedIssues.find(
+              (issue) => issue._id === issueId
+            );
+            if (updatedIssue) {
+              const currentIssueVotes = updatedIssue.votes || [];
+              setTotalVotes(totalVotes);
+              setVotingUsers(
+                currentIssueVotes.map((vote) => {
+                  const user = vote.user as unknown as string | PopulatedUser;
+                  return {
+                    userId: typeof user === "string" ? user : user._id,
+                    username:
+                      typeof user === "string" ? "Unknown" : user.username,
+                  };
+                })
+              );
+              updateVoteStats(currentIssueVotes);
+            }
+          }
+
           return updatedIssues;
         });
-
-        if (currentIssue && currentIssue._id === issueId) {
-          setTotalVotes(totalVotes);
-          setVotingUsers((prev) => {
-            const userExists = prev.some((u) => u.userId === userId);
-            if (userExists) {
-              return prev.map((u) =>
-                u.userId === userId ? { ...u, username } : u
-              );
-            }
-            return [...prev, { userId, username }];
-          });
-        }
       }
     );
 
@@ -149,6 +159,16 @@ export function PlanningSession() {
         setVotesRevealed(true);
         setCurrentIssue((prev) => (prev ? { ...prev, status } : prev));
         updateVoteStats(votes);
+        // Update votingUsers after votes are revealed
+        setVotingUsers(
+          votes.map((vote: { user: string | PopulatedUser; vote: string }) => {
+            const user = vote.user as unknown as string | PopulatedUser;
+            return {
+              userId: typeof user === "string" ? user : user._id,
+              username: typeof user === "string" ? "Unknown" : user.username,
+            };
+          })
+        );
       }
     });
 
@@ -192,23 +212,8 @@ export function PlanningSession() {
     fetchPokerSession();
   }, [id]);
 
-  useEffect(() => {
-    if (currentIssue) {
-      const currentIssueVotes =
-        issues.find((i) => i._id === currentIssue._id)?.votes || [];
-      updateVoteStats(currentIssueVotes);
-      setTotalVotes(currentIssueVotes.length);
-      setVotingUsers(
-        currentIssueVotes.map((vote) => {
-          const user = vote.user as unknown as string | PopulatedUser;
-          return {
-            userId: typeof user === "string" ? user : user._id,
-            username: typeof user === "string" ? "Unknown" : user.username,
-          };
-        })
-      );
-    }
-  }, [issues, currentIssue]);
+  // Remove the useEffect that updates votingUsers and voteStats
+  // since we're now handling this in the voteUpdate event handler
 
   const fetchPokerSession = async () => {
     const token = localStorage.getItem("token");
@@ -277,8 +282,7 @@ export function PlanningSession() {
           userId,
         });
 
-        console.log("Fetching updated poker session data after vote...");
-        await fetchPokerSession();
+        // No need to call fetchPokerSession here since the voteUpdate event will handle the update
       } catch (error: any) {
         console.error("Error recording vote:", error);
         setError(`Error recording vote: ${error.message}`);
@@ -294,9 +298,6 @@ export function PlanningSession() {
         issueId: currentIssue._id,
       });
       setVotesRevealed(true);
-      const currentIssueVotes =
-        issues.find((i) => i._id === currentIssue._id)?.votes || [];
-      updateVoteStats(currentIssueVotes);
       setIsUpdating(false);
     } else {
       setVotesRevealed(false);
@@ -349,7 +350,18 @@ export function PlanningSession() {
     setCurrentIssue(issue);
     setSelectedCard(null);
     setVotesRevealed(false);
-    updateVoteStats(issue.votes || []);
+    const issueVotes = issue.votes || [];
+    setTotalVotes(issueVotes.length);
+    setVotingUsers(
+      issueVotes.map((vote) => {
+        const user = vote.user as unknown as string | PopulatedUser;
+        return {
+          userId: typeof user === "string" ? user : user._id,
+          username: typeof user === "string" ? "Unknown" : user.username,
+        };
+      })
+    );
+    updateVoteStats(issueVotes);
   };
 
   const handleIssueAdded = () => {
