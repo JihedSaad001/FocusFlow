@@ -416,7 +416,6 @@ module.exports = (io) => {
         vote,
         userId,
         username,
-        totalVotes: issue.votes.length,
       });
 
       res.status(200).json({ message: "Vote recorded successfully" });
