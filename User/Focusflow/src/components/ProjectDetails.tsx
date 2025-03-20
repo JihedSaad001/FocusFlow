@@ -18,7 +18,7 @@ import {
   PlayCircle,
   UserPlus,
   UserMinus,
-  MessageSquare, // Add chat icon
+  MessageSquare,
 } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { io } from "socket.io-client";
@@ -47,7 +47,7 @@ interface Sprint {
 }
 
 interface ChatMessage {
-  user: { _id: string; username: string };
+  user: { _id: string; username: string; profilePic: string }; // Add profilePic
   message: string;
   timestamp: string;
 }
@@ -103,14 +103,14 @@ function ProjectDetails() {
   const [showBacklog, setShowBacklog] = useState(true);
   const [showSprintPlanning, setShowSprintPlanning] = useState(true);
   const [showSprintBoard, setShowSprintBoard] = useState(true);
-  const [showChat, setShowChat] = useState(true); // Add state for chat section
+  const [showChat, setShowChat] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
   const [memberEmail, setMemberEmail] = useState("");
   const [addMemberError, setAddMemberError] = useState<string | null>(null);
   const [addMemberSuccess, setAddMemberSuccess] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]); // State for chat messages
-  const [newMessage, setNewMessage] = useState(""); // State for new message input
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState("");
   const socket = useRef(
     io("https://focusflow-production.up.railway.app", { withCredentials: true })
   );
@@ -161,11 +161,9 @@ function ProjectDetails() {
     fetchProject();
   }, [id, navigate]);
 
-  // Chat-related useEffect
   useEffect(() => {
     if (!id) return;
 
-    // Fetch initial chat messages
     const fetchChatMessages = async () => {
       const token = localStorage.getItem("token");
       try {
@@ -1045,7 +1043,8 @@ function ProjectDetails() {
                               </p>
                               <button
                                 onClick={() => deleteTaskFromSprint(task._id)}
-                                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
+                                className="bg-red-5
+00/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
                               >
                                 <Trash2 className="w-4 h-4" /> Delete
                               </button>
@@ -1080,9 +1079,18 @@ function ProjectDetails() {
                           key={idx}
                           className="message flex items-start gap-2"
                         >
-                          <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-                            <UserCircle className="w-5 h-5 text-red-500" />
-                          </div>
+                          <img
+                            src={
+                              msg.user.profilePic ||
+                              "https://qhedchvmvmuflflstcwx.supabase.co/storage/v1/object/public/profile-pictures//image_2025-02-08_215223222.png"
+                            }
+                            alt={`${msg.user.username}'s profile`}
+                            className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                            onError={(e) => {
+                              e.currentTarget.src =
+                                "https://qhedchvmvmuflflstcwx.supabase.co/storage/v1/object/public/profile-pictures//image_2025-02-08_215223222.png";
+                            }}
+                          />
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-white">
