@@ -11,14 +11,19 @@ interface ChatMessage {
 export function Chat({ projectId }: { projectId: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const socket = useRef(io("https://focusflow-production.up.railway.app", { withCredentials: true }));
+  const socket = useRef(
+    io("https://focusflow-production.up.railway.app", { withCredentials: true })
+  );
   const userId = jwtDecode<{ id: string }>(localStorage.getItem("token")!).id;
 
   useEffect(() => {
     // Fetch initial messages
-    fetch(`https://focusflow-production.up.railway.app/api/projects/${projectId}/chat`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-    })
+    fetch(
+      `https://focusflow-production.up.railway.app/api/projects/${projectId}/chat`,
+      {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      }
+    )
       .then((res) => res.json())
       .then((data) => setMessages(data));
 
@@ -35,7 +40,11 @@ export function Chat({ projectId }: { projectId: string }) {
 
   const sendMessage = () => {
     if (!newMessage.trim()) return;
-    socket.current.emit("sendMessage", { projectId, userId, message: newMessage });
+    socket.current.emit("sendMessage", {
+      projectId,
+      userId,
+      message: newMessage,
+    });
     setNewMessage("");
   };
 
@@ -44,7 +53,8 @@ export function Chat({ projectId }: { projectId: string }) {
       <div className="messages h-64 overflow-y-auto mb-4">
         {messages.map((msg, idx) => (
           <div key={idx} className="message mb-2">
-            <span className="font-bold">{msg.user.username}:</span> {msg.message}
+            <span className="font-bold">{msg.user.username}:</span>{" "}
+            {msg.message}
             <span className="text-gray-400 text-sm ml-2">
               {new Date(msg.timestamp).toLocaleTimeString()}
             </span>
@@ -59,7 +69,10 @@ export function Chat({ projectId }: { projectId: string }) {
           className="flex-1 p-2 rounded bg-gray-700 text-white"
           placeholder="Type a message..."
         />
-        <button onClick={sendMessage} className="p-2 bg-red-500 rounded text-white">
+        <button
+          onClick={sendMessage}
+          className="p-2 bg-red-500 rounded text-white"
+        >
           Send
         </button>
       </div>

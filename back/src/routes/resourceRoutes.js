@@ -78,6 +78,13 @@ router.post("/upload-wallpaper", authenticateJWT, isAdmin, upload.single("file")
       return res.status(400).json({ message: "No file uploaded" });
     }
 
+    // Validate category
+    const validCategories = ["nature", "abstract", "dark", "minimal"];
+    const category = req.body.category || "abstract";
+    if (!validCategories.includes(category)) {
+      return res.status(400).json({ message: `Invalid category. Must be one of: ${validCategories.join(", ")}` });
+    }
+
     const fileName = `wallpapers/${Date.now()}-${req.file.originalname}`;
 
     // Upload image to Supabase Storage
@@ -86,20 +93,27 @@ router.post("/upload-wallpaper", authenticateJWT, isAdmin, upload.single("file")
       .upload(fileName, req.file.buffer, {
         contentType: req.file.mimetype,
         cacheControl: "3600",
+        upsert: true, // Overwrite if file already exists
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase upload error:", error);
+      throw new Error(`Failed to upload to Supabase: ${error.message}`);
+    }
+
+    console.log("Supabase upload successful:", data);
 
     // Retrieve the public URL
     const { data: publicUrlData } = supabase.storage
       .from("wallpapers")
       .getPublicUrl(fileName);
 
-    if (!publicUrlData) {
-      return res.status(500).json({ message: "Failed to get public URL from Supabase" });
+    const publicUrl = publicUrlData?.publicUrl;
+    if (!publicUrl || typeof publicUrl !== "string") {
+      return res.status(500).json({ message: "Failed to retrieve a valid public URL from Supabase" });
     }
 
-    const publicUrl = publicUrlData.publicUrl;
+    console.log("Public URL:", publicUrl);
 
     // Save the wallpaper in MongoDB
     const newWallpaper = new Resource({
@@ -107,18 +121,20 @@ router.post("/upload-wallpaper", authenticateJWT, isAdmin, upload.single("file")
       name: req.file.originalname,
       url: publicUrl,
       uploadedBy: req.user.id,
-      category: req.body.category || "abstract", // Default category
-      tags: req.body.tags ? req.body.tags.split(",") : [],
+      category,
+      tags: req.body.tags ? req.body.tags.split(",").map((tag) => tag.trim()) : [],
     });
 
     await newWallpaper.save();
 
+    console.log("Wallpaper saved to MongoDB:", newWallpaper);
+
     res.status(200).json({ message: "Wallpaper uploaded successfully", url: publicUrl, wallpaper: newWallpaper });
   } catch (error) {
+    console.error("Upload error:", error);
     res.status(500).json({ message: "Upload error", error: error.message });
   }
 });
-
 /**
  * @route   DELETE /api/resources/:id
  * @desc    Delete a resource (Admin Only)

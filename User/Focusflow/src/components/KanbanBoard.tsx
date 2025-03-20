@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Board, Task, Column as ColumnType } from "../types";
 import Column from "./Column";
-import { Plus, Trash2 } from "lucide-react";
 import TaskCard from "./TaskCard";
 import {
   DndContext,
@@ -16,10 +15,13 @@ import {
 } from "@dnd-kit/core";
 import Header from "./Header";
 
+// Define the fixed 5 columns
 const initialBoard: Board = {
   columns: [
+    { id: uuidv4(), title: "Backlog", tasks: [] },
     { id: uuidv4(), title: "To Do", tasks: [] },
-    { id: uuidv4(), title: "In Progress", tasks: [] },
+    { id: uuidv4(), title: "To Test", tasks: [] },
+    { id: uuidv4(), title: "Doing", tasks: [] },
     { id: uuidv4(), title: "Done", tasks: [] },
   ],
 };
@@ -83,7 +85,6 @@ const KanbanBoard: React.FC = () => {
     }
   };
 
-  // Original drag handlers with saveBoard added
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const { task, columnId } = active.data.current || {};
@@ -133,7 +134,7 @@ const KanbanBoard: React.FC = () => {
         });
 
         const updatedBoard = { ...board, columns: updatedColumns };
-        saveBoard(updatedBoard); // Save after update
+        saveBoard(updatedBoard);
         return updatedBoard;
       });
     }
@@ -217,7 +218,7 @@ const KanbanBoard: React.FC = () => {
         }
 
         const updatedBoard = { ...newBoard, columns: newColumns };
-        saveBoard(updatedBoard); // Save after update
+        saveBoard(updatedBoard);
         return updatedBoard;
       });
     }
@@ -249,31 +250,6 @@ const KanbanBoard: React.FC = () => {
     });
   };
 
-  const handleAddColumn = () => {
-    const newColumn: ColumnType = {
-      id: uuidv4(),
-      title: "New Column",
-      tasks: [],
-    };
-    setBoard((prevBoard) => {
-      const updatedBoard = {
-        ...prevBoard,
-        columns: [...prevBoard.columns, newColumn],
-      };
-      saveBoard(updatedBoard);
-      return updatedBoard;
-    });
-  };
-
-  const handleDeleteColumn = (columnId: string) => {
-    setBoard((prevBoard) => {
-      const newColumns = prevBoard.columns.filter((col) => col.id !== columnId);
-      const updatedBoard = { ...prevBoard, columns: newColumns };
-      saveBoard(updatedBoard);
-      return updatedBoard;
-    });
-  };
-
   const handleUpdateColumn = (columnId: string, title: string) => {
     setBoard((prevBoard) => {
       const newColumns = prevBoard.columns.map((col) =>
@@ -285,43 +261,25 @@ const KanbanBoard: React.FC = () => {
     });
   };
 
-  // Original CSS preserved
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-screen w-full bg-white/[0.08]  ">
       <Header />
-      <div className="flex justify-between items-center mb-4 px-4 ml-50">
-        <button
-          onClick={handleAddColumn}
-          className="mt-4 w-60 h-15 bg-[#1E1E1E] space-x-2 border-2 border-red-600 bg-clip-padding border-gradient-to-r from-[#830E13] to-[#6B1E07] text-white text-2xl px-6 py-2 rounded-2xl shadow-xl hover:scale-105 transition flex items-center"
-        >
-          <Plus size={20} />
-          <span> Add Column</span>
-        </button>
-      </div>
-      <div className="flex overflow-x-auto pb-4 flex-1 ml-50">
+      <div className="flex-1 overflow-x-auto p-6">
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex flex-wrap gap-6">
+          <div className="flex gap-4 pl-18">
             {board.columns.map((column) => (
-              <div key={column.id} className="w-[400px]">
-                <div className="relative">
-                  <Column
-                    column={column}
-                    onAddTask={handleAddTask}
-                    onDeleteTask={handleDeleteTask}
-                    onUpdateColumn={handleUpdateColumn}
-                  />
-                  <button
-                    onClick={() => handleDeleteColumn(column.id)}
-                    className="absolute top-0 right-0 mt-2 mr-2 p-1 text-white rounded-full hover:bg-red-600 transition"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+              <div key={column.id} className="w-[350px] flex-shrink-0">
+                <Column
+                  column={column}
+                  onAddTask={handleAddTask}
+                  onDeleteTask={handleDeleteTask}
+                  onUpdateColumn={handleUpdateColumn}
+                />
               </div>
             ))}
           </div>

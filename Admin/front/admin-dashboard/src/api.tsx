@@ -1,34 +1,35 @@
 import axios from "axios";
 
-const API_BASE_URL = "https://focusflow-production.up.railway.app";
-// Change to your backend URL
+const API_BASE_URL = "https://focusflow-production.up.railway.app"; // Update to your production URL
+
 export const fetchResources = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/resources`);
+    const response = await axios.get(
+      `${API_BASE_URL}/api/resources/wallpapers`
+    ); // Update to fetch wallpapers specifically
     return response.data;
   } catch (error) {
     console.error("🔥 Error fetching resources:", error);
     throw error;
   }
 };
+
 export const loginAdmin = async (email: string, password: string) => {
-  const response = await axios.post(`${API_BASE_URL}/auth/admin-login`, {
+  const response = await axios.post(`${API_BASE_URL}/api/auth/admin-login`, {
     email,
     password,
   });
   return response.data;
 };
+
 export const deleteResource = async (id: string, token: string) => {
   try {
-    const response = await fetch(
-      `https://focusflow-production.up.railway.app/api/resources/${id}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/api/resources/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
     if (!response.ok) {
       throw new Error(`Failed to delete resource: ${response.statusText}`);
@@ -40,9 +41,11 @@ export const deleteResource = async (id: string, token: string) => {
     throw error;
   }
 };
+
 export const uploadFile = async (
   file: File,
   category: string,
+  tags: string,
   token: string | null
 ) => {
   if (!token) throw new Error("Unauthorized: No token provided!");
@@ -50,10 +53,11 @@ export const uploadFile = async (
   const formData = new FormData();
   formData.append("file", file);
   formData.append("category", category);
+  formData.append("tags", tags);
 
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/resources/upload`,
+      `${API_BASE_URL}/api/resources/upload-wallpaper`,
       formData,
       {
         headers: {
@@ -69,35 +73,30 @@ export const uploadFile = async (
     throw error;
   }
 };
-// src/api.ts
+
+// Other functions remain unchanged
 export const updateUser = async (updatedData: any, token: string) => {
-  const response = await fetch(
-    "https://focusflow-production.up.railway.app/api/auth/update-user",
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(updatedData),
-    }
-  );
+  const response = await fetch(`${API_BASE_URL}/api/auth/update-user`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(updatedData),
+  });
 
   if (!response.ok) throw new Error("Failed to update user");
 };
 
 export const fetchUsers = async (token: string) => {
   try {
-    const response = await fetch(
-      "https://focusflow-production.up.railway.app/api/admin/users",
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
     if (!response.ok) {
       throw new Error(`API error: ${response.statusText}`);
@@ -112,7 +111,7 @@ export const fetchUsers = async (token: string) => {
 
 export const deleteUser = async (token: string, userId: string) => {
   const response = await fetch(
-    `https://focusflow-production.up.railway.app/api/admin/delete-user/${userId}`,
+    `${API_BASE_URL}/api/admin/delete-user/${userId}`,
     {
       method: "DELETE",
       headers: {
