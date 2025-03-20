@@ -52,9 +52,9 @@ export function PlanningSession() {
   const socket = useRef(
     io("https://focusflow-production.up.railway.app", {
       withCredentials: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
+      reconnection: true, // Enable reconnection
+      reconnectionAttempts: 5, // Try to reconnect 5 times
+      reconnectionDelay: 1000, // Wait 1 second between attempts
     })
   );
 
@@ -138,47 +138,18 @@ export function PlanningSession() {
                 }
               : issue
           );
-          // Update votingUsers if the updated issue is the current issue
-          if (currentIssue?._id === issueId) {
-            const updatedIssue = updatedIssues.find((i) => i._id === issueId);
-            if (updatedIssue) {
-              setVotingUsers(
-                (updatedIssue.votes ?? []).map((vote) => ({
-                  userId:
-                    typeof vote.user === "string" ? vote.user : vote.user._id,
-                  username:
-                    typeof vote.user === "string"
-                      ? "Unknown"
-                      : vote.user.username,
-                }))
-              );
-              setCurrentIssue(updatedIssue);
-            }
-          }
-          return [...updatedIssues];
+          return [...updatedIssues]; // Create a new array to ensure React detects the change
         });
       }
     );
 
     socket.current.on(
       "votesRevealed",
-      ({
-        issueId,
-        votes,
-        status,
-      }: {
-        issueId: string;
-        votes: Vote[];
-        status: string;
-      }) => {
-        console.log("Received votesRevealed event:", {
-          issueId,
-          votes,
-          status,
-        });
+      ({ issueId, votes }: { issueId: string; votes: Vote[] }) => {
+        console.log("Received votesRevealed event:", { issueId, votes });
         setIssues((prevIssues) =>
           prevIssues.map((issue) =>
-            issue._id === issueId ? { ...issue, votes, status } : issue
+            issue._id === issueId ? { ...issue, votes } : issue
           )
         );
         if (currentIssue && currentIssue._id === issueId) {
@@ -191,7 +162,7 @@ export function PlanningSession() {
                 typeof vote.user === "string" ? "Unknown" : vote.user.username,
             }))
           );
-          setCurrentIssue((prev) => (prev ? { ...prev, votes, status } : prev));
+          setCurrentIssue((prev) => (prev ? { ...prev, votes } : prev));
         }
       }
     );
@@ -235,11 +206,12 @@ export function PlanningSession() {
     fetchPokerSession();
   }, [id]);
 
+  // Update voteStats, votingUsers, and currentIssue whenever issues changes
   useEffect(() => {
     if (currentIssue) {
       const updatedIssue = issues.find((i) => i._id === currentIssue._id);
       if (updatedIssue) {
-        setCurrentIssue(updatedIssue);
+        setCurrentIssue(updatedIssue); // Sync currentIssue with the latest data from issues
         setVotingUsers(
           (updatedIssue.votes || []).map((vote) => ({
             userId: typeof vote.user === "string" ? vote.user : vote.user._id,
@@ -315,8 +287,17 @@ export function PlanningSession() {
           setError(`Failed to record vote: ${errorText}`);
           return;
         }
-        console.log("Vote recorded successfully");
-        // Removed redundant socket.current.emit("vote", ...) since the backend already emits voteUpdate
+        console.log("Vote recorded, emitting vote event...");
+        socket.current.emit("vote", {
+          projectId: id,
+          issueId: currentIssue._id,
+          vote: value,
+          userId,
+        });
+
+        // Fetch the latest data after voting as a fallback
+        console.log("Fetching updated poker session data after vote...");
+        await fetchPokerSession();
       } catch (error: any) {
         console.error("Error recording vote:", error);
         setError(`Error recording vote: ${error.message}`);
@@ -514,6 +495,7 @@ export function PlanningSession() {
                         {currentIssue.description}
                       </p>
                     )}
+                    {/* Display the list of voting users */}
                     <div className="mb-6 p-3 bg-black/30 rounded-lg border border-gray-700">
                       <p className="text-gray-400">
                         {votingUsers.length} user
@@ -568,6 +550,7 @@ export function PlanningSession() {
                             </span>
                           </div>
                         </div>
+                        {/* Display individual votes when revealed */}
                         {votesRevealed && (
                           <div className="mt-4">
                             <h3 className="text-gray-400 mb-2">Votes</h3>
