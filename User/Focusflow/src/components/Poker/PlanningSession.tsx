@@ -52,6 +52,9 @@ export function PlanningSession() {
   const socket = useRef(
     io("https://focusflow-production.up.railway.app", {
       withCredentials: true,
+      reconnection: true, // Enable reconnection
+      reconnectionAttempts: 5, // Try to reconnect 5 times
+      reconnectionDelay: 1000, // Wait 1 second between attempts
     })
   );
 
@@ -75,6 +78,16 @@ export function PlanningSession() {
 
     socket.current.on("connect", () => {
       console.log("Socket.IO connected:", socket.current.id);
+      socket.current.emit("joinRoom", id); // Re-join room on reconnect
+    });
+
+    socket.current.on("connect_error", (err) => {
+      console.error("Socket.IO connection error:", err.message);
+      setError("Real-time updates unavailable. Please refresh the page.");
+    });
+
+    socket.current.on("disconnect", () => {
+      console.log("Socket.IO disconnected");
     });
 
     socket.current.on(
@@ -98,7 +111,6 @@ export function PlanningSession() {
         });
         console.log("Current issue:", currentIssue?._id);
         setIssues((prevIssues) => {
-          console.log("Previous issues state:", prevIssues);
           const updatedIssues = prevIssues.map((issue) =>
             issue._id === issueId
               ? {
@@ -126,24 +138,7 @@ export function PlanningSession() {
                 }
               : issue
           );
-          console.log("Updated issues state:", updatedIssues);
-    
-          // Update voting users and current issue if the updated issue is the current issue
-          if (currentIssue?._id === issueId) {
-            const updatedIssue = updatedIssues.find((i) => i._id === issueId);
-            if (updatedIssue) {
-              setVotingUsers(
-                updatedIssue.votes.map((vote) => ({
-                  userId: typeof vote.user === "string" ? vote.user : vote.user._id,
-                  username:
-                    typeof vote.user === "string" ? "Unknown" : vote.user.username,
-                }))
-              );
-              setCurrentIssue(updatedIssue);
-            }
-          }
-    
-          return updatedIssues;
+          return [...updatedIssues]; // Create a new array to ensure React detects the change
         });
       }
     );
@@ -167,7 +162,6 @@ export function PlanningSession() {
                 typeof vote.user === "string" ? "Unknown" : vote.user.username,
             }))
           );
-          // Update currentIssue to reflect the revealed votes
           setCurrentIssue((prev) => (prev ? { ...prev, votes } : prev));
         }
       }
@@ -218,7 +212,6 @@ export function PlanningSession() {
       const updatedIssue = issues.find((i) => i._id === currentIssue._id);
       if (updatedIssue) {
         setCurrentIssue(updatedIssue); // Sync currentIssue with the latest data from issues
-        updateVoteStats(updatedIssue.votes || []);
         setVotingUsers(
           (updatedIssue.votes || []).map((vote) => ({
             userId: typeof vote.user === "string" ? vote.user : vote.user._id,
@@ -226,11 +219,14 @@ export function PlanningSession() {
               typeof vote.user === "string" ? "Unknown" : vote.user.username,
           }))
         );
+        if (votesRevealed) {
+          updateVoteStats(updatedIssue.votes || []);
+        }
       }
     } else {
       setVotingUsers([]);
     }
-  }, [issues]);
+  }, [issues, currentIssue, votesRevealed]);
 
   const fetchPokerSession = async () => {
     const token = localStorage.getItem("token");
