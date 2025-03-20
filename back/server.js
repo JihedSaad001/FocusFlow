@@ -4,6 +4,9 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const http = require("http");
 const { Server } = require("socket.io");
+// Add Redis adapter dependencies
+const { createAdapter } = require("@socket.io/redis-adapter");
+const { createClient } = require("redis");
 
 dotenv.config();
 const app = express();
@@ -18,6 +21,20 @@ const io = new Server(server, {
     credentials: true,
   },
 });
+
+// Set up Redis adapter for Socket.IO to handle multiple instances
+const pubClient = createClient({ url: process.env.REDIS_URL });
+const subClient = pubClient.duplicate();
+
+// Connect to Redis clients and set up the adapter
+Promise.all([pubClient.connect(), subClient.connect()])
+  .then(() => {
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log("Redis adapter connected for Socket.IO");
+  })
+  .catch((err) => {
+    console.error("Failed to connect to Redis:", err);
+  });
 
 app.use(cors());
 app.use(express.json());
@@ -46,6 +63,7 @@ app.use("/api/user", userDataRoutes);
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
 
+  // Join a room based on projectId
   socket.on("joinRoom", (projectId) => {
     socket.join(projectId);
     console.log(`User ${socket.id} joined room ${projectId}`);
