@@ -52,6 +52,9 @@ export function PlanningSession() {
   const socket = useRef(
     io("https://focusflow-production.up.railway.app", {
       withCredentials: true,
+      reconnection: true, // Enable reconnection
+      reconnectionAttempts: 5, // Try to reconnect 5 times
+      reconnectionDelay: 1000, // Wait 1 second between attempts
     })
   );
 
@@ -75,6 +78,16 @@ export function PlanningSession() {
 
     socket.current.on("connect", () => {
       console.log("Socket.IO connected:", socket.current.id);
+      socket.current.emit("joinRoom", id); // Re-join room on reconnect
+    });
+
+    socket.current.on("connect_error", (err) => {
+      console.error("Socket.IO connection error:", err.message);
+      setError("Real-time updates unavailable. Please refresh the page.");
+    });
+
+    socket.current.on("disconnect", () => {
+      console.log("Socket.IO disconnected");
     });
 
     socket.current.on(
@@ -314,15 +327,35 @@ export function PlanningSession() {
   const handleRevealVotes = async () => {
     if (!votesRevealed && currentIssue) {
       setIsUpdating(true);
-      socket.current.emit("revealVotes", {
-        projectId: id,
-        issueId: currentIssue._id,
-      });
-      setVotesRevealed(true);
-      const currentIssueVotes =
-        issues.find((i) => i._id === currentIssue._id)?.votes || [];
-      updateVoteStats(currentIssueVotes);
-      setIsUpdating(false);
+      try {
+        // Make an API call to the reveal endpoint
+        const response = await fetch(
+          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/reveal`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+        if (!response.ok) {
+          const errorText = await response.text();
+          setError(`Failed to reveal votes: ${errorText}`);
+          return;
+        }
+        // Emit the revealVotes event to notify other clients
+        socket.current.emit("revealVotes", {
+          projectId: id,
+          issueId: currentIssue._id,
+        });
+        // The UI will be updated when the votesRevealed event is received
+      } catch (error: any) {
+        console.error("Error revealing votes:", error);
+        setError(`Error revealing votes: ${error.message}`);
+      } finally {
+        setIsUpdating(false);
+      }
     } else {
       setVotesRevealed(false);
     }
