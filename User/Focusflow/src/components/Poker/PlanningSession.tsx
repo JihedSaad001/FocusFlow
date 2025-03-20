@@ -133,7 +133,7 @@ export function PlanningSession() {
             const updatedIssue = updatedIssues.find((i) => i._id === issueId);
             if (updatedIssue) {
               setVotingUsers(
-                (updatedIssue.votes ?? []).map((vote) => ({
+                updatedIssue.votes.map((vote) => ({
                   userId: typeof vote.user === "string" ? vote.user : vote.user._id,
                   username:
                     typeof vote.user === "string" ? "Unknown" : vote.user.username,
