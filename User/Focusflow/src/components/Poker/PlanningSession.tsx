@@ -127,26 +127,24 @@ export function PlanningSession() {
               : issue
           );
           console.log("Updated issues state:", updatedIssues);
+    
+          // Update voting users and current issue if the updated issue is the current issue
+          if (currentIssue?._id === issueId) {
+            const updatedIssue = updatedIssues.find((i) => i._id === issueId);
+            if (updatedIssue) {
+              setVotingUsers(
+                (updatedIssue.votes ?? []).map((vote) => ({
+                  userId: typeof vote.user === "string" ? vote.user : vote.user._id,
+                  username:
+                    typeof vote.user === "string" ? "Unknown" : vote.user.username,
+                }))
+              );
+              setCurrentIssue(updatedIssue);
+            }
+          }
+    
           return updatedIssues;
         });
-
-        // Update voting users if the updated issue is the current issue
-        if (currentIssue?._id === issueId) {
-          setVotingUsers((prev) => {
-            const newUsers = prev.some((u) => u.userId === userId)
-              ? prev.map((u) =>
-                  u.userId === userId ? { userId, username } : u
-                )
-              : [...prev, { userId, username }];
-            return newUsers;
-          });
-          // Update currentIssue to reflect the latest votes
-          setCurrentIssue((prev) => {
-            if (!prev || prev._id !== issueId) return prev;
-            const updatedIssue = issues.find((i) => i._id === issueId);
-            return updatedIssue ? { ...prev, votes: updatedIssue.votes } : prev;
-          });
-        }
       }
     );
 
