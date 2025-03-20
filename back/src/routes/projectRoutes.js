@@ -425,7 +425,32 @@ module.exports = (io) => {
       res.status(500).json({ message: "Error recording vote", error: error.message });
     }
   });
+// Fetch chat messages
+router.get("/:projectId/chat", authenticateJWT, async (req, res) => {
+  const project = await Project.findById(req.params.projectId)
+    .populate("chatMessages.user", "username");
+  if (!project) return res.status(404).json({ message: "Project not found" });
+  if (!project.members.map(m => m._id.toString()).includes(req.user.id))
+    return res.status(403).json({ message: "Unauthorized" });
+  res.status(200).json(project.chatMessages || []);
+});
 
+// Socket.IO event for sending messages (add this in the io.on("connection") in server.js)
+io.on("connection", (socket) => {
+  socket.on("sendMessage", async ({ projectId, userId, message }) => {
+    const project = await Project.findById(projectId);
+    if (!project) return;
+    const user = await User.findById(userId);
+    const newMessage = { user: userId, message, timestamp: new Date() };
+    project.chatMessages.push(newMessage);
+    await project.save();
+    io.to(projectId).emit("receiveMessage", {
+      user: { _id: userId, username: user.username },
+      message,
+      timestamp: newMessage.timestamp,
+    });
+  });
+});
   router.post("/:projectId/poker/issue/:issueId/reveal", authenticateJWT, async (req, res) => {
     try {
       const project = await Project.findById(req.params.projectId)

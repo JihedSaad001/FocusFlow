@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Folder,
@@ -18,8 +18,10 @@ import {
   PlayCircle,
   UserPlus,
   UserMinus,
+  MessageSquare, // Add chat icon
 } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
+import { io } from "socket.io-client";
 
 // Define interfaces for type safety
 interface Task {
@@ -42,6 +44,12 @@ interface Sprint {
   goals: string[];
   reviewNotes?: string[];
   retrospectiveNotes?: string[];
+}
+
+interface ChatMessage {
+  user: { _id: string; username: string };
+  message: string;
+  timestamp: string;
 }
 
 interface Project {
@@ -95,11 +103,17 @@ function ProjectDetails() {
   const [showBacklog, setShowBacklog] = useState(true);
   const [showSprintPlanning, setShowSprintPlanning] = useState(true);
   const [showSprintBoard, setShowSprintBoard] = useState(true);
+  const [showChat, setShowChat] = useState(true); // Add state for chat section
   const [showAddMember, setShowAddMember] = useState(false);
   const [memberEmail, setMemberEmail] = useState("");
   const [addMemberError, setAddMemberError] = useState<string | null>(null);
   const [addMemberSuccess, setAddMemberSuccess] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]); // State for chat messages
+  const [newMessage, setNewMessage] = useState(""); // State for new message input
+  const socket = useRef(
+    io("https://focusflow-production.up.railway.app", { withCredentials: true })
+  );
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -146,6 +160,52 @@ function ProjectDetails() {
     };
     fetchProject();
   }, [id, navigate]);
+
+  // Chat-related useEffect
+  useEffect(() => {
+    if (!id) return;
+
+    // Fetch initial chat messages
+    const fetchChatMessages = async () => {
+      const token = localStorage.getItem("token");
+      try {
+        const response = await fetch(
+          `https://focusflow-production.up.railway.app/api/projects/${id}/chat`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (!response.ok) throw new Error("Failed to fetch chat messages");
+        const data = await response.json();
+        setMessages(data);
+      } catch (error: any) {
+        console.error("❌ Error fetching chat messages:", error);
+        setError("Error fetching chat messages.");
+      }
+    };
+
+    fetchChatMessages();
+
+    socket.current.emit("joinRoom", id);
+
+    socket.current.on("receiveMessage", (message: ChatMessage) => {
+      setMessages((prev) => [...prev, message]);
+    });
+
+    return () => {
+      socket.current.disconnect();
+    };
+  }, [id]);
+
+  const sendMessage = () => {
+    if (!newMessage.trim() || !id || !currentUserId) return;
+    socket.current.emit("sendMessage", {
+      projectId: id,
+      userId: currentUserId,
+      message: newMessage,
+    });
+    setNewMessage("");
+  };
 
   const addTaskToBacklog = async () => {
     if (!project) {
@@ -407,7 +467,6 @@ function ProjectDetails() {
         throw new Error(`Failed to add member: ${errorText}`);
       }
 
-      // Re-fetch the project data
       const fetchProjectResponse = await fetch(
         `https://focusflow-production.up.railway.app/api/projects/${id}`,
         {
@@ -465,7 +524,6 @@ function ProjectDetails() {
         throw new Error(`Failed to remove member: ${errorText}`);
       }
 
-      // Re-fetch the project data
       const fetchProjectResponse = await fetch(
         `https://focusflow-production.up.railway.app/api/projects/${id}`,
         {
@@ -550,7 +608,6 @@ function ProjectDetails() {
     <div className="min-h-screen bg-[#121212] text-white p-6">
       <div className="max-w-7xl mx-auto">
         <div className="bg-[#1E1E1E] rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
-          {/* Project Header */}
           <div className="border-b border-gray-700/50 p-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
@@ -1001,6 +1058,69 @@ function ProjectDetails() {
               </div>
             )}
 
+            {/* Chat Section */}
+            <div className="mb-8">
+              <div
+                className="flex items-center justify-between cursor-pointer p-4 bg-black/30 rounded-lg mb-4 hover:bg-black/40 transition-colors duration-200"
+                onClick={() => setShowChat(!showChat)}
+              >
+                <div className="flex items-center">
+                  <MessageSquare className="w-6 h-6 mr-3 text-red-500" />
+                  <h2 className="text-2xl font-semibold">Project Chat</h2>
+                </div>
+                {showChat ? <ChevronUp /> : <ChevronDown />}
+              </div>
+
+              {showChat && (
+                <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
+                  <div className="chat-container">
+                    <div className="messages h-64 overflow-y-auto mb-4 space-y-2">
+                      {messages.map((msg, idx) => (
+                        <div
+                          key={idx}
+                          className="message flex items-start gap-2"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                            <UserCircle className="w-5 h-5 text-red-500" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-white">
+                                {msg.user.username}
+                              </span>
+                              <span className="text-gray-400 text-sm">
+                                {new Date(msg.timestamp).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            <p className="text-gray-300">{msg.message}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="input-area flex gap-2">
+                      <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        className="flex-1 p-3 rounded-lg bg-black/50 border border-gray-700 text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
+                        placeholder="Type a message..."
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter") sendMessage();
+                        }}
+                      />
+                      <button
+                        onClick={sendMessage}
+                        className="p-3 bg-red-500 rounded-lg hover:bg-red-600 transition-colors text-white"
+                      >
+                        Send
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Project Members Section */}
             <div className="mb-8">
               <h2 className="text-2xl font-semibold text-white mb-6 flex items-center">
                 <Users className="w-6 h-6 mr-3 text-red-500" />

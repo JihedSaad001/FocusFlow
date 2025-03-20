@@ -37,6 +37,13 @@ const ProjectSchema = new mongoose.Schema({
       retrospectiveNotes: [String],
     },
   ],
+  chatMessages: [
+    {
+      user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      message: { type: String, required: true },
+      timestamp: { type: Date, default: Date.now },
+    },
+  ],
   activePokerSession: {
     issues: [
       {
