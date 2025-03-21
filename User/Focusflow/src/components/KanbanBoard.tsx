@@ -52,16 +52,11 @@ const KanbanBoard: React.FC = () => {
         if (!response.ok) throw new Error("Failed to fetch board");
         const data = await response.json();
         console.log("Fetched Kanban board:", data);
-        // If kanbanBoard is null or missing columns, fall back to initialBoard
-        if (data.kanbanBoard && Array.isArray(data.kanbanBoard.columns)) {
+        if (data.kanbanBoard && data.kanbanBoard.columns.length > 0) {
           setBoard(data.kanbanBoard);
-        } else {
-          console.warn("Kanban board data is invalid, using initial board");
-          setBoard(initialBoard);
         }
       } catch (error) {
         console.error("Error fetching Kanban board:", error);
-        setBoard(initialBoard); // Fallback to initialBoard on error
       }
     };
     fetchBoard();
@@ -113,9 +108,9 @@ const KanbanBoard: React.FC = () => {
     if (isActiveATask && isOverAColumn) {
       setBoard((board) => {
         const activeColumn = board.columns.find(
-          (col) => col?.id === active.data.current?.columnId
+          (col) => col.id === active.data.current?.columnId
         );
-        const overColumn = board.columns.find((col) => col?.id === over.id);
+        const overColumn = board.columns.find((col) => col.id === over.id);
 
         if (!activeColumn || !overColumn) return board;
 
@@ -124,13 +119,13 @@ const KanbanBoard: React.FC = () => {
         );
 
         const updatedColumns = board.columns.map((col) => {
-          if (col?.id === activeColumn.id) {
+          if (col.id === activeColumn.id) {
             return {
               ...col,
               tasks: col.tasks.filter((task) => task.id !== activeId),
             };
           }
-          if (col?.id === overColumn.id) {
+          if (col.id === overColumn.id) {
             const newTasks = [...col.tasks];
             newTasks.push(activeColumn.tasks[activeTaskIndex]);
             return { ...col, tasks: newTasks };
@@ -168,18 +163,16 @@ const KanbanBoard: React.FC = () => {
 
       setBoard((board) => {
         const activeColumnIndex = board.columns.findIndex(
-          (col) => col?.id === activeColumnId
+          (col) => col.id === activeColumnId
         );
         const overColumnIndex = board.columns.findIndex(
-          (col) => col?.id === overColumnId
+          (col) => col.id === overColumnId
         );
 
         if (activeColumnIndex === -1 || overColumnIndex === -1) return board;
 
         const activeColumn = board.columns[activeColumnIndex];
         const overColumn = board.columns[overColumnIndex];
-
-        if (!activeColumn || !overColumn) return board;
 
         const activeTaskIndex = activeColumn.tasks.findIndex(
           (task) => task.id === activeId
@@ -236,7 +229,7 @@ const KanbanBoard: React.FC = () => {
   const handleAddTask = (columnId: string, task: Task) => {
     setBoard((prevBoard) => {
       const newColumns = prevBoard.columns.map((col) =>
-        col?.id === columnId ? { ...col, tasks: [...col.tasks, task] } : col
+        col.id === columnId ? { ...col, tasks: [...col.tasks, task] } : col
       );
       const updatedBoard = { ...prevBoard, columns: newColumns };
       saveBoard(updatedBoard);
@@ -247,7 +240,7 @@ const KanbanBoard: React.FC = () => {
   const handleDeleteTask = (taskId: string, columnId: string) => {
     setBoard((prevBoard) => {
       const newColumns = prevBoard.columns.map((col) =>
-        col?.id === columnId
+        col.id === columnId
           ? { ...col, tasks: col.tasks.filter((task) => task.id !== taskId) }
           : col
       );
@@ -260,7 +253,7 @@ const KanbanBoard: React.FC = () => {
   const handleUpdateColumn = (columnId: string, title: string) => {
     setBoard((prevBoard) => {
       const newColumns = prevBoard.columns.map((col) =>
-        col?.id === columnId ? { ...col, title } : col
+        col.id === columnId ? { ...col, title } : col
       );
       const updatedBoard = { ...prevBoard, columns: newColumns };
       saveBoard(updatedBoard);
@@ -269,54 +262,37 @@ const KanbanBoard: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#121212]">
-      {/* Sidebar Space */}
-      <div className="w-16 flex-shrink-0" />
-
-      {/* Main Content */}
-      <div className="flex flex-col flex-1">
-        <Header />
-        <div className="flex-1 overflow-x-auto p-4 sm:p-5 md:p-6">
-          <DndContext
-            sensors={sensors}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 md:gap-4 max-w-full mx-auto">
-              {board.columns && Array.isArray(board.columns) ? (
-                board.columns.map((column) =>
-                  column ? (
-                    <div
-                      key={column.id}
-                      className="w-full sm:w-[250px] md:w-[300px] lg:w-[350px] flex-shrink-0"
-                    >
-                      <Column
-                        column={column}
-                        onAddTask={handleAddTask}
-                        onDeleteTask={handleDeleteTask}
-                        onUpdateColumn={handleUpdateColumn}
-                      />
-                    </div>
-                  ) : null
-                )
-              ) : (
-                <div className="text-gray-500 text-center py-4">
-                  No columns available
-                </div>
-              )}
-            </div>
-            <DragOverlay>
-              {activeTask && (
-                <TaskCard
-                  task={activeTask}
-                  columnId={activeColumn || ""}
-                  onDelete={() => {}}
+    <div className="flex flex-col h-screen w-full bg-[#121212]  ">
+      <Header />
+      <div className="flex-1 overflow-x-auto p-6">
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-2 ">
+            {board.columns.map((column) => (
+              <div key={column.id} className="w-[350px] flex-shrink-0">
+                <Column
+                  column={column}
+                  onAddTask={handleAddTask}
+                  onDeleteTask={handleDeleteTask}
+                  onUpdateColumn={handleUpdateColumn}
                 />
-              )}
-            </DragOverlay>
-          </DndContext>
-        </div>
+              </div>
+            ))}
+          </div>
+          <DragOverlay>
+            {activeTask && (
+              <TaskCard
+                task={activeTask}
+                columnId={activeColumn || ""}
+                onDelete={() => {}}
+              />
+            )}
+          </DragOverlay>
+        </DndContext>
       </div>
     </div>
   );
