@@ -20,8 +20,8 @@ const initialBoard: Board = {
   columns: [
     { id: uuidv4(), title: "Backlog", tasks: [] },
     { id: uuidv4(), title: "To Do", tasks: [] },
-    { id: uuidv4(), title: "To Test", tasks: [] },
     { id: uuidv4(), title: "Doing", tasks: [] },
+    { id: uuidv4(), title: "To Test", tasks: [] },
     { id: uuidv4(), title: "Done", tasks: [] },
   ],
 };
