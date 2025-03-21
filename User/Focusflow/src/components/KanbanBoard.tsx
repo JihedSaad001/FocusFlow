@@ -271,7 +271,7 @@ const KanbanBoard: React.FC = () => {
   return (
     <div className="flex h-screen w-full bg-[#121212]">
       {/* Sidebar Space */}
-      <div className="w-16 flex-shrink-0" />
+      <div className="flex-shrink-0" />
 
       {/* Main Content */}
       <div className="flex flex-col flex-1">
