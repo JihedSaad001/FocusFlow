@@ -124,7 +124,7 @@ const KanbanBoard: React.FC = () => {
         if (!activeColumn || !overColumn) return prevBoard;
 
         const activeTaskIndex = activeColumn.tasks.findIndex(
-          (task) => task.id === activeId
+          (task) => task._id === activeId
         );
         if (activeTaskIndex === -1) return prevBoard;
 
@@ -132,7 +132,7 @@ const KanbanBoard: React.FC = () => {
           if (col.id === activeColumn.id) {
             return {
               ...col,
-              tasks: col.tasks.filter((task) => task.id !== activeId),
+              tasks: col.tasks.filter((task) => task._id !== activeId),
             };
           }
           if (col.id === overColumn.id) {
@@ -184,7 +184,7 @@ const KanbanBoard: React.FC = () => {
         if (!activeColumn || !overColumn) return prevBoard;
 
         const activeTaskIndex = activeColumn.tasks.findIndex(
-          (task) => task.id === activeId
+          (task) => task._id === activeId
         );
         if (activeTaskIndex === -1) return prevBoard;
 
@@ -193,7 +193,7 @@ const KanbanBoard: React.FC = () => {
         if (activeColumnId === overColumnId) {
           // Reorder within the same column
           const overTaskIndex = overColumn.tasks.findIndex(
-            (task) => task.id === overId
+            (task) => task._id === overId
           );
           if (overTaskIndex === -1) return prevBoard;
 
@@ -222,7 +222,7 @@ const KanbanBoard: React.FC = () => {
 
           if (over.data.current?.task) {
             const overTaskIndex = newDestTasks.findIndex(
-              (task) => task.id === overId
+              (task) => task._id === overId
             );
             newDestTasks.splice(overTaskIndex, 0, movedTask);
           } else {
@@ -264,7 +264,7 @@ const KanbanBoard: React.FC = () => {
     setBoard((prevBoard) => {
       const updatedColumns = prevBoard.columns.map((col) =>
         col.id === columnId
-          ? { ...col, tasks: col.tasks.filter((task) => task.id !== taskId) }
+          ? { ...col, tasks: col.tasks.filter((task) => task._id !== taskId) }
           : col
       );
       const updatedBoard = { ...prevBoard, columns: updatedColumns };
@@ -293,10 +293,10 @@ const KanbanBoard: React.FC = () => {
       e.preventDefault();
       if (newTask.title) {
         const task: Task = {
-          id: Date.now().toString(),
+          _id: Date.now().toString(),
           title: newTask.title,
           priority: newTask.priority as "Low" | "Medium" | "High",
-          date: new Date().toLocaleDateString("en-US", {
+          deadline: new Date().toLocaleDateString("en-US", {
             year: "numeric",
             month: "long",
             day: "numeric",
@@ -340,13 +340,13 @@ const KanbanBoard: React.FC = () => {
         {/* Task List */}
         <div className="flex-1 overflow-y-auto p-3">
           <SortableContext
-            items={column.tasks.map((task) => task.id)}
+            items={column.tasks.map((task) => task._id)}
             strategy={verticalListSortingStrategy}
           >
             {column.tasks.length > 0 ? (
               column.tasks.map((task) => (
                 <TaskCard
-                  key={task.id}
+                  key={task._id}
                   task={task}
                   columnId={column.id}
                   onDelete={onDeleteTask}

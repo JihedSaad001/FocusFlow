@@ -32,6 +32,7 @@ interface Task {
   assignedTo?: string;
   deadline?: string;
   status?: "To Do" | "In Progress" | "Done";
+  finalEstimate?: string; // Added to match updated types.ts
 }
 
 interface Sprint {
@@ -47,7 +48,7 @@ interface Sprint {
 }
 
 interface ChatMessage {
-  user: { _id: string; username: string; profilePic: string }; // Add profilePic
+  user: { _id: string; username: string; profilePic: string };
   message: string;
   timestamp: string;
 }
@@ -690,7 +691,7 @@ function ProjectDetails() {
 
               {showBacklog && (
                 <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
-                  <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <input
                       value={newTask.title}
                       onChange={(e) =>
@@ -704,7 +705,7 @@ function ProjectDetails() {
                       onChange={(e) =>
                         setNewTask({ ...newTask, description: e.target.value })
                       }
-                      placeholder="Description"
+                      placeholder="Task Description"
                       className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
                     />
                     <select
@@ -717,9 +718,9 @@ function ProjectDetails() {
                       }
                       className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
                     >
-                      <option value="Low">Low Priority</option>
-                      <option value="Medium">Medium Priority</option>
-                      <option value="High">High Priority</option>
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
                     </select>
                     <input
                       value={newTask.assignedTo}
@@ -739,74 +740,95 @@ function ProjectDetails() {
                     />
                     <button
                       onClick={addTaskToBacklog}
-                      className="w-full bg-gradient-to-r from-red-500 to-red-700 text-white px-6 py-3 rounded-lg font-semibold shadow-lg transform transition-all duration-200 hover:scale-[1.02] hover:shadow-red-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+                      className="bg-gradient-to-r from-red-500 to-red-700 text-white px-6 py-3 rounded-lg font-semibold shadow-lg transform transition-all duration-200 hover:scale-[1.02] hover:shadow-red-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
                     >
-                      <Plus className="w-5 h-5 mr-2" /> Add
+                      <Plus className="w-5 h-5" />
+                      Add Task
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {project?.backlog.map((task: Task) => (
-                      <div
-                        key={task._id}
-                        className="bg-black/30 rounded-lg p-4 border border-gray-700/50 hover:border-red-500/50 transition-all duration-200 flex flex-col min-w-0"
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-semibold text-white truncate">
-                            {task.title}
-                          </h3>
-                          <span
-                            className={`text-sm px-2 py-1 rounded ${
-                              task.priority === "High"
-                                ? "bg-red-500/20 text-red-400"
-                                : task.priority === "Medium"
-                                ? "bg-yellow-500/20 text-yellow-400"
-                                : "bg-green-500/20 text-green-400"
-                            }`}
-                          >
-                            {task.priority}
-                          </span>
-                        </div>
-                        <p className="text-gray-400 text-sm mb-3 flex-grow overflow-hidden text-ellipsis">
-                          {task.description}
-                        </p>
-                        {task.deadline && (
-                          <div className="flex items-center text-gray-500 text-sm mb-3">
-                            <Calendar className="w-4 h-4 mr-1" />
-                            {new Date(task.deadline).toLocaleDateString()}
+                  {project?.backlog.length === 0 ? (
+                    <p className="text-gray-400 text-center">
+                      No tasks in the backlog yet.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {project?.backlog.map((task: Task) => (
+                        <div
+                          key={task._id}
+                          className="bg-black/30 rounded-lg p-4 border border-gray-700/50 hover:border-red-500/50 transition-all duration-200 flex flex-col min-w-0"
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <h3 className="font-semibold text-white truncate">
+                              {task.title}
+                            </h3>
+                            <span
+                              className={`text-sm px-2 py-1 rounded ${
+                                task.priority === "High"
+                                  ? "bg-red-500/20 text-red-400"
+                                  : task.priority === "Medium"
+                                  ? "bg-yellow-500/20 text-yellow-400"
+                                  : "bg-green-500/20 text-green-400"
+                              }`}
+                            >
+                              {task.priority}
+                            </span>
                           </div>
-                        )}
-                        {task.assignedTo && (
-                          <div className="flex items-center text-gray-500 text-sm mb-3">
-                            <UserCircle className="w-4 h-4 mr-1" />
-                            Assigned to: {task.assignedTo}
-                          </div>
-                        )}
-                        <div className="flex flex-wrap gap-2 mt-auto">
-                          {activeSprint && (
+                          <p className="text-gray-400 text-sm mb-3 flex-grow overflow-hidden text-ellipsis">
+                            {task.description}
+                          </p>
+                          {task.finalEstimate && (
+                            <div className="flex items-center text-gray-500 text-sm mb-3">
+                              <span className="text-red-400 font-semibold">
+                                Estimate: {task.finalEstimate}
+                              </span>
+                            </div>
+                          )}
+                          {task.deadline && (
+                            <div className="flex items-center text-gray-500 text-sm mb-3">
+                              <Calendar className="w-4 h-4 mr-1" />
+                              {new Date(task.deadline).toLocaleDateString()}
+                            </div>
+                          )}
+                          {task.assignedTo && (
+                            <div className="flex items-center text-gray-500 text-sm mb-3">
+                              <UserCircle className="w-4 h-4 mr-1" />
+                              Assigned to: {task.assignedTo}
+                            </div>
+                          )}
+                          <div className="flex flex-wrap gap-2 mt-auto">
+                            {activeSprint ? ( // Added null check for activeSprint
+                              <button
+                                onClick={() =>
+                                  addTaskToSprint(
+                                    task._id,
+                                    task.assignedTo || "",
+                                    task.deadline || ""
+                                  )
+                                }
+                                className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2 min-w-[120px]"
+                              >
+                                Add to Sprint <ArrowRight className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button
+                                disabled
+                                className="flex-1 bg-gray-500/10 text-gray-400 py-2 rounded-lg font-medium flex items-center justify-center gap-2 min-w-[120px] cursor-not-allowed"
+                              >
+                                Add to Sprint <ArrowRight className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
-                              onClick={() =>
-                                addTaskToSprint(
-                                  task._id,
-                                  task.assignedTo || "",
-                                  task.deadline || ""
-                                )
-                              }
+                              onClick={() => deleteTaskFromBacklog(task._id)}
                               className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2 min-w-[120px]"
                             >
-                              Add to Sprint <ArrowRight className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" /> Delete
                             </button>
-                          )}
-                          <button
-                            onClick={() => deleteTaskFromBacklog(task._id)}
-                            className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2 min-w-[120px]"
-                          >
-                            <Trash2 className="w-4 h-4" /> Delete
-                          </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -927,7 +949,7 @@ function ProjectDetails() {
             </div>
 
             {/* Sprint Board Section */}
-            {activeSprint && (
+            {activeSprint && showSprintBoard && (
               <div className="mb-8">
                 <div
                   className="flex items-center justify-between cursor-pointer p-4 bg-black/30 rounded-lg mb-4 hover:bg-black/40 transition-colors duration-200"
@@ -940,120 +962,136 @@ function ProjectDetails() {
                   {showSprintBoard ? <ChevronUp /> : <ChevronDown />}
                 </div>
 
-                {showSprintBoard && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
-                      <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                        <ListTodo className="w-5 h-5 mr-2 text-gray-400" />
-                        To Do
-                      </h3>
-                      <div className="space-y-3">
-                        {activeSprint.tasks
-                          .filter((t: Task) => t.status === "To Do")
-                          .map((task: Task) => (
-                            <div
-                              key={task._id}
-                              className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-medium text-white">
-                                  {task.title}
-                                </h4>
-                                <button
-                                  onClick={() =>
-                                    updateTaskStatus(task._id, "In Progress")
-                                  }
-                                  className="text-yellow-400 hover:text-yellow-300 transition-colors"
-                                >
-                                  Start
-                                </button>
-                              </div>
-                              <p className="text-gray-400 text-sm mb-3 flex-grow">
-                                {task.description}
-                              </p>
-                              <button
-                                onClick={() => deleteTaskFromSprint(task._id)}
-                                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
-                              >
-                                <Trash2 className="w-4 h-4" /> Delete
-                              </button>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-
-                    <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
-                      <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                        <Loader2 className="w-5 h-5 mr-2 text-yellow-500" />
-                        In Progress
-                      </h3>
-                      <div className="space-y-3">
-                        {activeSprint.tasks
-                          .filter((t: Task) => t.status === "In Progress")
-                          .map((task: Task) => (
-                            <div
-                              key={task._id}
-                              className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-medium text-white">
-                                  {task.title}
-                                </h4>
-                                <button
-                                  onClick={() =>
-                                    updateTaskStatus(task._id, "Done")
-                                  }
-                                  className="text-green-400 hover:text-green-300 transition-colors"
-                                >
-                                  Complete
-                                </button>
-                              </div>
-                              <p className="text-gray-400 text-sm mb-3 flex-grow">
-                                {task.description}
-                              </p>
-                              <button
-                                onClick={() => deleteTaskFromSprint(task._id)}
-                                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
-                              >
-                                <Trash2 className="w-4 h-4" /> Delete
-                              </button>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-
-                    <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
-                      <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                        <CheckSquare className="w-5 h-5 mr-2 text-green-500" />
-                        Done
-                      </h3>
-                      <div className="space-y-3">
-                        {activeSprint.tasks
-                          .filter((t: Task) => t.status === "Done")
-                          .map((task: Task) => (
-                            <div
-                              key={task._id}
-                              className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
-                            >
-                              <h4 className="font-medium text-white mb-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                      <ListTodo className="w-5 h-5 mr-2 text-gray-400" />
+                      To Do
+                    </h3>
+                    <div className="space-y-3">
+                      {activeSprint.tasks
+                        .filter((t: Task) => t.status === "To Do")
+                        .map((task: Task) => (
+                          <div
+                            key={task._id}
+                            className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="font-medium text-white">
                                 {task.title}
                               </h4>
-                              <p className="text-gray-400 text-sm mb-3 flex-grow">
-                                {task.description}
-                              </p>
                               <button
-                                onClick={() => deleteTaskFromSprint(task._id)}
-                                className="bg-red-5
-00/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
+                                onClick={() =>
+                                  updateTaskStatus(task._id, "In Progress")
+                                }
+                                className="text-yellow-400 hover:text-yellow-300 transition-colors"
                               >
-                                <Trash2 className="w-4 h-4" /> Delete
+                                Start
                               </button>
                             </div>
-                          ))}
-                      </div>
+                            <p className="text-gray-400 text-sm mb-3 flex-grow">
+                              {task.description}
+                            </p>
+                            {task.finalEstimate && (
+                              <div className="flex items-center text-gray-500 text-sm mb-3">
+                                <span className="text-red-400 font-semibold">
+                                  Estimate: {task.finalEstimate}
+                                </span>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => deleteTaskFromSprint(task._id)}
+                              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" /> Delete
+                            </button>
+                          </div>
+                        ))}
                     </div>
                   </div>
-                )}
+
+                  <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                      <Loader2 className="w-5 h-5 mr-2 text-yellow-500" />
+                      In Progress
+                    </h3>
+                    <div className="space-y-3">
+                      {activeSprint.tasks
+                        .filter((t: Task) => t.status === "In Progress")
+                        .map((task: Task) => (
+                          <div
+                            key={task._id}
+                            className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="font-medium text-white">
+                                {task.title}
+                              </h4>
+                              <button
+                                onClick={() => updateTaskStatus(task._id, "Done")}
+                                className="text-green-400 hover:text-green-300 transition-colors"
+                              >
+                                Complete
+                              </button>
+                            </div>
+                            <p className="text-gray-400 text-sm mb-3 flex-grow">
+                              {task.description}
+                            </p>
+                            {task.finalEstimate && (
+                              <div className="flex items-center text-gray-500 text-sm mb-3">
+                                <span className="text-red-400 font-semibold">
+                                  Estimate: {task.finalEstimate}
+                                </span>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => deleteTaskFromSprint(task._id)}
+                              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" /> Delete
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                      <CheckSquare className="w-5 h-5 mr-2 text-green-500" />
+                      Done
+                    </h3>
+                    <div className="space-y-3">
+                      {activeSprint.tasks
+                        .filter((t: Task) => t.status === "Done")
+                        .map((task: Task) => (
+                          <div
+                            key={task._id}
+                            className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
+                          >
+                            <h4 className="font-medium text-white mb-2">
+                              {task.title}
+                            </h4>
+                            <p className="text-gray-400 text-sm mb-3 flex-grow">
+                              {task.description}
+                            </p>
+                            {task.finalEstimate && (
+                              <div className="flex items-center text-gray-500 text-sm mb-3">
+                                <span className="text-red-400 font-semibold">
+                                  Estimate: {task.finalEstimate}
+                                </span>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => deleteTaskFromSprint(task._id)}
+                              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" /> Delete
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

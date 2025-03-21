@@ -76,13 +76,44 @@ module.exports = (io) => {
 
   router.post("/:projectId/backlog", authenticateJWT, async (req, res) => {
     try {
-      const { title, description, priority } = req.body;
+      const { title, description, priority, assignedTo, deadline } = req.body;
       const project = await Project.findById(req.params.projectId);
       if (!project) return res.status(404).json({ message: "Project not found" });
       if (!project.members.map(m => m._id.toString()).includes(req.user.id))
         return res.status(403).json({ message: "Unauthorized" });
-      project.backlog.push({ title, description, priority, status: "To Do" });
+  
+      // Create a new task
+      const newTask = {
+        _id: new mongoose.Types.ObjectId(),
+        title,
+        description,
+        priority,
+        status: "To Do",
+        assignedTo,
+        deadline,
+      };
+  
+      // Add to backlog
+      project.backlog.push(newTask);
+  
+      // Ensure activePokerSession exists
+      if (!project.activePokerSession) {
+        project.activePokerSession = { issues: [] };
+      }
+  
+      // Add the same task as a poker issue
+      const newPokerIssue = {
+        ...newTask,
+        status: "Not Started",
+        votes: [],
+      };
+      project.activePokerSession.issues.push(newPokerIssue);
+  
       await project.save();
+  
+      // Emit issueAdded event for real-time updates
+      req.io.to(req.params.projectId).emit("issueAdded", { issue: newPokerIssue });
+  
       res.status(201).json(project);
     } catch (error) {
       res.status(500).json({ message: "Error adding task to backlog", error: error.message });
@@ -455,6 +486,77 @@ io.on("connection", (socket) => {
       timestamp: newMessage.timestamp,
     });
   });
+});
+router.post("/:projectId/poker/issue/:issueId/revote", authenticateJWT, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    if (project.owner.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Only the project owner can reset votes" });
+    }
+
+    const issue = project.activePokerSession.issues.id(req.params.issueId);
+    if (!issue) return res.status(404).json({ message: "Issue not found" });
+
+    issue.votes = [];
+    issue.status = "Not Started";
+    await project.save();
+
+    req.io.to(req.params.projectId).emit("votesReset", { issueId: req.params.issueId });
+
+    res.status(200).json({ message: "Votes reset successfully" });
+  } catch (error) {
+    console.error("Error resetting votes:", error);
+    res.status(500).json({ message: "Error resetting votes", error: error.message });
+  }
+});
+
+router.post("/:projectId/poker/issue/:issueId/validate", authenticateJWT, async (req, res) => {
+  try {
+    const { finalEstimate } = req.body;
+    const project = await Project.findById(req.params.projectId);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    if (!project.members.map(m => m._id.toString()).includes(req.user.id)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    const issue = project.activePokerSession.issues.id(req.params.issueId);
+    if (!issue) return res.status(404).json({ message: "Issue not found" });
+
+    // Update the issue with the final estimate and set status to "Finished"
+    issue.finalEstimate = finalEstimate;
+    issue.status = "Finished";
+
+    // Update the corresponding backlog task
+    const backlogTask = project.backlog.id(req.params.issueId);
+    if (backlogTask) {
+      backlogTask.finalEstimate = finalEstimate;
+    }
+
+    // Add the task to the active sprint
+    const activeSprint = project.sprints.find(sprint => sprint.active);
+    if (activeSprint) {
+      activeSprint.tasks.push({
+        _id: issue._id,
+        title: issue.title,
+        description: issue.description,
+        status: "To Do",
+        priority: issue.priority,
+        assignedTo: issue.assignedTo,
+        deadline: issue.deadline,
+        finalEstimate,
+      });
+    }
+
+    await project.save();
+
+    res.status(200).json({ message: "Session validated successfully" });
+  } catch (error) {
+    console.error("Error validating session:", error);
+    res.status(500).json({ message: "Error validating session", error: error.message });
+  }
 });
   router.post("/:projectId/poker/issue/:issueId/reveal", authenticateJWT, async (req, res) => {
     try {

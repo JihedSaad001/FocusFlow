@@ -11,7 +11,7 @@ interface TaskCardProps {
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, columnId, onDelete }) => {
   const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: task.id, data: { task, columnId } });
+    useSortable({ id: task._id, data: { task, columnId } }); // Updated `task.id` to `task._id`
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -31,6 +31,19 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, columnId, onDelete }) => {
     }
   };
 
+  const getStatusColor = (status: string | undefined) => {
+    switch (status) {
+      case "To Do":
+        return "text-gray-400";
+      case "In Progress":
+        return "text-yellow-400";
+      case "Done":
+        return "text-green-400";
+      default:
+        return "text-gray-400";
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -47,22 +60,55 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, columnId, onDelete }) => {
           </h3>
         </div>
         <button
-          onClick={() => onDelete(task.id, columnId)}
+          onClick={() => onDelete(task._id, columnId)} // Updated `task.id` to `task._id`
           className="text-gray-400 hover:text-red-500 transition"
         >
           ×
         </button>
       </div>
 
-      <div className="flex justify-between items-center">
-        <span
-          className={`text-xs font-medium px-2 py-1 rounded-full ${getPriorityColor(
-            task.priority
-          )}`}
-        >
-          {task.priority} {task.priority === "High" && "🔥"}
-        </span>
-        <span className="text-xs text-gray-400">{task.date}</span>
+      {task.description && (
+        <p className="text-gray-400 text-sm mb-2 truncate">
+          {task.description}
+        </p>
+      )}
+
+      <div className="flex flex-wrap justify-between items-center gap-2">
+        <div className="flex items-center gap-2">
+          <span
+            className={`text-xs font-medium px-2 py-1 rounded-full ${getPriorityColor(
+              task.priority
+            )}`}
+          >
+            {task.priority} {task.priority === "High" && "🔥"}
+          </span>
+          {task.status && (
+            <span
+              className={`text-xs font-medium px-2 py-1 rounded-full bg-gray-700/50 ${getStatusColor(
+                task.status
+              )}`}
+            >
+              {task.status}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {task.finalEstimate && (
+            <span className="text-xs text-red-400 font-semibold">
+              Est: {task.finalEstimate}
+            </span>
+          )}
+          {task.assignedTo && (
+            <span className="text-xs text-gray-400">
+              Assigned: {task.assignedTo}
+            </span>
+          )}
+          {task.deadline && (
+            <span className="text-xs text-gray-400">
+              {new Date(task.deadline).toLocaleDateString()} {/* Updated `task.date` to `task.deadline` */}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

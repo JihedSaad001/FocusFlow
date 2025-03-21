@@ -1,11 +1,13 @@
-// types.ts
-
 export interface Task {
-  id: string;
+  _id: string;
   title: string;
+  description?: string;
   priority: "Low" | "Medium" | "High";
-  date?: string;
+  status?: "To Do" | "In Progress" | "Done";
+  assignedTo?: string;
+  deadline?: string;
   icon?: string;
+  finalEstimate?: string;
 }
 
 export interface Column {
@@ -24,7 +26,7 @@ export interface PopulatedUser {
 }
 
 export interface Vote {
-  user: string | PopulatedUser; // Allow user to be either a string (user ID) or a PopulatedUser object
+  user: string | PopulatedUser;
   vote: string;
 }
 
@@ -32,5 +34,7 @@ export interface Issue {
   _id: string;
   title: string;
   description?: string;
+  status?: "Not Started" | "Voting" | "Revealed" | "Finished";
   votes?: Vote[];
+  finalEstimate?: string;
 }

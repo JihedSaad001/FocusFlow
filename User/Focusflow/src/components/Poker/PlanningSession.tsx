@@ -8,13 +8,13 @@ import { jwtDecode } from "jwt-decode";
 import {
   Users,
   Eye,
-  EyeOff,
   Copy,
   AlertTriangle,
   CheckCircle2,
   Plus,
+  Check,
 } from "lucide-react";
-import { Issue, Vote } from "../../types";
+import type { Issue, Vote } from "../../types"; // Ensure this matches the shared type definition
 
 const CARD_VALUES = ["0", "1", "2", "3", "5", "8", "13", "21", "?"];
 
@@ -33,6 +33,10 @@ interface VotingUser {
   username: string;
 }
 
+interface Project {
+  owner: { _id: string };
+}
+
 export function PlanningSession() {
   const { id } = useParams<RouteParams>();
   const navigate = useNavigate();
@@ -49,12 +53,14 @@ export function PlanningSession() {
     range: { min: Infinity, max: -Infinity },
   });
   const [votingUsers, setVotingUsers] = useState<VotingUser[]>([]);
+  const [project, setProject] = useState<Project | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const socket = useRef(
     io("https://focusflow-production.up.railway.app", {
       withCredentials: true,
-      reconnection: true, // Enable reconnection
-      reconnectionAttempts: 5, // Try to reconnect 5 times
-      reconnectionDelay: 1000, // Wait 1 second between attempts
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     })
   );
 
@@ -63,6 +69,7 @@ export function PlanningSession() {
     if (!token) return null;
     try {
       const decoded: DecodedToken = jwtDecode(token);
+      setCurrentUserId(decoded.id);
       return decoded.id;
     } catch (error) {
       console.error("Error decoding token:", error);
@@ -78,7 +85,7 @@ export function PlanningSession() {
 
     socket.current.on("connect", () => {
       console.log("Socket.IO connected:", socket.current.id);
-      socket.current.emit("joinRoom", id); // Re-join room on reconnect
+      socket.current.emit("joinRoom", id);
     });
 
     socket.current.on("connect_error", (err) => {
@@ -109,7 +116,6 @@ export function PlanningSession() {
           userId,
           username,
         });
-        console.log("Current issue:", currentIssue?._id);
         setIssues((prevIssues) => {
           const updatedIssues = prevIssues.map((issue) =>
             issue._id === issueId
@@ -138,18 +144,32 @@ export function PlanningSession() {
                 }
               : issue
           );
-          return [...updatedIssues]; // Create a new array to ensure React detects the change
+          return [...updatedIssues];
         });
       }
     );
 
     socket.current.on(
       "votesRevealed",
-      ({ issueId, votes }: { issueId: string; votes: Vote[] }) => {
-        console.log("Received votesRevealed event:", { issueId, votes });
+      ({
+        issueId,
+        votes,
+        status,
+      }: {
+        issueId: string;
+        votes: Vote[];
+        status: string;
+      }) => {
+        console.log("Received votesRevealed event:", {
+          issueId,
+          votes,
+          status,
+        });
         setIssues((prevIssues) =>
           prevIssues.map((issue) =>
-            issue._id === issueId ? { ...issue, votes } : issue
+            issue._id === issueId
+              ? { ...issue, votes, status: status as Issue["status"] }
+              : issue
           )
         );
         if (currentIssue && currentIssue._id === issueId) {
@@ -162,7 +182,9 @@ export function PlanningSession() {
                 typeof vote.user === "string" ? "Unknown" : vote.user.username,
             }))
           );
-          setCurrentIssue((prev) => (prev ? { ...prev, votes } : prev));
+          setCurrentIssue((prev) =>
+            prev ? { ...prev, votes, status: status as Issue["status"] } : prev
+          );
         }
       }
     );
@@ -187,6 +209,28 @@ export function PlanningSession() {
       }
     });
 
+    socket.current.on("votesReset", ({ issueId }: { issueId: string }) => {
+      setIssues((prevIssues) =>
+        prevIssues.map((issue) =>
+          issue._id === issueId
+            ? { ...issue, votes: [], status: "Not Started" }
+            : issue
+        )
+      );
+      if (currentIssue && currentIssue._id === issueId) {
+        setVotesRevealed(false);
+        setVoteStats({
+          average: 0,
+          mostCommon: 0,
+          range: { min: Infinity, max: -Infinity },
+        });
+        setVotingUsers([]);
+        setCurrentIssue((prev) =>
+          prev ? { ...prev, votes: [], status: "Not Started" } : prev
+        );
+      }
+    });
+
     return () => {
       console.log("Disconnecting Socket.IO");
       socket.current.disconnect();
@@ -204,14 +248,14 @@ export function PlanningSession() {
       return;
     }
     fetchPokerSession();
+    fetchProject();
   }, [id]);
 
-  // Update voteStats, votingUsers, and currentIssue whenever issues changes
   useEffect(() => {
     if (currentIssue) {
       const updatedIssue = issues.find((i) => i._id === currentIssue._id);
       if (updatedIssue) {
-        setCurrentIssue(updatedIssue); // Sync currentIssue with the latest data from issues
+        setCurrentIssue(updatedIssue);
         setVotingUsers(
           (updatedIssue.votes || []).map((vote) => ({
             userId: typeof vote.user === "string" ? vote.user : vote.user._id,
@@ -258,7 +302,38 @@ export function PlanningSession() {
     }
   };
 
+  const fetchProject = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.warn("❌ No token found, redirecting to login.");
+      navigate("/signin");
+      return;
+    }
+    try {
+      const response = await fetch(
+        `https://focusflow-production.up.railway.app/api/projects/${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+      const data = await response.json();
+      setProject(data);
+    } catch (error: any) {
+      console.error("❌ Error fetching project:", error);
+      setError(error.message);
+    }
+  };
+
   const handleVote = async (value: string) => {
+    if (votesRevealed || (currentIssue && currentIssue.status === "Revealed")) {
+      setError("Voting is disabled until the project owner allows a revote.");
+      return;
+    }
+
     console.log("Vote cast:", value);
     setSelectedCard(value);
     if (currentIssue) {
@@ -295,8 +370,6 @@ export function PlanningSession() {
           userId,
         });
 
-        // Fetch the latest data after voting as a fallback
-        console.log("Fetching updated poker session data after vote...");
         await fetchPokerSession();
       } catch (error: any) {
         console.error("Error recording vote:", error);
@@ -306,28 +379,129 @@ export function PlanningSession() {
   };
 
   const handleRevealVotes = async () => {
-    if (!votesRevealed && currentIssue) {
+    if (currentIssue) {
       setIsUpdating(true);
-      socket.current.emit("revealVotes", {
-        projectId: id,
-        issueId: currentIssue._id,
-      });
-      setVotesRevealed(true);
-      const currentIssueVotes =
-        issues.find((i) => i._id === currentIssue._id)?.votes || [];
-      updateVoteStats(currentIssueVotes);
-      setIsUpdating(false);
-    } else {
+      try {
+        const response = await fetch(
+          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/reveal`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to reveal votes: ${errorText}`);
+        }
+        setVotesRevealed(true);
+        const currentIssueVotes =
+          issues.find((i) => i._id === currentIssue._id)?.votes || [];
+        updateVoteStats(currentIssueVotes);
+      } catch (error: any) {
+        setError(`Error revealing votes: ${error.message}`);
+      } finally {
+        setIsUpdating(false);
+      }
+    }
+  };
+
+  const handleRevote = async () => {
+    if (currentIssue) {
+      setIsUpdating(true);
+      try {
+        const response = await fetch(
+          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/revote`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to reset votes: ${errorText}`);
+        }
+        setVotesRevealed(false);
+        setVoteStats({
+          average: 0,
+          mostCommon: 0,
+          range: { min: Infinity, max: -Infinity },
+        });
+        setVotingUsers([]);
+      } catch (error: any) {
+        setError(`Error resetting votes: ${error.message}`);
+      } finally {
+        setIsUpdating(false);
+      }
+    }
+  };
+
+  const handleValidate = async () => {
+    if (!currentIssue || !votesRevealed) {
+      setError("Please reveal votes before validating the session.");
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const response = await fetch(
+        `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/validate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            finalEstimate: voteStats.mostCommon.toString(),
+          }),
+        }
+      );
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to validate session: ${errorText}`);
+      }
+      setIssues((prevIssues) =>
+        prevIssues.map((issue) =>
+          issue._id === currentIssue._id
+            ? {
+                ...issue,
+                status: "Finished",
+                finalEstimate: voteStats.mostCommon.toString(),
+              }
+            : issue
+        )
+      );
+      setCurrentIssue((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "Finished",
+              finalEstimate: voteStats.mostCommon.toString(),
+            }
+          : prev
+      );
       setVotesRevealed(false);
+      setVoteStats({
+        average: 0,
+        mostCommon: 0,
+        range: { min: Infinity, max: -Infinity },
+      });
+      setVotingUsers([]);
+    } catch (error: any) {
+      setError(`Error validating session: ${error.message}`);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
   const updateVoteStats = (votes: Vote[] = []) => {
-    console.log("Votes passed to updateVoteStats:", votes);
     const allVotes = votes
       .map((v) => (v.vote ? parseInt(v.vote, 10) : 0))
       .filter((v: number) => !isNaN(v) && v !== null);
-    console.log("Parsed votes:", allVotes);
     if (allVotes.length === 0) {
       setVoteStats({
         average: 0,
@@ -346,14 +520,13 @@ export function PlanningSession() {
         )
         .pop() || 0;
     const range = { min: Math.min(...allVotes), max: Math.max(...allVotes) };
-    console.log("Calculated stats:", { average, mostCommon, range });
     setVoteStats({ average, mostCommon, range });
   };
 
   const handleIssueSelect = (issue: Issue) => {
     setCurrentIssue(issue);
     setSelectedCard(null);
-    setVotesRevealed(false);
+    setVotesRevealed(issue.status === "Revealed");
     updateVoteStats(issue.votes || []);
   };
 
@@ -390,6 +563,8 @@ export function PlanningSession() {
     );
   }
 
+  const isProjectOwner = currentUserId && project?.owner._id === currentUserId;
+
   return (
     <div className="min-h-screen bg-[#121212] text-white">
       <div className="max-w-7xl mx-auto p-6">
@@ -414,23 +589,12 @@ export function PlanningSession() {
                   Copy Invite Link
                 </button>
                 <button
-                  onClick={handleRevealVotes}
-                  disabled={isUpdating || !currentIssue}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-500 rounded-lg hover:bg-red-600 transition-colors text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
+                  onClick={handleValidate}
+                  disabled={isUpdating || !currentIssue || !votesRevealed}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-500 rounded-lg hover:bg-green-600 transition-colors text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
                 >
-                  {isUpdating ? (
-                    <span>Loading...</span>
-                  ) : votesRevealed ? (
-                    <>
-                      <EyeOff size={20} />
-                      Hide Votes
-                    </>
-                  ) : (
-                    <>
-                      <Eye size={20} />
-                      Reveal Votes
-                    </>
-                  )}
+                  <Check size={20} />
+                  Validate
                 </button>
               </div>
             </div>
@@ -495,12 +659,37 @@ export function PlanningSession() {
                         {currentIssue.description}
                       </p>
                     )}
-                    {/* Display the list of voting users */}
                     <div className="mb-6 p-3 bg-black/30 rounded-lg border border-gray-700">
-                      <p className="text-gray-400">
-                        {votingUsers.length} user
-                        {votingUsers.length !== 1 ? "s" : ""} have voted
-                      </p>
+                      <div className="flex justify-between items-center mb-4">
+                        <p className="text-gray-400">
+                          {votingUsers.length} user
+                          {votingUsers.length !== 1 ? "s" : ""} have voted
+                        </p>
+                        {isProjectOwner && (
+                          <div className="flex gap-2">
+                            {!votesRevealed &&
+                            currentIssue.status !== "Revealed" ? (
+                              <button
+                                onClick={handleRevealVotes}
+                                disabled={isUpdating}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-500 rounded-lg hover:bg-red-600 transition-colors text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
+                              >
+                                <Eye size={20} />
+                                Reveal Votes
+                              </button>
+                            ) : (
+                              <button
+                                onClick={handleRevote}
+                                disabled={isUpdating}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
+                              >
+                                <Eye size={20} />
+                                Revote
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       {votingUsers.length > 0 ? (
                         <div className="mt-2 flex gap-2 flex-wrap">
                           {votingUsers.map((user) => (
@@ -521,73 +710,67 @@ export function PlanningSession() {
                           No votes yet.
                         </p>
                       )}
-                    </div>
-                    {votesRevealed && (
-                      <div className="mb-6 p-3 bg-black/30 rounded-lg border border-gray-700">
-                        <div className="grid grid-cols-3 gap-4">
-                          <div className="space-y-2">
-                            <span className="text-gray-400">Average</span>
-                            <span className="text-red-400 font-semibold">
-                              {voteStats.average.toFixed(1)}
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            <span className="text-gray-400">Most Common</span>
-                            <span className="text-red-400 font-semibold">
-                              {voteStats.mostCommon}
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            <span className="text-gray-400">Range</span>
-                            <span className="text-red-400 font-semibold">
-                              {voteStats.range.min === Infinity
-                                ? "Infinity"
-                                : voteStats.range.min}{" "}
-                              -{" "}
-                              {voteStats.range.max === -Infinity
-                                ? "-Infinity"
-                                : voteStats.range.max}
-                            </span>
-                          </div>
-                        </div>
-                        {/* Display individual votes when revealed */}
-                        {votesRevealed && (
-                          <div className="mt-4">
-                            <h3 className="text-gray-400 mb-2">Votes</h3>
-                            <div className="flex gap-2 flex-wrap">
-                              {votingUsers.map((user) => {
-                                const userVote = currentIssue.votes?.find(
-                                  (v) => {
-                                    const voteUser = v.user;
-                                    return typeof voteUser === "string"
-                                      ? voteUser === user.userId
-                                      : voteUser._id === user.userId;
-                                  }
-                                )?.vote;
-                                return (
-                                  <div
-                                    key={user.userId}
-                                    className="flex items-center gap-1 bg-gray-700/50 rounded-full px-3 py-1 text-sm text-gray-300"
-                                  >
-                                    <span>{user.username}:</span>
-                                    <span className="text-red-400 font-semibold">
-                                      {userVote || "N/A"}
-                                    </span>
-                                  </div>
-                                );
-                              })}
+                      {(votesRevealed ||
+                        currentIssue.status === "Revealed") && (
+                        <div className="mt-4">
+                          <div className="grid grid-cols-3 gap-4 mb-4">
+                            <div className="space-y-2">
+                              <span className="text-gray-400">Average</span>
+                              <span className="text-red-400 font-semibold">
+                                {voteStats.average.toFixed(1)}
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              <span className="text-gray-400">Most Common</span>
+                              <span className="text-red-400 font-semibold">
+                                {voteStats.mostCommon}
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              <span className="text-gray-400">Range</span>
+                              <span className="text-red-400 font-semibold">
+                                {voteStats.range.min === Infinity
+                                  ? "Infinity"
+                                  : voteStats.range.min}{" "}
+                                -{" "}
+                                {voteStats.range.max === -Infinity
+                                  ? "-Infinity"
+                                  : voteStats.range.max}
+                              </span>
                             </div>
                           </div>
-                        )}
-                        {voteStats.average === voteStats.mostCommon &&
-                          voteStats.average !== 0 && (
-                            <p className="text-green-500 mt-2 flex items-center gap-1">
-                              <CheckCircle2 size={16} />
-                              High Agreement
-                            </p>
-                          )}
-                      </div>
-                    )}
+                          <h3 className="text-gray-400 mb-2">Votes</h3>
+                          <div className="flex gap-2 flex-wrap">
+                            {votingUsers.map((user) => {
+                              const userVote = currentIssue.votes?.find((v) => {
+                                const voteUser = v.user;
+                                return typeof voteUser === "string"
+                                  ? voteUser === user.userId
+                                  : voteUser._id === user.userId;
+                              })?.vote;
+                              return (
+                                <div
+                                  key={user.userId}
+                                  className="flex items-center gap-1 bg-gray-700/50 rounded-full px-3 py-1 text-sm text-gray-300"
+                                >
+                                  <span>{user.username}:</span>
+                                  <span className="text-red-400 font-semibold">
+                                    {userVote || "N/A"}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {voteStats.average === voteStats.mostCommon &&
+                            voteStats.average !== 0 && (
+                              <p className="text-green-500 mt-2 flex items-center gap-1">
+                                <CheckCircle2 size={16} />
+                                High Agreement
+                              </p>
+                            )}
+                        </div>
+                      )}
+                    </div>
                     <div className="grid grid-cols-3 gap-4">
                       {CARD_VALUES.map((value) => (
                         <Card
