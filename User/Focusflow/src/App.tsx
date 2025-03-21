@@ -31,10 +31,10 @@ const App = () => {
 
   return (
     <Router>
-      <div className="min-h-screen bg-[#121212]">
+      <div className="min-h-screen bg-[#121212] ">
         {/* ✅ Show Sidebar when logged in, Navbar when logged out */}
         {isLoggedIn && <Sidebar />}
-        <div className={`flex-1 ${isLoggedIn ? "ml-20" : ""}`}>
+        <div className={`flex-1 ${isLoggedIn ? "ml-20" : ""} `}>
           {!isLoggedIn && <Navbar />}
           <Routes>
             <Route path="/" element={<MainMenu />} />{" "}

@@ -13,7 +13,6 @@ import {
   useSensors,
   PointerSensor,
 } from "@dnd-kit/core";
-import Header from "./Header";
 
 // Define the fixed 5 columns
 const initialBoard: Board = {
@@ -270,26 +269,38 @@ const KanbanBoard: React.FC = () => {
 
   return (
     <div className="flex h-screen w-full bg-[#121212]">
-      {/* Sidebar Space */}
-      <div className="flex-shrink-0" />
+      {/* Sidebar Space - Responsive, hidden on very small screens */}
+      <div className="hidden sm:block w-14 sm:w-16 md:w-20 flex-shrink-0" />
 
       {/* Main Content */}
       <div className="flex flex-col flex-1">
-        <Header />
-        <div className="flex-1 overflow-x-auto p-4 sm:p-5 md:p-6">
+        {/* Integrated Header */}
+        <div className="bg-[#1E1E1E] border-b border-gray-800 h-40 w-full">
+          <div className="p-6">
+            <div className="flex items-center justify-center mb-2">
+              <div className="text-3xl mr-3">🎒</div>
+              <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-700">
+                Tasks
+              </h1>
+            </div>
+          </div>
+        </div>
+
+        {/* Kanban Board Content */}
+        <div className="flex-1 overflow-x-auto p-2 sm:p-4 md:p-6">
           <DndContext
             sensors={sensors}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="flex flex-row gap-2 sm:gap-3 md:gap-4 max-w-full">
+            <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 md:gap-4 min-w-full">
               {board.columns && Array.isArray(board.columns) ? (
                 board.columns.map((column) =>
                   column ? (
                     <div
                       key={column.id}
-                      className="w-[250px] sm:w-[280px] md:w-[300px] lg:w-[320px] flex-shrink-0"
+                      className="w-full xs:w-[200px] sm:w-[240px] md:w-[280px] lg:w-[320px] flex-shrink-0"
                     >
                       <Column
                         column={column}
