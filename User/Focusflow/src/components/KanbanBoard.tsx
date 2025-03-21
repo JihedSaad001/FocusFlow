@@ -262,7 +262,7 @@ const KanbanBoard: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-white/[0.08]  ">
+    <div className="flex flex-col h-screen w-full bg-[#121212]  ">
       <Header />
       <div className="flex-1 overflow-x-auto p-6">
         <DndContext
@@ -271,7 +271,7 @@ const KanbanBoard: React.FC = () => {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex gap-4 pl-18">
+          <div className="flex gap-2 ">
             {board.columns.map((column) => (
               <div key={column.id} className="w-[350px] flex-shrink-0">
                 <Column

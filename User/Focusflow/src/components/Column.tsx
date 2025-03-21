@@ -55,7 +55,7 @@ const Column: React.FC<ColumnProps> = ({ column, onAddTask, onDeleteTask }) => {
   return (
     <div
       ref={setNodeRef}
-      className="min-w-[300px] bg-[#1E1E1E] rounded-xl shadow-lg flex flex-col max-h-[calc(100vh-150px)] border border-gray-700"
+      className=" bg-[#1E1E1E] max-w-[320px] rounded-xl shadow-lg flex flex-col max-h-[calc(100vh-150px)] border border-gray-700"
     >
       {/* Column Header */}
       <div className="flex items-center justify-between p-4 bg-red-500 rounded-t-xl">
