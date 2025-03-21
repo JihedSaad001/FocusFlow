@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { Board, Task, Column as ColumnType } from "../types";
+import { Board, Task } from "../types";
 import Column from "./Column";
 import TaskCard from "./TaskCard";
 import {

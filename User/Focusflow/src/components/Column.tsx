@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Column as ColumnType, Task } from "../types";
 import TaskCard from "./TaskCard";
-import { Plus, MoreHorizontal } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
