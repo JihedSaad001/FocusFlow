@@ -269,8 +269,8 @@ const KanbanBoard: React.FC = () => {
 
   return (
     <div className="flex h-screen w-full bg-[#121212]">
-      {/* Sidebar Space - Responsive, hidden on very small screens */}
-      <div className="hidden sm:block w-14 sm:w-16 md:w-20 flex-shrink-0" />
+      {/* Sidebar Space - Responsive */}
+      <div className="w-14 sm:w-16 md:w-20 flex-shrink-0" />
 
       {/* Main Content */}
       <div className="flex flex-col flex-1">
@@ -287,20 +287,20 @@ const KanbanBoard: React.FC = () => {
         </div>
 
         {/* Kanban Board Content */}
-        <div className="flex-1 overflow-x-auto p-2 sm:p-4 md:p-6">
+        <div className="flex-1 overflow-x-auto py-2 sm:py-4 md:py-6 pl-0 pr-2 sm:pr-4 md:pr-6">
           <DndContext
             sensors={sensors}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 md:gap-4 min-w-full">
+            <div className="flex flex-row gap-2 sm:gap-3 md:gap-4 min-w-full">
               {board.columns && Array.isArray(board.columns) ? (
                 board.columns.map((column) =>
                   column ? (
                     <div
                       key={column.id}
-                      className="w-full xs:w-[200px] sm:w-[240px] md:w-[280px] lg:w-[320px] flex-shrink-0"
+                      className="w-[200px] sm:w-[240px] md:w-[280px] lg:w-[320px] flex-shrink-0"
                     >
                       <Column
                         column={column}

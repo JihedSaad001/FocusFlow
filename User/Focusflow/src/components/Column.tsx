@@ -55,7 +55,7 @@ const Column: React.FC<ColumnProps> = ({ column, onAddTask, onDeleteTask }) => {
   return (
     <div
       ref={setNodeRef}
-      className=" bg-[#1E1E1E] max-w-[320px] rounded-xl shadow-lg flex flex-col max-h-[calc(100vh-150px)] border border-gray-700"
+      className="bg-[#1E1E1E] rounded-xl shadow-lg flex flex-col max-h-[calc(100vh-150px)] border border-gray-700"
     >
       {/* Column Header */}
       <div className="flex items-center justify-between p-4 bg-red-500 rounded-t-xl">
@@ -76,7 +76,7 @@ const Column: React.FC<ColumnProps> = ({ column, onAddTask, onDeleteTask }) => {
       </div>
 
       {/* Task List */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-3">
         <SortableContext
           items={column.tasks.map((task) => task.id)}
           strategy={verticalListSortingStrategy}
@@ -100,7 +100,7 @@ const Column: React.FC<ColumnProps> = ({ column, onAddTask, onDeleteTask }) => {
       {showForm ? (
         <form
           onSubmit={handleSubmit}
-          className="bg-gray-800 p-4 rounded-b-xl border-t border-gray-700"
+          className="bg-gray-800 p-3 rounded-b-xl border-t border-gray-700"
         >
           <input
             type="text"

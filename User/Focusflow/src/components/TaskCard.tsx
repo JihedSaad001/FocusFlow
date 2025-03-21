@@ -37,12 +37,14 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, columnId, onDelete }) => {
       style={style}
       {...attributes}
       {...listeners}
-      className="bg-gray-800 rounded-lg shadow-md p-4 mb-3 cursor-grab active:cursor-grabbing border border-gray-700 hover:border-red-500 hover:shadow-lg transition-all duration-200"
+      className="w-full bg-gray-800 rounded-lg shadow-md p-3 mb-2 cursor-grab active:cursor-grabbing border border-gray-700 hover:border-red-500 hover:shadow-lg transition-all duration-200"
     >
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
-          <span className="text-2xl mr-3">{task.icon}</span>
-          <h3 className="font-medium text-gray-100 text-lg">{task.title}</h3>
+          <span className="text-2xl mr-2">{task.icon}</span>
+          <h3 className="font-medium text-gray-100 text-base truncate">
+            {task.title}
+          </h3>
         </div>
         <button
           onClick={() => onDelete(task.id, columnId)}
@@ -54,7 +56,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, columnId, onDelete }) => {
 
       <div className="flex justify-between items-center">
         <span
-          className={`text-xs font-medium px-3 py-1 rounded-full ${getPriorityColor(
+          className={`text-xs font-medium px-2 py-1 rounded-full ${getPriorityColor(
             task.priority
           )}`}
         >
