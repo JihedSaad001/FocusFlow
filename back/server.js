@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 5000;
 
 // Define allowed origins for both Express and Socket.IO
 const allowedOrigins = [
-  "https://focusflow.vercel.app", // Main frontend (update with your actual domain)
+  "https://focus-flow-dusky.vercel.app", // Main frontend (update with your actual domain)
   "https://focusflow-admin.vercel.app", // Admin frontend (update with your actual domain)
   "http://localhost:5174", // Local development
 ];
