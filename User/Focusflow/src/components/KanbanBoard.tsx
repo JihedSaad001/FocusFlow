@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { Board, Task } from "../types"; // Removed unused ColumnType
+import { Board, Task } from "../types";
 import Column from "./Column";
 import TaskCard from "./TaskCard";
 import {
@@ -272,7 +272,7 @@ const KanbanBoard: React.FC = () => {
     <div className="flex h-screen w-full bg-[#121212]">
       {/* Sidebar Space */}
       <div className="w-16 flex-shrink-0" />
-      
+
       {/* Main Content */}
       <div className="flex flex-col flex-1">
         <Header />
@@ -283,13 +283,13 @@ const KanbanBoard: React.FC = () => {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 md:gap-4 max-w-full mx-auto">
+            <div className="flex flex-row gap-2 sm:gap-3 md:gap-4 max-w-full">
               {board.columns && Array.isArray(board.columns) ? (
                 board.columns.map((column) =>
                   column ? (
                     <div
                       key={column.id}
-                      className="w-full sm:w-[250px] md:w-[300px] lg:w-[350px] flex-shrink-0"
+                      className="w-[250px] sm:w-[280px] md:w-[300px] lg:w-[320px] flex-shrink-0"
                     >
                       <Column
                         column={column}
