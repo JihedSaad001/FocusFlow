@@ -1,6 +1,10 @@
+"use client";
+
+import type React from "react";
+
 import { useState } from "react";
-import { User, Mail, Lock } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { User, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
 
 function SignUp() {
   const navigate = useNavigate();
@@ -12,6 +16,7 @@ function SignUp() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -20,6 +25,7 @@ function SignUp() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSignupSuccess(false);
 
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match!");
@@ -47,7 +53,14 @@ function SignUp() {
 
       if (!response.ok) throw new Error(data.message || "Signup failed");
 
-      navigate("/signin"); // Redirect after signup
+      setSignupSuccess(true);
+      // Clear the form
+      setFormData({
+        username: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+      });
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -58,84 +71,113 @@ function SignUp() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="w-full max-w-md px-4">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && <p className="text-red-500 text-center">{error}</p>}
-
-          <div className="relative">
-            <input
-              type="text"
-              name="username"
-              placeholder="Name"
-              value={formData.username}
-              onChange={handleChange}
-              required
-              className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
-            />
-            <User className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+        {signupSuccess ? (
+          <div className="bg-[#1E1E1E] p-6 rounded-lg shadow-lg border border-gray-700">
+            <div className="flex justify-center mb-4">
+              <div className="bg-green-500/20 p-3 rounded-full">
+                <CheckCircle className="w-12 h-12 text-green-500" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-white text-center mb-4">
+              Registration Successful!
+            </h2>
+            <p className="text-gray-300 text-center mb-6">
+              We've sent a verification link to your email address. Please check
+              your inbox and click the link to activate your account.
+            </p>
+            <div className="space-y-4">
+              <button
+                onClick={() => navigate("/signin")}
+                className="w-full py-3 rounded-lg bg-gradient-to-r from-[#830E13] to-[#6B1E07] text-white font-medium transition"
+              >
+                Go to Sign In
+              </button>
+            </div>
           </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start">
+                <AlertCircle className="text-red-500 w-5 h-5 mt-0.5 mr-3 flex-shrink-0" />
+                <p className="text-red-500">{error}</p>
+              </div>
+            )}
 
-          <div className="relative">
-            <input
-              type="email"
-              name="email"
-              placeholder="Email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
-            />
-            <Mail className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
-          </div>
+            <div className="relative">
+              <input
+                type="text"
+                name="username"
+                placeholder="Name"
+                value={formData.username}
+                onChange={handleChange}
+                required
+                className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
+              />
+              <User className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+            </div>
 
-          <div className="relative">
-            <input
-              type="password"
-              name="password"
-              placeholder="Password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
-            />
-            <Lock className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
-          </div>
+            <div className="relative">
+              <input
+                type="email"
+                name="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
+              />
+              <Mail className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+            </div>
 
-          <div className="relative">
-            <input
-              type="password"
-              name="confirmPassword"
-              placeholder="Confirm Password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
-            />
-            <Lock className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
-          </div>
+            <div className="relative">
+              <input
+                type="password"
+                name="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
+              />
+              <Lock className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-3 rounded-lg bg-gradient-to-r from-[#830E13] to-[#6B1E07] text-white font-medium transition-all duration-300 ${
-              loading
-                ? "opacity-60 cursor-not-allowed"
-                : "hover:shadow-[0_0_25px_rgba(131,14,19,0.8)] hover:opacity-95 hover:scale-[1.02]"
-            }`}
-          >
-            {loading ? "Signing Up..." : "Sign Up"}
-          </button>
+            <div className="relative">
+              <input
+                type="password"
+                name="confirmPassword"
+                placeholder="Confirm Password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+                className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
+              />
+              <Lock className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+            </div>
 
-          <p className="text-center text-gray-400">
-            Already have an account?{" "}
             <button
-              type="button"
-              onClick={() => navigate("/signin")}
-              className="text-white hover:text-[#830E13] transition"
+              type="submit"
+              disabled={loading}
+              className={`w-full py-3 rounded-lg bg-gradient-to-r from-[#830E13] to-[#6B1E07] text-white font-medium transition-all duration-300 ${
+                loading
+                  ? "opacity-60 cursor-not-allowed"
+                  : "hover:shadow-[0_0_25px_rgba(131,14,19,0.8)] hover:opacity-95 hover:scale-[1.02]"
+              }`}
             >
-              Sign In
+              {loading ? "Signing Up..." : "Sign Up"}
             </button>
-          </p>
-        </form>
+
+            <p className="text-center text-gray-400">
+              Already have an account?{" "}
+              <Link
+                to="/signin"
+                className="text-white hover:text-[#830E13] transition"
+              >
+                Sign In
+              </Link>
+            </p>
+          </form>
+        )}
       </div>
     </div>
   );

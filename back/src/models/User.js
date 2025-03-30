@@ -1,6 +1,5 @@
-// src/models/User.js
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
+const mongoose = require("mongoose")
+const bcrypt = require("bcryptjs")
 
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true },
@@ -12,11 +11,12 @@ const UserSchema = new mongoose.Schema({
       "https://qhedchvmvmuflflstcwx.supabase.co/storage/v1/object/public/profile-pictures//image_2025-02-08_215223222.png",
   },
   role: { type: String, enum: ["user", "admin"], default: "user" },
-  isVerified: { type: Boolean, default: false }, // Email verification status
-  verificationToken: { type: String }, // Token for email verification
-  verificationTokenExpires: { type: Date }, // Expiry for verification token
-  resetPasswordToken: { type: String }, // Token for password reset
-  resetPasswordExpires: { type: Date }, // Expiry for password reset token
+  isVerified: { type: Boolean, default: false },
+  verificationToken: { type: String },
+  verificationTokenExpires: { type: Date },
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: { type: Date },
+  googleId: { type: String },
   kanbanBoard: {
     type: {
       columns: [
@@ -49,18 +49,19 @@ const UserSchema = new mongoose.Schema({
       ],
     },
   },
-});
+})
 
 // Hash password before saving the user
 UserSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password")) return next()
   try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
+    const salt = await bcrypt.genSalt(10)
+    this.password = await bcrypt.hash(this.password, salt)
+    next()
   } catch (error) {
-    next(error);
+    next(error)
   }
-});
+})
 
-module.exports = mongoose.model("User", UserSchema);
+module.exports = mongoose.model("User", UserSchema)
+

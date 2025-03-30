@@ -1,138 +1,336 @@
-const express = require("express");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const multer = require("multer");
-const User = require("../models/User");
-const { authenticateJWT, isAdmin } = require("../middleware/authMiddleware");
-const supabase = require("../config/supabase"); // ✅ Ensure Supabase is imported
+const express = require("express")
+const bcrypt = require("bcryptjs")
+const jwt = require("jsonwebtoken")
+const multer = require("multer")
+const crypto = require("crypto")
+const User = require("../models/User")
+const { authenticateJWT, isAdmin } = require("../middleware/authMiddleware")
+const supabase = require("../config/supabase")
+const { sendVerificationEmail, sendPasswordResetEmail } = require("../config/sendgrid")
 
-const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const router = express.Router()
+const upload = multer({ storage: multer.memoryStorage() })
 
 /**
  * @route   POST /api/auth/signup
- * @desc    Register a new user
+ * @desc    Register a new user and send verification email
  * @access  Public
  */
 router.post("/signup", async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, email, password } = req.body
 
   try {
-      const existingUser = await User.findOne({ email });
-      if (existingUser) return res.status(400).json({ message: "Email already in use" });
-      const newUser = new User({ username, email, password });
-      await newUser.save();
-      res.status(201).json({ message: "User registered successfully" });
+    const existingUser = await User.findOne({ email })
+    if (existingUser) return res.status(400).json({ message: "Email already in use" })
+
+    // Generate verification token
+    const verificationToken = crypto.randomBytes(32).toString("hex")
+    const tokenExpiry = new Date()
+    tokenExpiry.setHours(tokenExpiry.getHours() + 24) // Token valid for 24 hours
+
+    const newUser = new User({
+      username,
+      email,
+      password,
+      verificationToken,
+      verificationTokenExpires: tokenExpiry,
+      isVerified: false,
+    })
+
+    await newUser.save()
+
+    // Send verification email
+    const emailSent = await sendVerificationEmail(email, verificationToken, username)
+
+    if (emailSent) {
+      res.status(201).json({
+        message: "User registered successfully. Please check your email to verify your account.",
+        emailSent: true,
+      })
+    } else {
+      res.status(201).json({
+        message: "User registered, but there was an issue sending the verification email. Please contact support.",
+        emailSent: false,
+      })
+    }
   } catch (error) {
-      res.status(500).json({ message: "Error registering user", error: error.message });
+    res.status(500).json({ message: "Error registering user", error: error.message })
   }
-});
+})
+
 /**
- * @route   PUT /api/auth/update-user
- * @desc    Updates user profile (username, password, profilePic)
- * @access  Private
+ * @route   GET /api/auth/verify-email/:token
+ * @desc    Verify user email with token
+ * @access  Public
  */
-// Back-end route for updating user profile
+router.get("/verify-email/:token", async (req, res) => {
+  const { token } = req.params
+
+  try {
+    const user = await User.findOne({
+      verificationToken: token,
+      verificationTokenExpires: { $gt: Date.now() },
+    })
+
+    if (!user) {
+      return res.status(400).json({
+        message: "Invalid or expired verification token. Please request a new one.",
+      })
+    }
+
+    // Update user as verified
+    user.isVerified = true
+    user.verificationToken = undefined
+    user.verificationTokenExpires = undefined
+    await user.save()
+
+    res.status(200).json({ message: "Email verified successfully. You can now log in." })
+  } catch (error) {
+    res.status(500).json({ message: "Error verifying email", error: error.message })
+  }
+})
+
+/**
+ * @route   POST /api/auth/resend-verification
+ * @desc    Resend verification email
+ * @access  Public
+ */
+router.post("/resend-verification", async (req, res) => {
+  const { email } = req.body
+
+  try {
+    const user = await User.findOne({ email })
+    if (!user) return res.status(404).json({ message: "User not found" })
+
+    if (user.isVerified) {
+      return res.status(400).json({ message: "Email is already verified" })
+    }
+
+    // Generate new verification token
+    const verificationToken = crypto.randomBytes(32).toString("hex")
+    const tokenExpiry = new Date()
+    tokenExpiry.setHours(tokenExpiry.getHours() + 24) // Token valid for 24 hours
+
+    user.verificationToken = verificationToken
+    user.verificationTokenExpires = tokenExpiry
+    await user.save()
+
+    // Send verification email
+    const emailSent = await sendVerificationEmail(email, verificationToken, user.username)
+
+    if (emailSent) {
+      res.status(200).json({
+        message: "Verification email resent. Please check your inbox.",
+        emailSent: true,
+      })
+    } else {
+      res.status(500).json({
+        message: "Failed to send verification email. Please try again later.",
+        emailSent: false,
+      })
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Error resending verification email", error: error.message })
+  }
+})
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Request password reset email
+ * @access  Public
+ */
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body
+
+  try {
+    const user = await User.findOne({ email })
+    if (!user) {
+      // For security reasons, don't reveal if the email exists or not
+      return res.status(200).json({
+        message: "If your email is registered, you will receive a password reset link.",
+      })
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString("hex")
+    const tokenExpiry = new Date()
+    tokenExpiry.setHours(tokenExpiry.getHours() + 1) // Token valid for 1 hour
+
+    user.resetPasswordToken = resetToken
+    user.resetPasswordExpires = tokenExpiry
+    await user.save()
+
+    // Send password reset email
+    const emailSent = await sendPasswordResetEmail(email, resetToken, user.username)
+
+    res.status(200).json({
+      message: "If your email is registered, you will receive a password reset link.",
+      emailSent,
+    })
+  } catch (error) {
+    res.status(500).json({ message: "Error processing request", error: error.message })
+  }
+})
+
+/**
+ * @route   POST /api/auth/reset-password/:token
+ * @desc    Reset password with token
+ * @access  Public
+ */
+router.post("/reset-password/:token", async (req, res) => {
+  const { token } = req.params
+  const { password } = req.body
+
+  try {
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() },
+    })
+
+    if (!user) {
+      return res.status(400).json({
+        message: "Invalid or expired password reset token. Please request a new one.",
+      })
+    }
+
+    // Update password
+    user.password = password
+    user.resetPasswordToken = undefined
+    user.resetPasswordExpires = undefined
+    await user.save()
+
+    res.status(200).json({ message: "Password reset successfully. You can now log in with your new password." })
+  } catch (error) {
+    res.status(500).json({ message: "Error resetting password", error: error.message })
+  }
+})
+
+/**
+ * @route   POST /api/auth/login
+ * @desc    Authenticate user & get token
+ * @access  Public
+ */
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body
+
+  try {
+    const user = await User.findOne({ email })
+    if (!user) return res.status(404).json({ message: "User not found" })
+
+    const isMatch = await bcrypt.compare(password, user.password)
+    if (!isMatch) return res.status(400).json({ message: "Invalid password" })
+
+    // Check if email is verified
+    if (!user.isVerified) {
+      return res.status(401).json({
+        message: "Email not verified. Please check your inbox or request a new verification email.",
+        needsVerification: true,
+      })
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "24h" })
+
+    res.json({
+      token,
+      user: {
+        username: user.username,
+        email: user.email,
+        profilePic: user.profilePic || "",
+      },
+    })
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message })
+  }
+})
+
+// Keep all other routes as they were...
 router.put("/update-user", authenticateJWT, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { username, profilePic } = req.body; // ✅ Get profilePic from request
+    const userId = req.user.id
+    const { username, profilePic } = req.body
 
-    // ✅ Fetch user from MongoDB
-    let user = await User.findById(userId);
+    const user = await User.findById(userId)
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" })
     }
 
-    // ✅ Update profilePic if provided
     if (profilePic) {
-      user.profilePic = profilePic;
+      user.profilePic = profilePic
     }
 
-    // ✅ Update username if provided
     if (username) {
-      user.username = username;
+      user.username = username
     }
 
-    await user.save(); // ✅ Save the updated user data
-    res.json({ success: true, message: "Profile updated successfully", user });
+    await user.save()
+    res.json({ success: true, message: "Profile updated successfully", user })
   } catch (error) {
-    console.error("🔥 MongoDB Update Failed:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("🔥 MongoDB Update Failed:", error)
+    res.status(500).json({ success: false, message: "Server error" })
   }
-});
+})
 
-
-
-/**
-* @route   POST /api/auth/upload-profile-pic
-* @desc    Uploads profile picture and updates user profile
-* @access  Private (User must be logged in)
-*/
 router.post("/upload-profile-pic", authenticateJWT, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
-      console.log("❌ No file uploaded.");
-      return res.status(400).json({ message: "No file uploaded" });
+      console.log("❌ No file uploaded.")
+      return res.status(400).json({ message: "No file uploaded" })
     }
 
-    const fileName = `${req.user.id}-${Date.now()}-${req.file.originalname}`;
+    const fileName = `${req.user.id}-${Date.now()}-${req.file.originalname}`
 
-    // ✅ Upload file to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from(process.env.SUPABASE_BUCKET)
-      .upload(fileName, req.file.buffer, {
-        contentType: req.file.mimetype,
-        upsert: true,
-      });
+    const { data, error } = await supabase.storage.from(process.env.SUPABASE_BUCKET).upload(fileName, req.file.buffer, {
+      contentType: req.file.mimetype,
+      upsert: true,
+    })
 
-    if (error) throw error;
+    if (error) throw error
 
-    // ✅ Construct the correct public URL
-    const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/${process.env.SUPABASE_BUCKET}/${fileName}`;
+    const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/${process.env.SUPABASE_BUCKET}/${fileName}`
 
-    console.log("🖼️ Supabase Uploaded Image URL:", publicUrl);
+    console.log("🖼️ Supabase Uploaded Image URL:", publicUrl)
 
-    // ✅ Debug: Check if user exists before updating
-    const userExists = await User.findById(req.user.id);
-    console.log("🔍 Does User Exist in MongoDB?", userExists ? "✅ Yes" : "❌ No");
+    const userExists = await User.findById(req.user.id)
+    console.log("🔍 Does User Exist in MongoDB?", userExists ? "✅ Yes" : "❌ No")
 
-    // ✅ Save URL in MongoDB
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
       { profilePic: publicUrl },
-      { new: true, runValidators: true }
-    );
+      { new: true, runValidators: true },
+    )
 
-    console.log("📂 MongoDB Update Result:", updatedUser);
+    console.log("📂 MongoDB Update Result:", updatedUser)
 
     if (!updatedUser) {
-      return res.status(500).json({ message: "Failed to update user in MongoDB." });
+      return res.status(500).json({ message: "Failed to update user in MongoDB." })
     }
 
-    res.status(200).json({ message: "Profile picture updated!", profilePic: publicUrl });
+    res.status(200).json({ message: "Profile picture updated!", profilePic: publicUrl })
   } catch (error) {
-    console.error("❌ Upload Error:", error);
-    res.status(500).json({ message: "Upload failed", error: error.message });
+    console.error("❌ Upload Error:", error)
+    res.status(500).json({ message: "Upload failed", error: error.message })
   }
-});
+})
 
 router.post("/google-login", async (req, res) => {
-  const { access_token } = req.body;
+  const { access_token } = req.body
 
-  console.log("🔍 Received Google Token:", access_token); // 🔥 Debugging
+  console.log("🔍 Received Google Token:", access_token)
 
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(access_token);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(access_token)
 
     if (error || !user) {
-      console.log("❌ Supabase User Error:", error);
-      return res.status(401).json({ message: "Google authentication failed" });
+      console.log("❌ Supabase User Error:", error)
+      return res.status(401).json({ message: "Google authentication failed" })
     }
 
-    console.log("✅ Google User from Supabase:", user); // 🔥 Debugging
+    console.log("✅ Google User from Supabase:", user)
 
-    let existingUser = await User.findOne({ email: user.email });
+    let existingUser = await User.findOne({ email: user.email })
 
     if (!existingUser) {
       existingUser = new User({
@@ -140,15 +338,16 @@ router.post("/google-login", async (req, res) => {
         email: user.email,
         profilePic: user.user_metadata.avatar_url || "",
         googleId: user.id,
-      });
+        isVerified: true, // Google users are automatically verified
+      })
 
-      await existingUser.save();
-      console.log("✅ New Google User Saved in MongoDB:", existingUser);
+      await existingUser.save()
+      console.log("✅ New Google User Saved in MongoDB:", existingUser)
     }
 
     const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET, {
       expiresIn: "24h",
-    });
+    })
 
     res.json({
       token,
@@ -157,93 +356,55 @@ router.post("/google-login", async (req, res) => {
         email: existingUser.email,
         profilePic: existingUser.profilePic,
       },
-    });
-
+    })
   } catch (error) {
-    console.error("❌ Google Login Backend Error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("❌ Google Login Backend Error:", error)
+    res.status(500).json({ message: "Server error", error: error.message })
   }
-});
-
-/**
- * @route   POST /api/auth/login
- * @desc    Authenticate user & get token
- * @access  Public
- */
-router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid password" });
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "24h" });
-
-    // ✅ Include `profilePic` in the response
-    res.json({
-      token,
-      user: {
-        username: user.username,
-        email: user.email,
-        profilePic: user.profilePic || "", // ✅ Ensure profile picture is included
-      },
-    });
-
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
+})
 
 router.post("/refresh-token", async (req, res) => {
-  const { refreshToken } = req.body;
+  const { refreshToken } = req.body
 
   try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const user = await User.findById(decoded.id);
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET)
+    const user = await User.findById(decoded.id)
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ message: "User not found" })
 
-    const newToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "24h" });
-    res.json({ token: newToken });
+    const newToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "24h" })
+    res.json({ token: newToken })
   } catch (error) {
-    console.error("Refresh Token Error:", error);
-    res.status(401).json({ message: "Invalid refresh token" });
+    console.error("Refresh Token Error:", error)
+    res.status(401).json({ message: "Invalid refresh token" })
   }
-});
-/**
- * @route   POST /api/auth/admin-login
- * @desc    Authenticate admin & get token
- * @access  Admin Only
- */
+})
+
 router.post("/admin-login", async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "Admin not found" });
+    const user = await User.findOne({ email })
+    if (!user) return res.status(404).json({ message: "Admin not found" })
 
-    if (user.role !== "admin") return res.status(403).json({ message: "Only admins can log in here" });
+    if (user.role !== "admin") return res.status(403).json({ message: "Only admins can log in here" })
 
-    // ✅ Correctly compare admin password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid password" });
+    const isMatch = await bcrypt.compare(password, user.password)
+    if (!isMatch) return res.status(400).json({ message: "Invalid password" })
 
     if (!process.env.JWT_SECRET) {
-      console.error("❌ JWT_SECRET is missing! Check your .env file.");
-      return res.status(500).json({ message: "Server error: missing JWT_SECRET" });
+      console.error("❌ JWT_SECRET is missing! Check your .env file.")
+      return res.status(500).json({ message: "Server error: missing JWT_SECRET" })
     }
 
-    // ✅ Generate JWT token for admin
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" })
 
-    res.json({ message: "Admin login successful", token, admin: { username: user.username, role: user.role } });
+    res.json({ message: "Admin login successful", token, admin: { username: user.username, role: user.role } })
   } catch (error) {
-    console.error("🔥 Admin Login Error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("🔥 Admin Login Error:", error)
+    res.status(500).json({ message: "Server error", error: error.message })
   }
-});
+})
 
-module.exports = router;
+module.exports = router
+
