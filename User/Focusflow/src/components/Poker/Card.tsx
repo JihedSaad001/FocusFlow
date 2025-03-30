@@ -1,25 +1,28 @@
-import { clsx } from "clsx";
+"use client"
 
 interface CardProps {
-  value: string;
-  selected?: boolean;
-  onClick?: () => void;
+  value: string
+  selected: boolean
+  onClick: () => void
+  disabled?: boolean
 }
 
-export function Card({ value, selected, onClick }: CardProps) {
+export function Card({ value, selected, onClick, disabled = false }: CardProps) {
   return (
-    <button
-      onClick={onClick}
-      className={clsx(
-        "w-full aspect-[3/4] rounded-xl shadow-lg transition-all transform hover:scale-105 hover:shadow-2xl",
-        "flex items-center justify-center text-3xl font-bold",
+    <div
+      className={`aspect-[2/3] rounded-xl flex items-center justify-center text-2xl font-bold cursor-pointer transition-all duration-200 transform ${
         selected
-          ? "bg-red-500/20 text-red-400 border-2 border-red-500"
-          : "bg-gray-800 text-gray-300 border border-gray-600 hover:border-red-500/70 hover:bg-red-500/10",
-        !selected && "hover:shadow-red-500/30"
-      )}
+          ? "bg-red-500 text-white scale-105 shadow-lg"
+          : disabled
+            ? "bg-gray-700/50 text-gray-500 cursor-not-allowed"
+            : "bg-gray-800 text-white hover:bg-gray-700 hover:scale-105"
+      }`}
+      onClick={disabled ? undefined : onClick}
     >
       {value}
-    </button>
-  );
+    </div>
+  )
 }
+
+export default Card
+

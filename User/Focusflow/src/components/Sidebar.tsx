@@ -29,7 +29,7 @@ const Sidebar = () => {
 
   return (
     <div
-      className={`h-screen bg-gradient-to-b from-[#1a1a1a] to-[#0f0f0f] text-white flex flex-col fixed left-0 top-0 border-r border-white/[0.08] transition-all duration-300 ${
+      className={`h-screen bg-gradient-to-b from-[#1a1a1a] to-[#0f0f0f] text-white flex flex-col fixed z-100 left-0 top-0 border-r border-white/[0.08] transition-all duration-300 ${
         isExpanded ? "w-64" : "w-20"
       }`}
       onMouseEnter={() => {

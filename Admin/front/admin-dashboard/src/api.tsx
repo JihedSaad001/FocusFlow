@@ -14,6 +14,19 @@ export const fetchResources = async () => {
   }
 };
 
+// New function to fetch ambient sounds
+export const fetchAudioResources = async () => {
+  try {
+    const response = await axios.get(
+      `${API_BASE_URL}/api/resources/ambient-sounds`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("🔥 Error fetching ambient sounds:", error);
+    throw error;
+  }
+};
+
 export const loginAdmin = async (email: string, password: string) => {
   const response = await axios.post(`${API_BASE_URL}/api/auth/admin-login`, {
     email,
@@ -70,6 +83,39 @@ export const uploadFile = async (
     return response.data;
   } catch (error) {
     console.error("🔥 Error uploading file:", error);
+    throw error;
+  }
+};
+
+// New function to upload ambient sounds
+export const uploadAudio = async (
+  file: File,
+  name: string,
+  tags: string,
+  token: string | null
+) => {
+  if (!token) throw new Error("Unauthorized: No token provided!");
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("name", name);
+  formData.append("tags", tags);
+
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/resources/upload-audio`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("🔥 Error uploading audio:", error);
     throw error;
   }
 };

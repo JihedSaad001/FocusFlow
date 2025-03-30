@@ -3,7 +3,8 @@ import WidgetSidebar from "./WidgetSidebar";
 import WallpaperSelector from "./WallpaperSelector";
 import Pomodoro from "./widgets/Pomodoro";
 import ToDoList from "./widgets/ToDoList";
-import YouTubePlayer from "./widgets/YouTubePlayer"; // ✅ Import YouTubePlayer
+import YouTubePlayer from "./widgets/YouTubePlayer";
+import AmbientSounds from "./widgets/AmbientSounds";
 
 const Workspace = () => {
   const [background, setBackground] = useState(
@@ -14,6 +15,7 @@ const Workspace = () => {
   const wallpaperButtonRef = useRef<HTMLButtonElement | null>(null);
   const [showPomodoro, setShowPomodoro] = useState(false);
   const [showToDoList, setShowToDoList] = useState(false);
+  const [showAmbientSounds, setShowAmbientSounds] = useState(false);
 
   useEffect(() => {
     const storedWallpaper = localStorage.getItem("workspaceWallpaper");
@@ -29,6 +31,9 @@ const Workspace = () => {
       setShowPomodoro(true);
     } else if (widget === "todo") {
       setShowToDoList(true);
+    } else if (widget === "ambient-music") {
+      // Update this line
+      setShowAmbientSounds(true);
     }
   };
 
@@ -76,7 +81,12 @@ const Workspace = () => {
       {/* To-Do List Widget */}
       {showToDoList && <ToDoList onClose={() => setShowToDoList(false)} />}
 
-      {/* ✅ YouTube Player is Always Visible */}
+      {/* Ambient Sounds Widget */}
+      {showAmbientSounds && (
+        <AmbientSounds onClose={() => setShowAmbientSounds(false)} />
+      )}
+
+      {/* YouTube Player is Always Visible */}
       <YouTubePlayer />
     </div>
   );

@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card } from "./Card";
@@ -13,6 +15,7 @@ import {
   CheckCircle2,
   Plus,
   Check,
+  X,
 } from "lucide-react";
 import type { Issue, Vote } from "../../types"; // Ensure this matches the shared type definition
 
@@ -25,7 +28,10 @@ interface RouteParams {
 
 interface DecodedToken {
   id: string;
-  [key: string]: any;
+  username: string;
+  email: string;
+  iat: number;
+  exp: number;
 }
 
 interface VotingUser {
@@ -35,6 +41,14 @@ interface VotingUser {
 
 interface Project {
   owner: { _id: string };
+  members: { _id: string; username: string }[];
+  sprints: Sprint[];
+}
+
+interface Sprint {
+  _id: string;
+  name: string;
+  active: boolean;
 }
 
 export function PlanningSession() {
@@ -50,19 +64,18 @@ export function PlanningSession() {
   const [voteStats, setVoteStats] = useState({
     average: 0,
     mostCommon: 0,
-    range: { min: Infinity, max: -Infinity },
+    range: { min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY },
   });
   const [votingUsers, setVotingUsers] = useState<VotingUser[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const socket = useRef(
-    io("https://focusflow-production.up.railway.app", {
-      withCredentials: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    })
-  );
+  const [socketConnected, setSocketConnected] = useState(false);
+  const socketRef = useRef<any>(null);
+
+  // New state for validation popup
+  const [showValidationPopup, setShowValidationPopup] = useState(false);
+  const [selectedSprintId, setSelectedSprintId] = useState<string>("");
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("");
 
   const getUserId = (): string | null => {
     const token = localStorage.getItem("token");
@@ -77,27 +90,85 @@ export function PlanningSession() {
     }
   };
 
+  // Initialize socket connection once
   useEffect(() => {
     if (!id) return;
 
-    console.log("Setting up Socket.IO listeners for projectId:", id);
-    socket.current.emit("joinRoom", id);
+    // Get user ID from token
+    getUserId();
 
-    socket.current.on("connect", () => {
-      console.log("Socket.IO connected:", socket.current.id);
-      socket.current.emit("joinRoom", id);
+    // Create socket connection if it doesn't exist
+    if (!socketRef.current) {
+      console.log("Creating new Socket.IO connection");
+      socketRef.current = io("https://focusflow-production.up.railway.app", {
+        withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        transports: ["websocket", "polling"],
+      });
+    }
+
+    // Set up connection event handlers
+    socketRef.current.on("connect", () => {
+      console.log("Socket.IO connected:", socketRef.current.id);
+      setSocketConnected(true);
+
+      // Join the room for this project
+      socketRef.current.emit("joinRoom", id);
+      console.log(`Emitted joinRoom event for project ${id}`);
     });
 
-    socket.current.on("connect_error", (err) => {
+    socketRef.current.on("connect_error", (err: any) => {
       console.error("Socket.IO connection error:", err.message);
-      setError("Real-time updates unavailable. Please refresh the page.");
+      setSocketConnected(false);
+      setError(
+        `Real-time connection error: ${err.message}. Updates may be delayed.`
+      );
     });
 
-    socket.current.on("disconnect", () => {
-      console.log("Socket.IO disconnected");
+    socketRef.current.on("disconnect", (reason: string) => {
+      console.log("Socket.IO disconnected:", reason);
+      setSocketConnected(false);
+
+      // Attempt to reconnect if disconnected
+      if (reason === "io server disconnect") {
+        // the disconnection was initiated by the server, reconnect manually
+        socketRef.current.connect();
+      }
     });
 
-    socket.current.on(
+    socketRef.current.on("reconnect", (attemptNumber: number) => {
+      console.log(`Socket.IO reconnected after ${attemptNumber} attempts`);
+      setSocketConnected(true);
+
+      // Re-join the room after reconnection
+      socketRef.current.emit("joinRoom", id);
+    });
+
+    // Clean up function
+    return () => {
+      console.log("Cleaning up Socket.IO connection");
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [id]);
+
+  // Set up event listeners for real-time updates
+  useEffect(() => {
+    if (!socketRef.current || !id) return;
+
+    // Remove any existing listeners to prevent duplicates
+    socketRef.current.off("voteUpdate");
+    socketRef.current.off("votesRevealed");
+    socketRef.current.off("issueAdded");
+    socketRef.current.off("issueDeleted");
+    socketRef.current.off("votesReset");
+
+    // Listen for vote updates
+    socketRef.current.on(
       "voteUpdate",
       ({
         issueId,
@@ -116,40 +187,48 @@ export function PlanningSession() {
           userId,
           username,
         });
+
         setIssues((prevIssues) => {
-          const updatedIssues = prevIssues.map((issue) =>
-            issue._id === issueId
-              ? {
-                  ...issue,
-                  votes: issue.votes?.some((v) => {
-                    const user = v.user;
-                    return typeof user === "string"
-                      ? user === userId
-                      : user._id === userId;
-                  })
-                    ? issue.votes.map((v) => {
-                        const user = v.user;
-                        return (
-                          typeof user === "string"
-                            ? user === userId
-                            : user._id === userId
-                        )
-                          ? { ...v, vote }
-                          : v;
-                      })
-                    : [
-                        ...(issue.votes || []),
-                        { user: { _id: userId, username }, vote },
-                      ],
-                }
-              : issue
-          );
-          return [...updatedIssues];
+          return prevIssues.map((issue) => {
+            if (issue._id === issueId) {
+              // Find if this user already has a vote
+              const existingVoteIndex = issue.votes?.findIndex((v) => {
+                const user = v.user;
+                return typeof user === "string"
+                  ? user === userId
+                  : user._id === userId;
+              });
+
+              let updatedVotes;
+              if (
+                existingVoteIndex !== -1 &&
+                existingVoteIndex !== undefined &&
+                issue.votes
+              ) {
+                // Update existing vote
+                updatedVotes = [...issue.votes];
+                updatedVotes[existingVoteIndex] = {
+                  ...updatedVotes[existingVoteIndex],
+                  vote,
+                };
+              } else {
+                // Add new vote
+                updatedVotes = [
+                  ...(issue.votes || []),
+                  { user: { _id: userId, username }, vote },
+                ];
+              }
+
+              return { ...issue, votes: updatedVotes };
+            }
+            return issue;
+          });
         });
       }
     );
 
-    socket.current.on(
+    // Listen for votes revealed
+    socketRef.current.on(
       "votesRevealed",
       ({
         issueId,
@@ -165,6 +244,7 @@ export function PlanningSession() {
           votes,
           status,
         });
+
         setIssues((prevIssues) =>
           prevIssues.map((issue) =>
             issue._id === issueId
@@ -172,6 +252,7 @@ export function PlanningSession() {
               : issue
           )
         );
+
         if (currentIssue && currentIssue._id === issueId) {
           setVotesRevealed(true);
           updateVoteStats(votes);
@@ -189,27 +270,44 @@ export function PlanningSession() {
       }
     );
 
-    socket.current.on("issueAdded", ({ issue }: { issue: Issue }) => {
-      setIssues((prevIssues) => [...prevIssues, issue]);
+    // Listen for new issues
+    socketRef.current.on("issueAdded", ({ issue }: { issue: Issue }) => {
+      console.log("Received issueAdded event:", issue);
+      setIssues((prevIssues) => {
+        // Check if the issue already exists to prevent duplicates
+        const exists = prevIssues.some((i) => i._id === issue._id);
+        if (exists) {
+          return prevIssues;
+        }
+        return [...prevIssues, issue];
+      });
     });
 
-    socket.current.on("issueDeleted", ({ issueId }: { issueId: string }) => {
+    // Listen for deleted issues
+    socketRef.current.on("issueDeleted", ({ issueId }: { issueId: string }) => {
+      console.log("Received issueDeleted event:", issueId);
       setIssues((prevIssues) =>
         prevIssues.filter((issue) => issue._id !== issueId)
       );
+
       if (currentIssue && currentIssue._id === issueId) {
         setCurrentIssue(null);
         setVotesRevealed(false);
         setVoteStats({
           average: 0,
           mostCommon: 0,
-          range: { min: Infinity, max: -Infinity },
+          range: {
+            min: Number.POSITIVE_INFINITY,
+            max: Number.NEGATIVE_INFINITY,
+          },
         });
         setVotingUsers([]);
       }
     });
 
-    socket.current.on("votesReset", ({ issueId }: { issueId: string }) => {
+    // Listen for vote resets
+    socketRef.current.on("votesReset", ({ issueId }: { issueId: string }) => {
+      console.log("Received votesReset event:", issueId);
       setIssues((prevIssues) =>
         prevIssues.map((issue) =>
           issue._id === issueId
@@ -217,12 +315,16 @@ export function PlanningSession() {
             : issue
         )
       );
+
       if (currentIssue && currentIssue._id === issueId) {
         setVotesRevealed(false);
         setVoteStats({
           average: 0,
           mostCommon: 0,
-          range: { min: Infinity, max: -Infinity },
+          range: {
+            min: Number.POSITIVE_INFINITY,
+            max: Number.NEGATIVE_INFINITY,
+          },
         });
         setVotingUsers([]);
         setCurrentIssue((prev) =>
@@ -231,12 +333,16 @@ export function PlanningSession() {
       }
     });
 
-    return () => {
-      console.log("Disconnecting Socket.IO");
-      socket.current.disconnect();
-    };
+    // Debug event to confirm room joining
+    socketRef.current.on(
+      "roomJoined",
+      ({ projectId }: { projectId: string }) => {
+        console.log(`Successfully joined room for project ${projectId}`);
+      }
+    );
   }, [id, currentIssue]);
 
+  // Fetch poker session data
   useEffect(() => {
     if (!id || id.trim() === "") {
       console.error(
@@ -251,6 +357,7 @@ export function PlanningSession() {
     fetchProject();
   }, [id]);
 
+  // Update current issue when issues change
   useEffect(() => {
     if (currentIssue) {
       const updatedIssue = issues.find((i) => i._id === currentIssue._id);
@@ -296,7 +403,14 @@ export function PlanningSession() {
       }
       const data = await response.json();
       console.log("Fetched poker session data:", data);
-      setIssues(data.issues || []);
+
+      // Ensure each issue has a valid status
+      const issuesWithStatus = (data.issues || []).map((issue: Issue) => ({
+        ...issue,
+        status: issue.status || "Not Started",
+      }));
+
+      setIssues(issuesWithStatus);
     } catch (error: any) {
       setError(`Error fetching poker session: ${error.message}`);
     }
@@ -322,6 +436,19 @@ export function PlanningSession() {
       }
       const data = await response.json();
       setProject(data);
+
+      // Set default selected sprint if there's an active one
+      const activeSprint = data.sprints?.find((s: Sprint) => s.active);
+      if (activeSprint) {
+        setSelectedSprintId(activeSprint._id);
+      } else if (data.sprints?.length > 0) {
+        setSelectedSprintId(data.sprints[0]._id);
+      }
+
+      // Set default selected member if current user is a member
+      if (data.members?.length > 0) {
+        setSelectedMemberId(data.members[0]._id);
+      }
     } catch (error: any) {
       console.error("❌ Error fetching project:", error);
       setError(error.message);
@@ -330,7 +457,7 @@ export function PlanningSession() {
 
   const handleVote = async (value: string) => {
     if (votesRevealed || (currentIssue && currentIssue.status === "Revealed")) {
-      setError("Voting is disabled until the project owner allows a revote.");
+      // Just return early instead of showing an error
       return;
     }
 
@@ -362,15 +489,9 @@ export function PlanningSession() {
           setError(`Failed to record vote: ${errorText}`);
           return;
         }
-        console.log("Vote recorded, emitting vote event...");
-        socket.current.emit("vote", {
-          projectId: id,
-          issueId: currentIssue._id,
-          vote: value,
-          userId,
-        });
 
-        await fetchPokerSession();
+        // The server will emit the voteUpdate event to all clients
+        console.log("Vote recorded successfully");
       } catch (error: any) {
         console.error("Error recording vote:", error);
         setError(`Error recording vote: ${error.message}`);
@@ -395,10 +516,15 @@ export function PlanningSession() {
           const errorText = await response.text();
           throw new Error(`Failed to reveal votes: ${errorText}`);
         }
+
+        // The server will emit the votesRevealed event to all clients
+        console.log("Votes revealed successfully");
+
+        // Update the local state as well to ensure UI consistency
+        setCurrentIssue((prev) =>
+          prev ? { ...prev, status: "Revealed" } : null
+        );
         setVotesRevealed(true);
-        const currentIssueVotes =
-          issues.find((i) => i._id === currentIssue._id)?.votes || [];
-        updateVoteStats(currentIssueVotes);
       } catch (error: any) {
         setError(`Error revealing votes: ${error.message}`);
       } finally {
@@ -424,13 +550,9 @@ export function PlanningSession() {
           const errorText = await response.text();
           throw new Error(`Failed to reset votes: ${errorText}`);
         }
-        setVotesRevealed(false);
-        setVoteStats({
-          average: 0,
-          mostCommon: 0,
-          range: { min: Infinity, max: -Infinity },
-        });
-        setVotingUsers([]);
+
+        // The server will emit the votesReset event to all clients
+        console.log("Votes reset successfully");
       } catch (error: any) {
         setError(`Error resetting votes: ${error.message}`);
       } finally {
@@ -439,11 +561,24 @@ export function PlanningSession() {
     }
   };
 
-  const handleValidate = async () => {
+  const handleValidate = () => {
     if (!currentIssue || !votesRevealed) {
       setError("Please reveal votes before validating the session.");
       return;
     }
+
+    // Only project owner can validate
+    if (!isProjectOwner) {
+      setError("Only the project owner can validate issues.");
+      return;
+    }
+
+    // Show validation popup instead of immediately validating
+    setShowValidationPopup(true);
+  };
+
+  const submitValidation = async () => {
+    if (!currentIssue) return;
 
     setIsUpdating(true);
     try {
@@ -457,6 +592,8 @@ export function PlanningSession() {
           },
           body: JSON.stringify({
             finalEstimate: voteStats.mostCommon.toString(),
+            sprintId: selectedSprintId,
+            assignedTo: selectedMemberId,
           }),
         }
       );
@@ -464,6 +601,7 @@ export function PlanningSession() {
         const errorText = await response.text();
         throw new Error(`Failed to validate session: ${errorText}`);
       }
+
       setIssues((prevIssues) =>
         prevIssues.map((issue) =>
           issue._id === currentIssue._id
@@ -475,6 +613,7 @@ export function PlanningSession() {
             : issue
         )
       );
+
       setCurrentIssue((prev) =>
         prev
           ? {
@@ -484,13 +623,44 @@ export function PlanningSession() {
             }
           : prev
       );
+
       setVotesRevealed(false);
       setVoteStats({
         average: 0,
         mostCommon: 0,
-        range: { min: Infinity, max: -Infinity },
+        range: { min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY },
       });
       setVotingUsers([]);
+      setShowValidationPopup(false);
+
+      // If the task is assigned to the current user, add it to their Kanban board
+      if (selectedMemberId === currentUserId) {
+        try {
+          const kanbanResponse = await fetch(
+            `https://focusflow-production.up.railway.app/api/user/kanban/project-task`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+              },
+              body: JSON.stringify({
+                projectId: id,
+                sprintId: selectedSprintId,
+                taskId: currentIssue._id,
+              }),
+            }
+          );
+
+          if (!kanbanResponse.ok) {
+            console.warn("Failed to add task to user's kanban board");
+          } else {
+            console.log("Task added to user's kanban board successfully");
+          }
+        } catch (error) {
+          console.error("Error adding task to kanban board:", error);
+        }
+      }
     } catch (error: any) {
       setError(`Error validating session: ${error.message}`);
     } finally {
@@ -500,25 +670,31 @@ export function PlanningSession() {
 
   const updateVoteStats = (votes: Vote[] = []) => {
     const allVotes = votes
-      .map((v) => (v.vote ? parseInt(v.vote, 10) : 0))
+      .map((v) => (v.vote ? Number.parseInt(v.vote, 10) : 0))
       .filter((v: number) => !isNaN(v) && v !== null);
     if (allVotes.length === 0) {
       setVoteStats({
         average: 0,
         mostCommon: 0,
-        range: { min: Infinity, max: -Infinity },
+        range: { min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY },
       });
       return;
     }
     const average = allVotes.reduce((a, b) => a + b, 0) / allVotes.length;
-    const mostCommon =
-      allVotes
-        .sort(
-          (a, b) =>
-            allVotes.filter((v) => v === a).length -
-            allVotes.filter((v) => v === b).length
-        )
-        .pop() || 0;
+    const voteCounts: { [key: number]: number } = {};
+    allVotes.forEach((v) => {
+      voteCounts[v] = (voteCounts[v] || 0) + 1;
+    });
+
+    let mostCommon = 0;
+    let maxCount = 0;
+    Object.entries(voteCounts).forEach(([vote, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        mostCommon = Number.parseInt(vote);
+      }
+    });
+
     const range = { min: Math.min(...allVotes), max: Math.max(...allVotes) };
     setVoteStats({ average, mostCommon, range });
   };
@@ -526,7 +702,9 @@ export function PlanningSession() {
   const handleIssueSelect = (issue: Issue) => {
     setCurrentIssue(issue);
     setSelectedCard(null);
-    setVotesRevealed(issue.status === "Revealed");
+    setVotesRevealed(
+      issue.status === "Revealed" || issue.status === "Finished"
+    );
     updateVoteStats(issue.votes || []);
   };
 
@@ -575,10 +753,23 @@ export function PlanningSession() {
                 <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-700">
                   Poker Planning Session
                 </h1>
-                <p className="text-gray-400 flex items-center gap-2 mt-2">
-                  <Users size={20} />
-                  {issues.length} issues
-                </p>
+                <div className="flex items-center gap-4 mt-2">
+                  <p className="text-gray-400 flex items-center gap-2">
+                    <Users size={20} />
+                    {issues.length} issues
+                  </p>
+                  {socketConnected ? (
+                    <span className="text-green-400 text-sm flex items-center gap-1">
+                      <span className="w-2 h-2 bg-green-400 rounded-full inline-block"></span>
+                      Real-time connected
+                    </span>
+                  ) : (
+                    <span className="text-red-400 text-sm flex items-center gap-1">
+                      <span className="w-2 h-2 bg-red-400 rounded-full inline-block"></span>
+                      Disconnected
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex gap-4">
                 <button
@@ -588,14 +779,16 @@ export function PlanningSession() {
                   <Copy size={20} />
                   Copy Invite Link
                 </button>
-                <button
-                  onClick={handleValidate}
-                  disabled={isUpdating || !currentIssue || !votesRevealed}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-500 rounded-lg hover:bg-green-600 transition-colors text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
-                >
-                  <Check size={20} />
-                  Validate
-                </button>
+                {isProjectOwner && (
+                  <button
+                    onClick={handleValidate}
+                    disabled={isUpdating || !currentIssue || !votesRevealed}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-500 rounded-lg hover:bg-green-600 transition-colors text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
+                  >
+                    <Check size={20} />
+                    Validate
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -729,11 +922,13 @@ export function PlanningSession() {
                             <div className="space-y-2">
                               <span className="text-gray-400">Range</span>
                               <span className="text-red-400 font-semibold">
-                                {voteStats.range.min === Infinity
+                                {voteStats.range.min ===
+                                Number.POSITIVE_INFINITY
                                   ? "Infinity"
                                   : voteStats.range.min}{" "}
                                 -{" "}
-                                {voteStats.range.max === -Infinity
+                                {voteStats.range.max ===
+                                Number.NEGATIVE_INFINITY
                                   ? "-Infinity"
                                   : voteStats.range.max}
                               </span>
@@ -778,6 +973,10 @@ export function PlanningSession() {
                           value={value}
                           selected={selectedCard === value}
                           onClick={() => handleVote(value)}
+                          disabled={
+                            votesRevealed ||
+                            (currentIssue && currentIssue.status === "Revealed")
+                          }
                         />
                       ))}
                     </div>
@@ -801,6 +1000,85 @@ export function PlanningSession() {
           </div>
         </div>
       </div>
+
+      {/* Validation Popup */}
+      {showValidationPopup && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1E1E1E] rounded-xl border border-gray-700 p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-white">
+                Validate Issue
+              </h3>
+              <button
+                onClick={() => setShowValidationPopup(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className="text-gray-300 mb-4">
+              Final estimate:{" "}
+              <span className="text-red-400 font-semibold">
+                {voteStats.mostCommon}
+              </span>
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-300 mb-2">
+                  Add to Sprint
+                </label>
+                <select
+                  value={selectedSprintId}
+                  onChange={(e) => setSelectedSprintId(e.target.value)}
+                  className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
+                >
+                  {project?.sprints.map((sprint) => (
+                    <option key={sprint._id} value={sprint._id}>
+                      {sprint.name} {sprint.active ? "(Active)" : ""}
+                    </option>
+                  ))}
+                  {(!project?.sprints || project.sprints.length === 0) && (
+                    <option value="">No sprints available</option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 mb-2">Assign To</label>
+                <select
+                  value={selectedMemberId}
+                  onChange={(e) => setSelectedMemberId(e.target.value)}
+                  className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
+                >
+                  {project?.members.map((member) => (
+                    <option key={member._id} value={member._id}>
+                      {member.username}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-4 mt-6">
+                <button
+                  onClick={() => setShowValidationPopup(false)}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg font-medium transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitValidation}
+                  disabled={isUpdating || !selectedSprintId}
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-medium transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed"
+                >
+                  {isUpdating ? "Validating..." : "Validate"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

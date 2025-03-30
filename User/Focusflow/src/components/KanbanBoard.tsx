@@ -1,18 +1,22 @@
-import React, { useState, useEffect } from "react";
+"use client";
+
+import type React from "react";
+import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { Board, Task, Column as ColumnType } from "../types";
+import type { Board, Task, Column as ColumnType } from "../types";
 import TaskCard from "./TaskCard";
-import { Plus } from "lucide-react";
+import { Plus, AlertCircle } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
-  DragStartEvent,
-  DragEndEvent,
-  DragOverEvent,
+  type DragStartEvent,
+  type DragEndEvent,
+  type DragOverEvent,
   useSensor,
   useSensors,
   PointerSensor,
   useDroppable,
+  closestCorners,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -34,6 +38,14 @@ const KanbanBoard: React.FC = () => {
   const [board, setBoard] = useState<Board>(initialBoard);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+  const [draggedTaskBackup, setDraggedTaskBackup] = useState<{
+    task: Task;
+    columnId: string;
+  } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -74,6 +86,9 @@ const KanbanBoard: React.FC = () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
+
+      console.log("Saving board with data:", JSON.stringify(updatedBoard));
+
       const response = await fetch(
         "https://focusflow-production.up.railway.app/api/user/kanban",
         {
@@ -85,10 +100,42 @@ const KanbanBoard: React.FC = () => {
           body: JSON.stringify(updatedBoard),
         }
       );
-      if (!response.ok) throw new Error("Failed to save board");
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Failed to save board:", errorText);
+        throw new Error("Failed to save board");
+      }
+
       console.log("Board saved successfully");
+
+      // Show success notification for project task updates
+      const projectTasks = updatedBoard.columns.flatMap((col) =>
+        col.tasks.filter(
+          (task) => task.projectId && task.sprintId && task.originalTaskId
+        )
+      );
+
+      if (projectTasks.length > 0) {
+        setNotification({
+          message: "Project task status updated",
+          type: "success",
+        });
+
+        setTimeout(() => {
+          setNotification(null);
+        }, 3000);
+      }
     } catch (error) {
       console.error("Error saving Kanban board:", error);
+      setNotification({
+        message: "Error saving board",
+        type: "error",
+      });
+
+      setTimeout(() => {
+        setNotification(null);
+      }, 3000);
     }
   };
 
@@ -97,6 +144,8 @@ const KanbanBoard: React.FC = () => {
     const { active } = event;
     const { task, columnId } = active.data.current || {};
     if (task) {
+      // Store a backup of the task and its column for recovery if needed
+      setDraggedTaskBackup({ task, columnId });
       setActiveTask(task);
       setActiveColumnId(columnId);
     }
@@ -144,9 +193,7 @@ const KanbanBoard: React.FC = () => {
           return col;
         });
 
-        const updatedBoard = { ...prevBoard, columns: updatedColumns };
-        saveBoard(updatedBoard);
-        return updatedBoard;
+        return { ...prevBoard, columns: updatedColumns };
       });
     }
   };
@@ -154,17 +201,47 @@ const KanbanBoard: React.FC = () => {
   // Handle drag end (reorder tasks within the same column or move to a new column)
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+
+    // If there's no over target, restore the task to its original position
     if (!over) {
+      if (draggedTaskBackup) {
+        // Restore the task to its original position
+        setBoard((prevBoard) => {
+          // Make sure the task isn't already in the board (avoid duplicates)
+          const taskExists = prevBoard.columns.some((col) =>
+            col.tasks.some((task) => task._id === draggedTaskBackup.task._id)
+          );
+
+          if (taskExists) return prevBoard;
+
+          const updatedColumns = prevBoard.columns.map((col) => {
+            if (col.id === draggedTaskBackup.columnId) {
+              return {
+                ...col,
+                tasks: [...col.tasks, draggedTaskBackup.task],
+              };
+            }
+            return col;
+          });
+
+          return { ...prevBoard, columns: updatedColumns };
+        });
+      }
+
       setActiveTask(null);
       setActiveColumnId(null);
+      setDraggedTaskBackup(null);
       return;
     }
 
     const activeId = active.id;
     const overId = over.id;
+
+    // If dragging onto itself, do nothing
     if (activeId === overId) {
       setActiveTask(null);
       setActiveColumnId(null);
+      setDraggedTaskBackup(null);
       return;
     }
 
@@ -247,6 +324,7 @@ const KanbanBoard: React.FC = () => {
 
     setActiveTask(null);
     setActiveColumnId(null);
+    setDraggedTaskBackup(null);
   };
 
   const handleAddTask = (columnId: string, task: Task) => {
@@ -314,6 +392,11 @@ const KanbanBoard: React.FC = () => {
       }
     };
 
+    // Count project tasks
+    const projectTaskCount = column.tasks.filter(
+      (task) => task.projectId
+    ).length;
+
     return (
       <div
         ref={setNodeRef}
@@ -326,6 +409,12 @@ const KanbanBoard: React.FC = () => {
             <span className="ml-3 bg-gray-800 text-white text-xs font-medium px-2 py-1 rounded-full">
               {column.tasks.length}
             </span>
+            {projectTaskCount > 0 && (
+              <span className="ml-2 bg-blue-800 text-white text-xs font-medium px-2 py-1 rounded-full flex items-center">
+                <AlertCircle size={10} className="mr-1" />
+                {projectTaskCount}
+              </span>
+            )}
           </div>
           <div className="flex space-x-2">
             <button
@@ -350,6 +439,7 @@ const KanbanBoard: React.FC = () => {
                   task={task}
                   columnId={column.id}
                   onDelete={onDeleteTask}
+                  isProjectTask={!!task.projectId}
                 />
               ))
             ) : (
@@ -439,17 +529,33 @@ const KanbanBoard: React.FC = () => {
 
   return (
     <div className="min-h-screen w-full bg-[#121212] text-white flex flex-col">
+      {/* Notification */}
+      {notification && (
+        <div
+          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+            notification.type === "success" ? "bg-green-500" : "bg-red-500"
+          } text-white`}
+        >
+          {notification.message}
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-[#1E1E1E] border-b border-gray-700 p-6">
         <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-700">
           Kanban Board
         </h1>
+        <p className="text-gray-400 mt-2">
+          Tasks from your projects will appear here. Moving them will update
+          their status in the project.
+        </p>
       </div>
 
       {/* Kanban Board */}
       <div className="flex-1 p-6 overflow-x-auto">
         <DndContext
           sensors={sensors}
+          collisionDetection={closestCorners}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
@@ -476,6 +582,7 @@ const KanbanBoard: React.FC = () => {
                 task={activeTask}
                 columnId={activeColumnId || ""}
                 onDelete={() => {}}
+                isProjectTask={!!activeTask.projectId}
               />
             )}
           </DragOverlay>

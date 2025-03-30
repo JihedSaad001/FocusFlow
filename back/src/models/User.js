@@ -1,3 +1,4 @@
+// src/models/User.js
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
@@ -5,11 +6,17 @@ const UserSchema = new mongoose.Schema({
   username: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  profilePic: { 
-    type: String, 
-    default: "https://qhedchvmvmuflflstcwx.supabase.co/storage/v1/object/public/profile-pictures//image_2025-02-08_215223222.png" 
+  profilePic: {
+    type: String,
+    default:
+      "https://qhedchvmvmuflflstcwx.supabase.co/storage/v1/object/public/profile-pictures//image_2025-02-08_215223222.png",
   },
   role: { type: String, enum: ["user", "admin"], default: "user" },
+  isVerified: { type: Boolean, default: false }, // Email verification status
+  verificationToken: { type: String }, // Token for email verification
+  verificationTokenExpires: { type: Date }, // Expiry for verification token
+  resetPasswordToken: { type: String }, // Token for password reset
+  resetPasswordExpires: { type: Date }, // Expiry for password reset token
   kanbanBoard: {
     type: {
       columns: [
@@ -18,11 +25,15 @@ const UserSchema = new mongoose.Schema({
           title: { type: String, required: true },
           tasks: [
             {
-              id: { type: String, required: true },
+              _id: { type: String, required: true },
               title: { type: String, required: true },
               priority: { type: String, enum: ["Low", "Medium", "High"], default: "Medium" },
-              date: { type: String },
+              deadline: { type: String },
               icon: { type: String },
+              description: { type: String },
+              projectId: { type: String }, // Reference to the project
+              sprintId: { type: String }, // Reference to the sprint
+              originalTaskId: { type: String }, // Reference to the original task in the project
             },
           ],
         },
@@ -32,8 +43,8 @@ const UserSchema = new mongoose.Schema({
       columns: [
         { id: "backlog-1", title: "Backlog", tasks: [] },
         { id: "todo-1", title: "To Do", tasks: [] },
-        { id: "totest-1", title: "To Test", tasks: [] },
         { id: "doing-1", title: "Doing", tasks: [] },
+        { id: "totest-1", title: "To Test", tasks: [] },
         { id: "done-1", title: "Done", tasks: [] },
       ],
     },

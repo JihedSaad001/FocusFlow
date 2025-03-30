@@ -15,7 +15,8 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   "https://focus-flow-dusky.vercel.app", // Main frontend (update with your actual domain)
   "https://focusflow-admin.vercel.app", // Admin frontend (update with your actual domain)
-  "http://localhost:5173", // Local development
+  "http://localhost:5173",
+  "http://localhost:5174", // Local development
 ];
 
 // CORS configuration for Express
