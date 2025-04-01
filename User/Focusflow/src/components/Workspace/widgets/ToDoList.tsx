@@ -1,20 +1,38 @@
-import { useState, useRef } from "react";
+"use client";
+
+import { useState, useEffect } from "react";
 import { Plus, X, Check, Trash2 } from "lucide-react";
+import { useDraggable } from "./../hooks/use-draggable";
+import { logCompletedTask } from "../../../Api";
 
 interface ToDoListProps {
   onClose: () => void;
 }
 
+interface Task {
+  id: number;
+  text: string;
+  completed: boolean;
+}
+
 const ToDoList = ({ onClose }: ToDoListProps) => {
-  const [tasks, setTasks] = useState<
-    { id: number; text: string; completed: boolean }[]
-  >([]);
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const savedTasks = localStorage.getItem("todoTasks");
+    return savedTasks ? JSON.parse(savedTasks) : [];
+  });
   const [newTask, setNewTask] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("All");
-  const positionRef = useRef({ x: window.innerWidth - 580, y: 50 });
-  const [position, setPosition] = useState(positionRef.current);
-  const animationFrame = useRef<number | null>(null);
-  const isDragging = useRef(false);
+
+  // Use our custom draggable hook
+  const { position, handleMouseDown, isDragging } = useDraggable({
+    initialPosition: { x: window.innerWidth - 580, y: 50 },
+    boundaryPadding: 10,
+  });
+
+  // Save tasks to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem("todoTasks", JSON.stringify(tasks));
+  }, [tasks]);
 
   // ✅ Add New Task
   const addTask = () => {
@@ -25,56 +43,33 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
   };
 
   // ✅ Toggle Task Completion
-  const toggleTaskCompletion = (id: number) => {
+  const toggleTaskCompletion = async (id: number) => {
+    const task = tasks.find((t) => t.id === id);
+    const wasCompleted = task?.completed;
+
     setTasks(
       tasks.map((task) =>
         task.id === id ? { ...task, completed: !task.completed } : task
       )
     );
+
+    // If task is being marked as completed (not uncompleted), log it
+    if (task && !wasCompleted) {
+      try {
+        const token = localStorage.getItem("token");
+        if (token) {
+          await logCompletedTask(token, id.toString());
+          console.log("Task completion logged:", task.text);
+        }
+      } catch (error) {
+        console.error("Failed to log completed task:", error);
+      }
+    }
   };
 
   // ✅ Remove Task
   const removeTask = (id: number) => {
     setTasks(tasks.filter((task) => task.id !== id));
-  };
-
-  // ✅ Ultra-Smooth Dragging
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    isDragging.current = true;
-    const startX = e.clientX - positionRef.current.x;
-    const startY = e.clientY - positionRef.current.y;
-
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!isDragging.current) return;
-
-      positionRef.current = {
-        x: Math.min(
-          window.innerWidth - 400,
-          Math.max(10, event.clientX - startX)
-        ),
-        y: Math.min(
-          window.innerHeight - 120,
-          Math.max(10, event.clientY - startY)
-        ),
-      };
-
-      if (!animationFrame.current) {
-        animationFrame.current = requestAnimationFrame(() => {
-          setPosition({ ...positionRef.current });
-          animationFrame.current = null;
-        });
-      }
-    };
-
-    const handleMouseUp = () => {
-      isDragging.current = false;
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
   };
 
   return (
@@ -83,9 +78,9 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
         left: `${position.x}px`,
         top: `${position.y}px`,
         zIndex: 50,
-        transition: isDragging.current ? "none" : "transform 0.1s ease-out",
+        transition: isDragging ? "none" : "transform 0.1s ease-out",
       }}
-      className="fixed w-[460px] bg-[#121212]  text-white border-3 border-[#ff4e50] rounded-xl shadow-2xl p-6 transition-all cursor-grab active:cursor-grabbing"
+      className="fixed w-[460px] bg-[#121212] text-white border-3 border-[#ff4e50] rounded-xl shadow-2xl p-6 transition-all cursor-grab active:cursor-grabbing"
     >
       {/* Header (Draggable) */}
       <div
@@ -108,6 +103,9 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
           placeholder="Add a new task..."
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") addTask();
+          }}
           className="flex-1 px-3 py-2 bg-[#252525] rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30"
         />
         <button
@@ -139,7 +137,7 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
       </div>
 
       {/* Task List */}
-      <div className="space-y-2">
+      <div className="space-y-2 max-h-[300px] overflow-y-auto">
         {tasks
           .filter((task) =>
             selectedFilter === "All"

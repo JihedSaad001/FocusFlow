@@ -1,9 +1,9 @@
 const express = require("express")
 const mongoose = require("mongoose")
+const { authenticateJWT } = require("../middleware/authMiddleware")
 
 module.exports = (User) => {
   const router = express.Router()
-  const { authenticateJWT } = require("../middleware/authMiddleware")
   const Project = require("../models/Project")
 
   console.log("✅ User model in userDataRoutes:", Object.keys(User.schema.paths))
@@ -180,6 +180,461 @@ module.exports = (User) => {
       })
     }
   })
+
+  // ===== NEW PRODUCTIVITY TRACKING ROUTES =====
+
+  /**
+   * @route   GET /api/user/stats
+   * @desc    Get user productivity stats
+   * @access  Private
+   */
+  router.get("/stats", authenticateJWT, async (req, res) => {
+    try {
+      const { timeRange = "week" } = req.query
+      const userId = req.user.id
+
+      // Find the user
+      const user = await User.findById(userId)
+      if (!user) {
+        return res.status(404).json({ message: "User not found" })
+      }
+
+      // Calculate date range
+      const now = new Date()
+      let startDate
+
+      switch (timeRange) {
+        case "week":
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - 7)
+          break
+        case "month":
+          startDate = new Date(now)
+          startDate.setMonth(now.getMonth() - 1)
+          break
+        case "quarter":
+          startDate = new Date(now)
+          startDate.setMonth(now.getMonth() - 3)
+          break
+        default:
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - 7)
+      }
+
+      // Filter data based on date range
+      const filteredFocusSessions = user.focusSessions
+        ? user.focusSessions.filter((session) => new Date(session.timestamp) >= startDate)
+        : []
+
+      const filteredFocusTime = user.focusTime
+        ? user.focusTime.filter((entry) => new Date(entry.date) >= startDate)
+        : []
+
+      const filteredDailyTasks = user.dailyTasks
+        ? user.dailyTasks.filter((entry) => new Date(entry.date) >= startDate)
+        : []
+
+      // Return the filtered stats
+      res.json({
+        focusSessions: filteredFocusSessions || [],
+        tasksCompleted: user.tasksCompleted || 0,
+        xp: user.xp || 0,
+        level: user.level || 1,
+        focusTime: filteredFocusTime || [],
+        dailyTasks: filteredDailyTasks || [],
+        streakDays: user.streakDays || 0,
+        lastActive: user.lastActive || new Date(),
+        lastStreakUpdate: user.lastStreakUpdate,
+      })
+    } catch (error) {
+      console.error("Error fetching user stats:", error)
+      res.status(500).json({ message: "Server error", error: error.message })
+    }
+  })
+
+  /**
+   * @route   POST /api/user/log-focus-session
+   * @desc    Log a focus session
+   * @access  Private
+   */
+  router.post("/log-focus-session", authenticateJWT, async (req, res) => {
+    try {
+      const { duration, completed, ambientSound } = req.body
+      const userId = req.user.id
+
+      if (!duration) {
+        return res.status(400).json({ message: "Duration is required" })
+      }
+
+      console.log("Logging focus session:", { duration, completed, ambientSound, userId })
+
+      // Find the user
+      const user = await User.findById(userId)
+      if (!user) {
+        return res.status(404).json({ message: "User not found" })
+      }
+
+      // Initialize arrays if they don't exist
+      if (!user.focusSessions) user.focusSessions = []
+      if (!user.focusTime) user.focusTime = []
+      if (!user.dailyTasks) user.dailyTasks = []
+
+      // Add focus session
+      user.focusSessions.push({
+        duration,
+        completed: completed || false,
+        ambientSound,
+        timestamp: new Date(),
+      })
+
+      // Update focus time for today
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      const focusTimeIndex = user.focusTime.findIndex(
+        (entry) => new Date(entry.date).setHours(0, 0, 0, 0) === today.getTime(),
+      )
+
+      if (focusTimeIndex >= 0) {
+        user.focusTime[focusTimeIndex].duration += duration
+      } else {
+        user.focusTime.push({
+          date: today,
+          duration,
+        })
+      }
+
+      // Initialize XP if it doesn't exist
+      if (!user.xp) user.xp = 0
+
+      // Update XP (simple formula: 10 XP per minute of focus)
+      const xpGained = Math.round(duration * 10)
+      user.xp += xpGained
+
+      // Update level (simple formula: level = 1 + floor(xp / 1000))
+      user.level = 1 + Math.floor(user.xp / 1000)
+
+      // Update last active
+      user.lastActive = new Date()
+
+      // Update streak
+      const lastUpdate = user.lastStreakUpdate ? new Date(user.lastStreakUpdate) : null
+      if (!lastUpdate) {
+        user.streakDays = 1
+        user.lastStreakUpdate = new Date()
+      } else {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        const lastUpdateDay = new Date(lastUpdate)
+        lastUpdateDay.setHours(0, 0, 0, 0)
+
+        const yesterday = new Date(today)
+        yesterday.setDate(today.getDate() - 1)
+
+        if (lastUpdateDay.getTime() === yesterday.getTime()) {
+          // Last update was yesterday, increment streak
+          user.streakDays += 1
+          user.lastStreakUpdate = new Date()
+        } else if (lastUpdateDay.getTime() < yesterday.getTime()) {
+          // Streak broken, reset to 1
+          user.streakDays = 1
+          user.lastStreakUpdate = new Date()
+        }
+        // If last update was today, don't change streak
+      }
+
+      await user.save()
+      console.log("Focus session logged successfully")
+
+      res.json({
+        message: "Focus session logged successfully",
+        xpGained,
+        newLevel: user.level,
+        streakDays: user.streakDays,
+      })
+    } catch (error) {
+      console.error("Error logging focus session:", error)
+      res.status(500).json({ message: "Server error", error: error.message })
+    }
+  })
+
+  /**
+   * @route   POST /api/user/log-completed-task
+   * @desc    Log a completed task
+   * @access  Private
+   */
+  router.post("/log-completed-task", authenticateJWT, async (req, res) => {
+    try {
+      const { taskId } = req.body
+      const userId = req.user.id
+
+      if (!taskId) {
+        return res.status(400).json({ message: "Task ID is required" })
+      }
+
+      console.log("Logging completed task:", { taskId, userId })
+
+      // Find the user
+      const user = await User.findById(userId)
+      if (!user) {
+        return res.status(404).json({ message: "User not found" })
+      }
+
+      // Initialize fields if they don't exist
+      if (!user.tasksCompleted) user.tasksCompleted = 0
+      if (!user.dailyTasks) user.dailyTasks = []
+      if (!user.xp) user.xp = 0
+
+      // Increment tasks completed
+      user.tasksCompleted += 1
+
+      // Update daily tasks for today
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      const dailyTaskIndex = user.dailyTasks.findIndex(
+        (entry) => new Date(entry.date).setHours(0, 0, 0, 0) === today.getTime(),
+      )
+
+      if (dailyTaskIndex >= 0) {
+        user.dailyTasks[dailyTaskIndex].count += 1
+      } else {
+        user.dailyTasks.push({
+          date: today,
+          count: 1,
+        })
+      }
+
+      // Update XP (simple formula: 50 XP per completed task)
+      const xpGained = 50
+      user.xp += xpGained
+
+      // Update level (simple formula: level = 1 + floor(xp / 1000))
+      user.level = 1 + Math.floor(user.xp / 1000)
+
+      // Update last active
+      user.lastActive = new Date()
+
+      // Update streak (same logic as focus session)
+      const lastUpdate = user.lastStreakUpdate ? new Date(user.lastStreakUpdate) : null
+      if (!lastUpdate) {
+        user.streakDays = 1
+        user.lastStreakUpdate = new Date()
+      } else {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        const lastUpdateDay = new Date(lastUpdate)
+        lastUpdateDay.setHours(0, 0, 0, 0)
+
+        const yesterday = new Date(today)
+        yesterday.setDate(today.getDate() - 1)
+
+        if (lastUpdateDay.getTime() === yesterday.getTime()) {
+          // Last update was yesterday, increment streak
+          user.streakDays += 1
+          user.lastStreakUpdate = new Date()
+        } else if (lastUpdateDay.getTime() < yesterday.getTime()) {
+          // Streak broken, reset to 1
+          user.streakDays = 1
+          user.lastStreakUpdate = new Date()
+        }
+        // If last update was today, don't change streak
+      }
+
+      await user.save()
+      console.log("Task completion logged successfully")
+
+      res.json({
+        message: "Task completion logged successfully",
+        xpGained,
+        newLevel: user.level,
+        streakDays: user.streakDays,
+      })
+    } catch (error) {
+      console.error("Error logging completed task:", error)
+      res.status(500).json({ message: "Server error", error: error.message })
+    }
+  })
+
+  /**
+   * @route   GET /api/user/ai-insights
+   * @desc    Get AI-generated productivity insights
+   * @access  Private
+   */
+  router.get("/ai-insights", authenticateJWT, async (req, res) => {
+    try {
+      const userId = req.user.id
+
+      // Find the user
+      const user = await User.findById(userId)
+      if (!user) {
+        return res.status(404).json({ message: "User not found" })
+      }
+
+      // Get focus sessions and task data
+      const focusSessions = user.focusSessions || []
+      const focusTime = user.focusTime || []
+      const dailyTasks = user.dailyTasks || []
+
+      // Generate basic insights (in a real implementation, this would use more sophisticated analysis)
+      const insights = generateProductivityInsights(focusSessions, focusTime, dailyTasks)
+
+      res.json({
+        insights,
+      })
+    } catch (error) {
+      console.error("Error generating AI insights:", error)
+      res.status(500).json({ message: "Server error", error: error.message })
+    }
+  })
+
+  // Helper function to generate productivity insights
+  function generateProductivityInsights(focusSessions, focusTime, dailyTasks) {
+    // This is a simplified version - in a real implementation, you would use more sophisticated analysis
+
+    // Default insights if not enough data
+    if (focusSessions.length < 3) {
+      return {
+        summary:
+          "Not enough data to generate personalized insights yet. Complete more focus sessions to unlock AI-powered productivity analysis.",
+        recommendations: [
+          "Try using the Pomodoro technique with 25-minute focus sessions",
+          "Use ambient sounds to improve concentration",
+          "Break large tasks into smaller, manageable subtasks",
+        ],
+      }
+    }
+
+    // Analyze focus sessions
+    const completedSessions = focusSessions.filter((session) => session.completed)
+    const completionRate =
+      focusSessions.length > 0 ? Math.round((completedSessions.length / focusSessions.length) * 100) : 0
+
+    // Find most effective ambient sound
+    const soundCounts = {}
+    const soundCompletionCounts = {}
+
+    focusSessions.forEach((session) => {
+      if (session.ambientSound) {
+        soundCounts[session.ambientSound] = (soundCounts[session.ambientSound] || 0) + 1
+        if (session.completed) {
+          soundCompletionCounts[session.ambientSound] = (soundCompletionCounts[session.ambientSound] || 0) + 1
+        }
+      }
+    })
+
+    let bestSound = "none"
+    let bestSoundRate = 0
+
+    Object.keys(soundCounts).forEach((sound) => {
+      const rate = soundCompletionCounts[sound] / soundCounts[sound]
+      if (rate > bestSoundRate && soundCounts[sound] >= 3) {
+        bestSoundRate = rate
+        bestSound = sound
+      }
+    })
+
+    // Analyze time of day patterns
+    const morningCount = focusSessions.filter((s) => {
+      const hour = new Date(s.timestamp).getHours()
+      return hour >= 5 && hour < 12
+    }).length
+
+    const afternoonCount = focusSessions.filter((s) => {
+      const hour = new Date(s.timestamp).getHours()
+      return hour >= 12 && hour < 17
+    }).length
+
+    const eveningCount = focusSessions.filter((s) => {
+      const hour = new Date(s.timestamp).getHours()
+      return hour >= 17 && hour < 22
+    }).length
+
+    let bestTimeOfDay = "morning"
+    let bestTimeCount = morningCount
+
+    if (afternoonCount > bestTimeCount) {
+      bestTimeOfDay = "afternoon"
+      bestTimeCount = afternoonCount
+    }
+
+    if (eveningCount > bestTimeCount) {
+      bestTimeOfDay = "evening"
+      bestTimeCount = eveningCount
+    }
+
+    // Analyze duration patterns
+    const durationCounts = {
+      short: 0, // < 15 minutes
+      medium: 0, // 15-30 minutes
+      long: 0, // > 30 minutes
+    }
+
+    const durationCompletionCounts = {
+      short: 0,
+      medium: 0,
+      long: 0,
+    }
+
+    focusSessions.forEach((session) => {
+      let category
+      if (session.duration < 15) category = "short"
+      else if (session.duration <= 30) category = "medium"
+      else category = "long"
+
+      durationCounts[category]++
+      if (session.completed) {
+        durationCompletionCounts[category]++
+      }
+    })
+
+    let bestDuration = "medium"
+    let bestDurationRate = 0
+
+    Object.keys(durationCounts).forEach((duration) => {
+      if (durationCounts[duration] > 0) {
+        const rate = durationCompletionCounts[duration] / durationCounts[duration]
+        if (rate > bestDurationRate) {
+          bestDurationRate = rate
+          bestDuration = duration
+        }
+      }
+    })
+
+    // Convert bestDuration to minutes
+    let recommendedDuration
+    if (bestDuration === "short") recommendedDuration = "10-15"
+    else if (bestDuration === "medium") recommendedDuration = "25-30"
+    else recommendedDuration = "40-45"
+
+    // Generate insights
+    return {
+      summary: `Your focus session completion rate is ${completionRate}%. You tend to be most productive during the ${bestTimeOfDay}.`,
+      patterns: {
+        bestTimeOfDay,
+        bestSound: bestSound !== "none" ? bestSound : "No clear pattern yet",
+        bestDuration,
+        completionRate: `${completionRate}%`,
+      },
+      recommendations: [
+        `Schedule important tasks during the ${bestTimeOfDay} when you're most productive`,
+        bestSound !== "none"
+          ? `Use "${bestSound}" ambient sound to improve focus`
+          : "Try different ambient sounds to find what works best for you",
+        `Set your Pomodoro timer to ${recommendedDuration} minutes for optimal focus sessions`,
+        "Take short breaks between focus sessions to maintain productivity",
+      ],
+      growthAreas: [
+        completionRate < 70
+          ? "Work on completing more of your focus sessions without interruption"
+          : "Your focus session completion rate is good!",
+        "Try to maintain a consistent daily schedule for better productivity",
+        "Consider tracking which tasks you complete during your most productive times",
+      ],
+    }
+  }
 
   return router
 }

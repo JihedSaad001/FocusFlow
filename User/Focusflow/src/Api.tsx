@@ -25,24 +25,20 @@ export const updateUser = async (data: any, token: string) => {
     throw new Error("Session expired. Please log in again.");
   }
 
-  const response = await fetch(
-    "https://focusflow-production.up.railway.app/api/auth/update-user",
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(data),
-    }
-  );
+  const response = await fetch("http://localhost:5000/api/auth/update-user", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
 
   if (!response.ok) throw new Error("Failed to update user");
   return response.json();
 };
 
 // Function to upload profile picture
-
 export const uploadProfilePic = async (file: File, token: string) => {
   if (!supabase) throw new Error("Supabase is not initialized");
 
@@ -89,6 +85,108 @@ export const uploadProfilePic = async (file: File, token: string) => {
     return publicUrl;
   } catch (error) {
     console.error("🔥 Upload failed:", error);
+    throw error;
+  }
+};
+
+// New function to fetch user productivity stats
+export const fetchUserStats = async (token: string, timeRange = "week") => {
+  if (isTokenExpired(token)) {
+    localStorage.clear();
+    window.location.href = "/signin"; // Redirect to login
+    throw new Error("Session expired. Please log in again.");
+  }
+
+  try {
+    const response = await fetch(
+      `http://localhost:5000/api/user/stats?timeRange=${timeRange}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch user stats");
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching user stats:", error);
+    throw error;
+  }
+};
+
+// New function to log a focus session
+export const logFocusSession = async (
+  token: string,
+  sessionData: {
+    duration: number;
+    completed: boolean;
+    ambientSound?: string;
+  }
+) => {
+  if (isTokenExpired(token)) {
+    localStorage.clear();
+    window.location.href = "/signin";
+    throw new Error("Session expired. Please log in again.");
+  }
+
+  try {
+    const response = await fetch(
+      "http://localhost:5000/api/user/log-focus-session",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(sessionData),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to log focus session");
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error logging focus session:", error);
+    throw error;
+  }
+};
+
+// New function to log completed task
+export const logCompletedTask = async (token: string, taskId: string) => {
+  if (isTokenExpired(token)) {
+    localStorage.clear();
+    window.location.href = "/signin";
+    throw new Error("Session expired. Please log in again.");
+  }
+
+  try {
+    const response = await fetch(
+      "http://localhost:5000/api/user/log-completed-task",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ taskId }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to log completed task");
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error logging completed task:", error);
     throw error;
   }
 };

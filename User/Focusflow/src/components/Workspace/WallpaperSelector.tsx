@@ -25,7 +25,7 @@ const WallpaperSelector = ({
       console.log("Fetching wallpapers from MongoDB...");
 
       const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/resources/wallpapers"
+        "http://localhost:5000/api/resources/wallpapers"
       );
       if (!response.ok) throw new Error("Failed to fetch wallpapers");
 

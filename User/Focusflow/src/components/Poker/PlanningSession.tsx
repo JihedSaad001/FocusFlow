@@ -100,7 +100,7 @@ export function PlanningSession() {
     // Create socket connection if it doesn't exist
     if (!socketRef.current) {
       console.log("Creating new Socket.IO connection");
-      socketRef.current = io("https://focusflow-production.up.railway.app", {
+      socketRef.current = io("http://localhost:5000", {
         withCredentials: true,
         reconnection: true,
         reconnectionAttempts: 10,
@@ -389,7 +389,7 @@ export function PlanningSession() {
 
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/poker`,
+        `http://localhost:5000/api/projects/${id}/poker`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -424,12 +424,9 @@ export function PlanningSession() {
       return;
     }
     try {
-      const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await fetch(`http://localhost:5000/api/projects/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`HTTP ${response.status}: ${errorText}`);
@@ -473,7 +470,7 @@ export function PlanningSession() {
 
       try {
         const response = await fetch(
-          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/vote`,
+          `http://localhost:5000/api/projects/${id}/poker/issue/${currentIssue._id}/vote`,
           {
             method: "POST",
             body: JSON.stringify({ vote: value }),
@@ -504,7 +501,7 @@ export function PlanningSession() {
       setIsUpdating(true);
       try {
         const response = await fetch(
-          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/reveal`,
+          `http://localhost:5000/api/projects/${id}/poker/issue/${currentIssue._id}/reveal`,
           {
             method: "POST",
             headers: {
@@ -538,7 +535,7 @@ export function PlanningSession() {
       setIsUpdating(true);
       try {
         const response = await fetch(
-          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/revote`,
+          `http://localhost:5000/api/projects/${id}/poker/issue/${currentIssue._id}/revote`,
           {
             method: "POST",
             headers: {
@@ -583,7 +580,7 @@ export function PlanningSession() {
     setIsUpdating(true);
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/validate`,
+        `http://localhost:5000/api/projects/${id}/poker/issue/${currentIssue._id}/validate`,
         {
           method: "POST",
           headers: {
@@ -637,7 +634,7 @@ export function PlanningSession() {
       if (selectedMemberId === currentUserId) {
         try {
           const kanbanResponse = await fetch(
-            `https://focusflow-production.up.railway.app/api/user/kanban/project-task`,
+            `http://localhost:5000/api/user/kanban/project-task`,
             {
               method: "POST",
               headers: {
@@ -825,7 +822,7 @@ export function PlanningSession() {
                   currentIssueId={currentIssue?._id}
                   onDeleteIssue={(issueId) => {
                     fetch(
-                      `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${issueId}`,
+                      `http://localhost:5000/api/projects/${id}/poker/issue/${issueId}`,
                       {
                         method: "DELETE",
                         headers: {

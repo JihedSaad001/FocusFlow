@@ -1,4 +1,8 @@
-import { useState, useRef } from "react";
+"use client";
+
+import type React from "react";
+
+import { useState, useRef, useEffect } from "react";
 import { Play, X, Move } from "lucide-react";
 
 const YouTubePlayer = () => {
@@ -6,16 +10,32 @@ const YouTubePlayer = () => {
   const [videoID, setVideoID] = useState<string | null>(null);
   const [size, setSize] = useState({ width: 640, height: 360 });
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDraggingActive, setIsDraggingActive] = useState(false);
+  const [isResizingActive, setIsResizingActive] = useState(false);
   const isDragging = useRef(false);
   const isResizing = useRef(false);
   const lastMousePosition = useRef({ x: 0, y: 0 });
-  
+  const animationFrame = useRef<number | null>(null);
+  const dragEndTimer = useRef<NodeJS.Timeout | null>(null);
+
   const searchBarRef = useRef<HTMLDivElement | null>(null);
+
+  // Cleanup animation frame and timers on unmount
+  useEffect(() => {
+    return () => {
+      if (animationFrame.current) {
+        cancelAnimationFrame(animationFrame.current);
+      }
+      if (dragEndTimer.current) {
+        clearTimeout(dragEndTimer.current);
+      }
+    };
+  }, []);
 
   // Extract Video ID from YouTube URL
   const extractVideoID = (url: string) => {
     const match = url.match(
-      /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+      /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/
     );
     return match ? match[1] : null;
   };
@@ -41,6 +61,7 @@ const YouTubePlayer = () => {
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     isDragging.current = true;
+    setIsDraggingActive(true);
     lastMousePosition.current = { x: e.clientX, y: e.clientY };
 
     const handleMouseMove = (event: MouseEvent) => {
@@ -50,20 +71,33 @@ const YouTubePlayer = () => {
       const deltaY = event.clientY - lastMousePosition.current.y;
       lastMousePosition.current = { x: event.clientX, y: event.clientY };
 
-      setPosition((prev) => ({
-        x: Math.max(
-          10,
-          Math.min(window.innerWidth - size.width - 10, prev.x + deltaX)
-        ),
-        y: Math.max(
-          10,
-          Math.min(window.innerHeight - size.height - 10, prev.y + deltaY)
-        ),
-      }));
+      // Use requestAnimationFrame for smoother updates
+      if (!animationFrame.current) {
+        animationFrame.current = requestAnimationFrame(() => {
+          setPosition((prev) => ({
+            x: Math.max(
+              10,
+              Math.min(window.innerWidth - size.width - 10, prev.x + deltaX)
+            ),
+            y: Math.max(
+              10,
+              Math.min(window.innerHeight - size.height - 10, prev.y + deltaY)
+            ),
+          }));
+          animationFrame.current = null;
+        });
+      }
     };
 
     const handleMouseUp = () => {
       isDragging.current = false;
+
+      // Delay turning off dragging state to ensure smooth transition
+      if (dragEndTimer.current) clearTimeout(dragEndTimer.current);
+      dragEndTimer.current = setTimeout(() => {
+        setIsDraggingActive(false);
+      }, 100);
+
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
@@ -77,6 +111,7 @@ const YouTubePlayer = () => {
     e.preventDefault();
     e.stopPropagation();
     isResizing.current = true;
+    setIsResizingActive(true);
     lastMousePosition.current = { x: e.clientX, y: e.clientY };
 
     const handleResizeMouseMove = (event: MouseEvent) => {
@@ -86,14 +121,27 @@ const YouTubePlayer = () => {
       const deltaY = event.clientY - lastMousePosition.current.y;
       lastMousePosition.current = { x: event.clientX, y: event.clientY };
 
-      setSize((prev) => ({
-        width: Math.max(320, prev.width + deltaX),
-        height: Math.max(180, prev.height + deltaY),
-      }));
+      // Use requestAnimationFrame for smoother updates
+      if (!animationFrame.current) {
+        animationFrame.current = requestAnimationFrame(() => {
+          setSize((prev) => ({
+            width: Math.max(320, prev.width + deltaX),
+            height: Math.max(180, prev.height + deltaY),
+          }));
+          animationFrame.current = null;
+        });
+      }
     };
 
     const handleResizeMouseUp = () => {
       isResizing.current = false;
+
+      // Delay turning off resizing state to ensure smooth transition
+      if (dragEndTimer.current) clearTimeout(dragEndTimer.current);
+      dragEndTimer.current = setTimeout(() => {
+        setIsResizingActive(false);
+      }, 100);
+
       document.removeEventListener("mousemove", handleResizeMouseMove);
       document.removeEventListener("mouseup", handleResizeMouseUp);
     };
@@ -111,6 +159,9 @@ const YouTubePlayer = () => {
           placeholder="Paste your YouTube link"
           value={videoURL}
           onChange={(e) => setVideoURL(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handlePlay();
+          }}
           className="flex-1 px-5 py-3 bg-[#0D0D0D] text-white text-lg placeholder-gray-400 border border-[#ff4e50] rounded-xl shadow-lg focus:outline-none focus:ring-2 focus:ring-[#ff4e50] transition-all duration-300"
         />
         <button
@@ -129,6 +180,10 @@ const YouTubePlayer = () => {
             height: `${size.height}px`,
             left: `${position.x}px`,
             top: `${position.y}px`,
+            willChange:
+              isDraggingActive || isResizingActive
+                ? "transform, width, height"
+                : "auto",
           }}
           className="fixed bg-[#121212] backdrop-blur-xl bg-opacity-90 p-4 rounded-xl shadow-2xl z-50 transition-all cursor-grab border border-[#ff4e50]"
         >
@@ -160,15 +215,23 @@ const YouTubePlayer = () => {
             }}
             className="rounded-lg"
           >
-            <iframe
-              width="100%"
-              height="100%"
-              src={`https://www.youtube.com/embed/${videoID}`}
-              title="YouTube video player"
-              frameBorder="0"
-              allowFullScreen
-              className="rounded-lg"
-            ></iframe>
+            {isDraggingActive || isResizingActive ? (
+              <div className="w-full h-full bg-black flex items-center justify-center">
+                <div className="text-white text-opacity-80">
+                  Moving player...
+                </div>
+              </div>
+            ) : (
+              <iframe
+                width="100%"
+                height="100%"
+                src={`https://www.youtube.com/embed/${videoID}`}
+                title="YouTube video player"
+                frameBorder="0"
+                allowFullScreen
+                className="rounded-lg"
+              ></iframe>
+            )}
           </div>
 
           {/* Resize Handle */}

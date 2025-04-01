@@ -13,6 +13,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import Draggable from "react-draggable";
+import { logFocusSession } from "../../../Api"; // Correct import for your Api.tsx file
 
 type AmbientSound = {
   _id: string;
@@ -41,12 +42,17 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
   const [error, setError] = useState<string | null>(null);
   const previousMasterVolumeRef = useRef(70);
   const nodeRef = useRef(null);
+  const sessionStartTimeRef = useRef<Date | null>(null);
 
   useEffect(() => {
     fetchAmbientSounds();
 
     // Cleanup function
     return () => {
+      // Log any active focus sessions when component unmounts
+      logActiveSoundsForAnalytics();
+
+      // Stop all sounds
       activeSounds.forEach((sound) => {
         try {
           sound.audio.pause();
@@ -57,12 +63,51 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
     };
   }, []);
 
+  // Log active sounds for analytics when component unmounts or sounds change
+  const logActiveSoundsForAnalytics = () => {
+    if (sessionStartTimeRef.current && activeSounds.some((s) => s.isPlaying)) {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const now = new Date();
+        const sessionDuration = Math.floor(
+          (now.getTime() - sessionStartTimeRef.current.getTime()) / 60000
+        ); // Convert to minutes
+
+        if (sessionDuration >= 1) {
+          // Only log sessions that lasted at least 1 minute
+          const activeSoundNames = activeSounds
+            .filter((s) => s.isPlaying)
+            .map((s) => s.name)
+            .join(", ");
+
+          logFocusSession(token, {
+            duration: sessionDuration,
+            completed: true,
+            ambientSound: activeSoundNames,
+          });
+
+          console.log(
+            `Logged ambient sound session: ${sessionDuration} minutes with ${activeSoundNames}`
+          );
+        }
+      } catch (err) {
+        console.error("Error logging focus session:", err);
+      }
+
+      // Reset the session start time
+      sessionStartTimeRef.current = null;
+    }
+  };
+
   const fetchAmbientSounds = async () => {
     try {
+      setIsLoading(true);
       console.log("Fetching ambient sounds from MongoDB...");
 
       const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/resources/ambient-sounds"
+        "http://localhost:5000/api/resources/ambient-sounds"
       );
       if (!response.ok) throw new Error("Failed to fetch ambient sounds");
 
@@ -124,6 +169,30 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
       }
     });
   }, [masterVolume, isMasterMuted, activeSounds]);
+
+  // Track active sounds for analytics
+  useEffect(() => {
+    // If any sound is playing and we don't have a session start time, set it
+    if (activeSounds.some((s) => s.isPlaying) && !sessionStartTimeRef.current) {
+      sessionStartTimeRef.current = new Date();
+
+      // Store active sound in localStorage for other components to access
+      const activeSoundNames = activeSounds
+        .filter((s) => s.isPlaying)
+        .map((s) => s.name)
+        .join(", ");
+
+      localStorage.setItem("activeAmbientSound", activeSoundNames);
+    }
+    // If no sounds are playing but we have a session start time, log the session
+    else if (
+      !activeSounds.some((s) => s.isPlaying) &&
+      sessionStartTimeRef.current
+    ) {
+      logActiveSoundsForAnalytics();
+      localStorage.removeItem("activeAmbientSound");
+    }
+  }, [activeSounds]);
 
   const handleSoundToggle = (sound: AmbientSound) => {
     setError(null);
@@ -285,6 +354,9 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
   };
 
   const handleClose = () => {
+    // Log any active focus sessions before closing
+    logActiveSoundsForAnalytics();
+
     // Stop all sounds
     activeSounds.forEach((sound) => {
       try {
@@ -294,6 +366,10 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
         console.error("Error stopping sound:", err);
       }
     });
+
+    // Clear localStorage
+    localStorage.removeItem("activeAmbientSound");
+
     setActiveSounds([]);
     onClose();
   };

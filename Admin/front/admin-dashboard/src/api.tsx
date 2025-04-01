@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "https://focusflow-production.up.railway.app"; // Update to your production URL
+const API_BASE_URL = "http://localhost:5000"; // Update to your production URL
 
 export const fetchResources = async () => {
   try {

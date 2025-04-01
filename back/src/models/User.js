@@ -49,6 +49,35 @@ const UserSchema = new mongoose.Schema({
       ],
     },
   },
+  // New fields for AI Focus Insights
+  focusSessions: [
+    {
+      duration: { type: Number }, // in minutes
+      completed: { type: Boolean, default: false },
+      ambientSound: { type: String },
+      timestamp: { type: Date, default: Date.now },
+    },
+  ],
+  tasksCompleted: { type: Number, default: 0 },
+
+  // New fields for BI Dashboard and Gamification
+  xp: { type: Number, default: 0 },
+  level: { type: Number, default: 1 },
+  focusTime: [
+    {
+      date: { type: Date },
+      duration: { type: Number }, // in minutes
+    },
+  ],
+  dailyTasks: [
+    {
+      date: { type: Date },
+      count: { type: Number, default: 0 },
+    },
+  ],
+  lastActive: { type: Date, default: Date.now },
+  streakDays: { type: Number, default: 0 },
+  lastStreakUpdate: { type: Date },
 })
 
 // Hash password before saving the user
