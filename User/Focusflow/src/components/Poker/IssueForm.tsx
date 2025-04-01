@@ -32,7 +32,7 @@ export function IssueForm({ sessionId, onIssueAdded }: IssueFormProps) {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${sessionId}/poker/issue`,
+        `https://focusflow-production.up.railway.app/api/projects/${sessionId}/poker/issue`,
         {
           method: "POST",
           headers: {

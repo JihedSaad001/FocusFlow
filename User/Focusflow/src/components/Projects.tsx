@@ -22,11 +22,14 @@ function Projects() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/projects", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
+        const response = await fetch(
+          "https://focusflow-production.up.railway.app/api/projects",
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
 
         if (!response.ok) throw new Error("Failed to fetch projects");
 
@@ -53,7 +56,7 @@ function Projects() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${projectId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${projectId}`,
         {
           method: "DELETE",
           headers: {
