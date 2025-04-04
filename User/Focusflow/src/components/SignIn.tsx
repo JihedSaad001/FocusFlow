@@ -29,11 +29,14 @@ const SignIn = () => {
     setResendSuccess(false);
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      const response = await fetch(
+        "https://focusflow-production.up.railway.app/api/auth/login",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        }
+      );
 
       const data = await response.json();
 
@@ -81,7 +84,7 @@ const SignIn = () => {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/auth/resend-verification",
+        "https://focusflow-production.up.railway.app/api/auth/resend-verification",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

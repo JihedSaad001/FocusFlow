@@ -107,7 +107,7 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
       console.log("Fetching ambient sounds from MongoDB...");
 
       const response = await fetch(
-        "http://localhost:5000/api/resources/ambient-sounds"
+        "https://focusflow-production.up.railway.app/api/resources/ambient-sounds"
       );
       if (!response.ok) throw new Error("Failed to fetch ambient sounds");
 

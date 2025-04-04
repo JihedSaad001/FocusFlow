@@ -25,14 +25,17 @@ export const updateUser = async (data: any, token: string) => {
     throw new Error("Session expired. Please log in again.");
   }
 
-  const response = await fetch("http://localhost:5000/api/auth/update-user", {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(data),
-  });
+  const response = await fetch(
+    "https://focusflow-production.up.railway.app/api/auth/update-user",
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    }
+  );
 
   if (!response.ok) throw new Error("Failed to update user");
   return response.json();
@@ -99,7 +102,7 @@ export const fetchUserStats = async (token: string, timeRange = "week") => {
 
   try {
     const response = await fetch(
-      `http://localhost:5000/api/user/stats?timeRange=${timeRange}`,
+      `https://focusflow-production.up.railway.app/api/user/stats?timeRange=${timeRange}`,
       {
         method: "GET",
         headers: {
@@ -137,7 +140,7 @@ export const logFocusSession = async (
 
   try {
     const response = await fetch(
-      "http://localhost:5000/api/user/log-focus-session",
+      "https://focusflow-production.up.railway.app/api/user/log-focus-session",
       {
         method: "POST",
         headers: {
@@ -169,7 +172,7 @@ export const logCompletedTask = async (token: string, taskId: string) => {
 
   try {
     const response = await fetch(
-      "http://localhost:5000/api/user/log-completed-task",
+      "https://focusflow-production.up.railway.app/api/user/log-completed-task",
       {
         method: "POST",
         headers: {
