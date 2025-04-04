@@ -1,15 +1,54 @@
+"use client";
+
 import { useEffect, useState } from "react";
-import { fetchUsers, deleteUser } from "../api";
+import {
+  fetchUsers,
+  updateUserRole,
+  fetchUserStats,
+  fetchProjectStats,
+} from "../api";
 import { useNavigate } from "react-router-dom";
 import { FiSearch } from "react-icons/fi";
-import { FaEllipsisV } from "react-icons/fa";
+import {
+  FaEllipsisV,
+  FaCrown,
+  FaUserClock,
+  FaProjectDiagram,
+  FaChartLine,
+} from "react-icons/fa";
+import { toast } from "react-hot-toast";
+
+interface User {
+  _id: string;
+  username: string;
+  email: string;
+  role: string;
+  tasksCompleted: number;
+  xp: number;
+  level: number;
+  lastActive: string;
+  projectCount: number; // New field for project count
+}
+
+interface UserStats {
+  totalUsers: number;
+  activeUsers: number;
+  totalProjects: number;
+  totalFocusTime: number;
+}
 
 const UserManagement = () => {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [stats, setStats] = useState<UserStats>({
+    totalUsers: 0,
+    activeUsers: 0,
+    totalProjects: 0,
+    totalFocusTime: 0,
+  });
   const navigate = useNavigate();
   const token = localStorage.getItem("adminToken");
 
@@ -19,51 +58,68 @@ const UserManagement = () => {
       return;
     }
 
-    const loadUsers = async () => {
+    const loadData = async () => {
       try {
-        const data = await fetchUsers(token);
-        if (Array.isArray(data)) {
-          setUsers(data);
-        } else if (data && Array.isArray(data.users)) {
-          setUsers(data.users);
+        // Fetch users
+        const userData = await fetchUsers(token);
+        if (Array.isArray(userData)) {
+          setUsers(userData);
+        } else if (userData && Array.isArray(userData.users)) {
+          setUsers(userData.users);
         } else {
           setError("Invalid API response.");
           setUsers([]);
         }
+
+        // Fetch user statistics
+        const userStats = await fetchUserStats(token);
+
+        // Fetch project statistics
+        const projectStats = await fetchProjectStats(token);
+
+        setStats({
+          totalUsers: userStats.totalUsers || 0,
+          activeUsers: userStats.activeUsers || 0,
+          totalProjects: projectStats.totalProjects || 0,
+          totalFocusTime: userStats.totalFocusTime || 0,
+        });
       } catch (err) {
-        setError("Failed to fetch users.");
+        console.error("Error loading data:", err);
+        setError("Failed to fetch data.");
       } finally {
         setLoading(false);
       }
     };
 
-    loadUsers();
+    loadData();
   }, [token, navigate]);
 
-  const handleDelete = async (userId: string) => {
+  const handleAssignAdmin = async (userId: string) => {
     try {
-      await deleteUser(token as string, userId);
-      setUsers(users.filter((user) => user._id !== userId));
+      await updateUserRole(token as string, userId, "admin");
+      // Update the user in the local state
+      setUsers(
+        users.map((user) =>
+          user._id === userId ? { ...user, role: "admin" } : user
+        )
+      );
+      toast.success("User role updated to admin successfully!");
     } catch (err) {
-      setError("Failed to delete user.");
+      console.error("Error updating user role:", err);
+      setError("Failed to update user role.");
+      toast.error("Failed to update user role.");
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("adminToken");
-    navigate("/admin/login");
+  // Format minutes to hours and minutes
+  const formatFocusTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
   };
 
-  // Add a logout button
-  <button
-    onClick={handleLogout}
-    className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
-  >
-    Logout
-  </button>
-
   return (
-    <div className="min-h-screen  bg-[#121212] text-white px-6 md:px-10 mt-23 py-6 relative">
+    <div className="min-h-screen bg-[#121212] text-white px-6 md:px-10 mt-23 py-6 relative">
       <div className="max-w-7xl mx-auto">
         {/* 🔴 OVERVIEW TITLE */}
         <h1 className="text-4xl font-extrabold text-[#ffffff] mb-6">
@@ -71,22 +127,49 @@ const UserManagement = () => {
         </h1>
 
         {/* 📊 DASHBOARD STATS */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          {[
-            { title: "Active Users", value: "XXXX" },
-            { title: "Total Users", value: "XXXX" },
-            { title: "Placeholder", value: "XXXX" },
-            { title: "Placeholder", value: "XXXX" },
-          ].map((item, index) => (
-            <div
-              key={index}
-              className="bg-[#151515] p-4 rounded-2xl shadow-2xl border border-white/20 text-center"
-            >
-              <p className="text-gray-400">{item.title}</p>
-              <p className="text-2xl font-bold">{item.value}</p>
-              <p className="text-green-400">+15%</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-[#151515] p-4 rounded-2xl shadow-2xl border border-white/20 text-center">
+            <div className="flex justify-center mb-2">
+              <FaUserClock className="text-blue-400 text-2xl" />
             </div>
-          ))}
+            <p className="text-gray-400">Active Users</p>
+            <p className="text-2xl font-bold">{stats.activeUsers}</p>
+            <p className="text-green-400">
+              {Math.round(
+                (stats.activeUsers / Math.max(1, stats.totalUsers)) * 100
+              )}
+              % of total
+            </p>
+          </div>
+
+          <div className="bg-[#151515] p-4 rounded-2xl shadow-2xl border border-white/20 text-center">
+            <div className="flex justify-center mb-2">
+              <FaCrown className="text-purple-400 text-2xl" />
+            </div>
+            <p className="text-gray-400">Total Users</p>
+            <p className="text-2xl font-bold">{stats.totalUsers}</p>
+            <p className="text-green-400">Growing community</p>
+          </div>
+
+          <div className="bg-[#151515] p-4 rounded-2xl shadow-2xl border border-white/20 text-center">
+            <div className="flex justify-center mb-2">
+              <FaProjectDiagram className="text-green-400 text-2xl" />
+            </div>
+            <p className="text-gray-400">Total Projects</p>
+            <p className="text-2xl font-bold">{stats.totalProjects}</p>
+            <p className="text-green-400">Collaborative work</p>
+          </div>
+
+          <div className="bg-[#151515] p-4 rounded-2xl shadow-2xl border border-white/20 text-center">
+            <div className="flex justify-center mb-2">
+              <FaChartLine className="text-red-400 text-2xl" />
+            </div>
+            <p className="text-gray-400">Total Focus Time</p>
+            <p className="text-2xl font-bold">
+              {formatFocusTime(stats.totalFocusTime)}
+            </p>
+            <p className="text-green-400">Productivity hours</p>
+          </div>
         </div>
 
         {/* 🔎 SEARCH & USER TABLE */}
@@ -107,7 +190,9 @@ const UserManagement = () => {
 
           {error && <p className="text-red-500">{error}</p>}
           {loading ? (
-            <p className="text-gray-300">Loading users...</p>
+            <div className="flex justify-center items-center h-40">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+            </div>
           ) : (
             <div className="space-y-4">
               {users
@@ -136,19 +221,22 @@ const UserManagement = () => {
                         {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                       </span>
 
-                      {/* Strikes */}
+                      {/* Projects Count - Replacing Day Streak */}
                       <span className="text-gray-300 text-center">
-                        100 Strikes
+                        <FaProjectDiagram className="inline-block mr-2 text-green-400" />
+                        {user.projectCount || 0} Projects
                       </span>
 
                       {/* Tasks */}
                       <span className="text-gray-300 text-center">
-                        75 Tasks Done
+                        {user.tasksCompleted || 0} Tasks Done
                       </span>
 
-                      {/* Rewards & Actions */}
+                      {/* XP & Actions */}
                       <div className="flex items-center justify-end space-x-6">
-                        <span className="text-yellow-400">+Gold</span>
+                        <span className="text-yellow-400">
+                          Level {user.level || 1}
+                        </span>
 
                         {/* Actions Dropdown */}
                         <div className="relative">
@@ -161,13 +249,20 @@ const UserManagement = () => {
                             }
                           />
                           {openMenu === user._id && (
-                            <div className="absolute right-0 mt-2 bg-gray-900 p-2 shadow-md rounded-lg w-24">
-                              <button
-                                onClick={() => handleDelete(user._id)}
-                                className="text-red-500 hover:text-red-700 w-full text-left px-2 py-1"
-                              >
-                                Delete
-                              </button>
+                            <div className="absolute right-0 mt-2 bg-gray-900 p-2 shadow-md rounded-lg w-36 z-10">
+                              {user.role !== "admin" && (
+                                <button
+                                  onClick={() => handleAssignAdmin(user._id)}
+                                  className="text-green-500 hover:text-green-700 w-full text-left px-2 py-1"
+                                >
+                                  Assign as Admin
+                                </button>
+                              )}
+                              {user.role === "admin" && (
+                                <span className="text-gray-400 px-2 py-1 block">
+                                  Already Admin
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>

@@ -49,6 +49,14 @@ const UserSchema = new mongoose.Schema({
       ],
     },
   },
+  todoTasks: [
+    {
+      _id: { type: String, required: true },
+      title: { type: String, required: true },
+      completed: { type: Boolean, default: false },
+      createdAt: { type: Date, default: Date.now }
+    }
+  ],
   // New fields for AI Focus Insights
   focusSessions: [
     {

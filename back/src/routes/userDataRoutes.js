@@ -1,6 +1,7 @@
 const express = require("express")
 const mongoose = require("mongoose")
-const { authenticateJWT } = require("../middleware/authMiddleware")
+const { authenticateJWT } = require("../middleware/authMiddleware") // Adjust the path as needed
+const User = require("../models/User") // Adjust the path as needed
 
 module.exports = (User) => {
   const router = express.Router()
@@ -178,6 +179,67 @@ module.exports = (User) => {
         message: "Error adding task to kanban board",
         error: error.message,
       })
+    }
+  })
+
+  // ===== NEW TODO TASKS ROUTES =====
+
+  /**
+   * @route   GET /api/user/todo-tasks
+   * @desc    Get user's todo tasks
+   * @access  Private
+   */
+  router.get("/todo-tasks", authenticateJWT, async (req, res) => {
+    try {
+      const userId = req.user.id
+  
+      // Find the user
+      const user = await User.findById(userId)
+      if (!user) {
+        return res.status(404).json({ error: "User not found" })
+      }
+  
+      // Return tasks or empty array if not set
+      return res.json({
+        tasks: user.todoTasks || [],
+      })
+    } catch (error) {
+      console.error("Error fetching todo tasks:", error)
+      return res.status(500).json({ error: "Server error", message: error.message })
+    }
+  })
+
+  /**
+   * @route   PUT /api/user/todo-tasks
+   * @desc    Update user's todo tasks
+   * @access  Private
+   */
+  router.put("/todo-tasks", authenticateJWT, async (req, res) => {
+    try {
+      const { tasks } = req.body
+      const userId = req.user.id
+
+      if (!Array.isArray(tasks)) {
+        return res.status(400).json({ message: "Tasks must be an array" })
+      }
+
+      // Find the user
+      const user = await User.findById(userId)
+      if (!user) {
+        return res.status(404).json({ message: "User not found" })
+      }
+
+      // Update user's todo tasks
+      user.todoTasks = tasks
+      await user.save()
+
+      res.json({
+        message: "Todo tasks updated successfully",
+        tasks: user.todoTasks,
+      })
+    } catch (error) {
+      console.error("Error updating todo tasks:", error)
+      res.status(500).json({ message: "Server error", error: error.message })
     }
   })
 

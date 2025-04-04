@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, X, Check, Trash2 } from "lucide-react";
+import { Plus, X, Check, Trash2, Loader2 } from "lucide-react";
 import { useDraggable } from "./../hooks/use-draggable";
 import { logCompletedTask } from "../../../Api";
 
@@ -10,18 +10,20 @@ interface ToDoListProps {
 }
 
 interface Task {
-  id: number;
+  id: string;
   text: string;
   completed: boolean;
 }
 
+const API_BASE_URL = "http://localhost:5000";
+
 const ToDoList = ({ onClose }: ToDoListProps) => {
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    const savedTasks = localStorage.getItem("todoTasks");
-    return savedTasks ? JSON.parse(savedTasks) : [];
-  });
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("All");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [useLocalStorage, setUseLocalStorage] = useState(false);
 
   // Use our custom draggable hook
   const { position, handleMouseDown, isDragging } = useDraggable({
@@ -29,21 +31,136 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
     boundaryPadding: 10,
   });
 
-  // Save tasks to localStorage whenever they change
+  // Load tasks when component mounts
   useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        setIsLoading(true);
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          throw new Error("Authentication required");
+        }
+
+        // Try to fetch from API
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/user/todo-tasks`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          if (data && data.tasks) {
+            // Transform the data to match our Task interface
+            const formattedTasks = data.tasks.map((task: any) => ({
+              id: task._id,
+              text: task.title,
+              completed: task.completed,
+            }));
+
+            setTasks(formattedTasks);
+            setUseLocalStorage(false);
+          } else {
+            throw new Error("Invalid data format");
+          }
+        } catch (apiError) {
+          console.error("API error, falling back to localStorage:", apiError);
+
+          // Fallback to localStorage
+          const savedTasks = localStorage.getItem("todoTasks");
+          if (savedTasks) {
+            setTasks(JSON.parse(savedTasks));
+          }
+          setUseLocalStorage(true);
+        }
+      } catch (error: any) {
+        console.error("Error fetching tasks:", error);
+        setError(error.message);
+
+        // Try to load from localStorage as last resort
+        const savedTasks = localStorage.getItem("todoTasks");
+        if (savedTasks) {
+          setTasks(JSON.parse(savedTasks));
+        }
+        setUseLocalStorage(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTasks();
+  }, []);
+
+  // Save tasks whenever they change
+  useEffect(() => {
+    if (isLoading) return; // Don't save during initial load
+
+    // Always save to localStorage as backup
     localStorage.setItem("todoTasks", JSON.stringify(tasks));
-  }, [tasks]);
+
+    // If we're using API, also save there
+    if (!useLocalStorage) {
+      const saveTasks = async () => {
+        try {
+          const token = localStorage.getItem("token");
+
+          if (!token) {
+            setError("Authentication required");
+            return;
+          }
+
+          // Format tasks for the API
+          const tasksForApi = tasks.map((task) => ({
+            _id: task.id,
+            title: task.text,
+            completed: task.completed,
+          }));
+
+          const response = await fetch(`${API_BASE_URL}/api/user/todo-tasks`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ tasks: tasksForApi }),
+          });
+
+          if (!response.ok) {
+            console.error("API save failed, using localStorage only");
+            setUseLocalStorage(true);
+          }
+        } catch (error) {
+          console.error("Error saving tasks to API:", error);
+          setUseLocalStorage(true);
+        }
+      };
+
+      saveTasks();
+    }
+  }, [tasks, isLoading, useLocalStorage]);
 
   // ✅ Add New Task
   const addTask = () => {
     if (newTask.trim() !== "") {
-      setTasks([...tasks, { id: Date.now(), text: newTask, completed: false }]);
+      const newTaskObj = {
+        id: Date.now().toString(), // Use timestamp as ID
+        text: newTask,
+        completed: false,
+      };
+
+      setTasks([...tasks, newTaskObj]);
       setNewTask("");
     }
   };
 
   // ✅ Toggle Task Completion
-  const toggleTaskCompletion = async (id: number) => {
+  const toggleTaskCompletion = async (id: string) => {
     const task = tasks.find((t) => t.id === id);
     const wasCompleted = task?.completed;
 
@@ -58,7 +175,7 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
       try {
         const token = localStorage.getItem("token");
         if (token) {
-          await logCompletedTask(token, id.toString());
+          await logCompletedTask(token, id);
           console.log("Task completion logged:", task.text);
         }
       } catch (error) {
@@ -68,7 +185,7 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
   };
 
   // ✅ Remove Task
-  const removeTask = (id: number) => {
+  const removeTask = (id: string) => {
     setTasks(tasks.filter((task) => task.id !== id));
   };
 
@@ -116,6 +233,23 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
         </button>
       </div>
 
+      {/* Storage Mode Indicator */}
+      {useLocalStorage && (
+        <div className="bg-yellow-900/30 text-yellow-300 p-2 rounded-md mb-3 text-xs">
+          Using local storage mode (changes won't sync across devices)
+        </div>
+      )}
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-900/30 text-red-300 p-2 rounded-md mb-3 text-sm">
+          {error}
+          <button className="ml-2 underline" onClick={() => setError(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Filter Tabs */}
       <div className="flex justify-between mb-3 text-sm">
         <span className="text-gray-400">{tasks.length} tasks</span>
@@ -138,42 +272,52 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
 
       {/* Task List */}
       <div className="space-y-2 max-h-[300px] overflow-y-auto">
-        {tasks
-          .filter((task) =>
-            selectedFilter === "All"
-              ? true
-              : selectedFilter === "Done"
-              ? task.completed
-              : !task.completed
-          )
-          .map((task) => (
-            <div
-              key={task.id}
-              className="flex items-center justify-between px-3 py-2 bg-[#252525] rounded-lg"
-            >
-              <button
-                onClick={() => toggleTaskCompletion(task.id)}
-                className={`p-2 rounded-full ${
-                  task.completed ? "bg-green-500" : "bg-gray-600"
-                } transition-all`}
+        {isLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <Loader2 className="w-6 h-6 text-white/50 animate-spin" />
+          </div>
+        ) : tasks.length === 0 ? (
+          <p className="text-gray-400 text-center py-4">
+            No tasks yet. Add one above!
+          </p>
+        ) : (
+          tasks
+            .filter((task) =>
+              selectedFilter === "All"
+                ? true
+                : selectedFilter === "Done"
+                ? task.completed
+                : !task.completed
+            )
+            .map((task) => (
+              <div
+                key={task.id}
+                className="flex items-center justify-between px-3 py-2 bg-[#252525] rounded-lg"
               >
-                <Check className="w-4 h-4 text-white" />
-              </button>
-              <span
-                className={`flex-1 mx-2 text-sm ${
-                  task.completed ? "line-through text-gray-500" : "text-white"
-                }`}
-              >
-                {task.text}
-              </span>
-              <button
-                onClick={() => removeTask(task.id)}
-                className="text-red-400 hover:text-red-500 transition-all"
-              >
-                <Trash2 className="w-5 h-5" />
-              </button>
-            </div>
-          ))}
+                <button
+                  onClick={() => toggleTaskCompletion(task.id)}
+                  className={`p-2 rounded-full ${
+                    task.completed ? "bg-green-500" : "bg-gray-600"
+                  } transition-all`}
+                >
+                  <Check className="w-4 h-4 text-white" />
+                </button>
+                <span
+                  className={`flex-1 mx-2 text-sm ${
+                    task.completed ? "line-through text-gray-500" : "text-white"
+                  }`}
+                >
+                  {task.text}
+                </span>
+                <button
+                  onClick={() => removeTask(task.id)}
+                  className="text-red-400 hover:text-red-500 transition-all"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            ))
+        )}
       </div>
     </div>
   );
