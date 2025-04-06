@@ -6,7 +6,6 @@ import WallpaperSelector from "./WallpaperSelector";
 import Pomodoro from "./widgets/Pomodoro";
 import ToDoList from "./widgets/ToDoList";
 import YouTubePlayer from "./widgets/YouTubePlayer";
-import AmbientSounds from "./widgets/AmbientSounds";
 
 const Workspace = () => {
   const [background, setBackground] = useState(
@@ -17,29 +16,17 @@ const Workspace = () => {
   const wallpaperButtonRef = useRef<HTMLButtonElement | null>(null);
   const [showPomodoro, setShowPomodoro] = useState(false);
   const [showToDoList, setShowToDoList] = useState(false);
-  const [showAmbientSounds, setShowAmbientSounds] = useState(false);
 
   // Keep track of which widgets have been initialized
   const [widgetsInitialized, setWidgetsInitialized] = useState({
     pomodoro: false,
     todoList: false,
-    ambientSounds: false,
   });
 
   useEffect(() => {
     const storedWallpaper = localStorage.getItem("workspaceWallpaper");
     if (storedWallpaper) {
       setBackground(storedWallpaper);
-    }
-
-    // Check if any ambient sounds are active
-    const activeAmbientSound = localStorage.getItem("activeAmbientSound");
-    if (activeAmbientSound) {
-      // Initialize the ambient sounds widget if sounds are playing
-      setWidgetsInitialized((prev) => ({
-        ...prev,
-        ambientSounds: true,
-      }));
     }
   }, []);
 
@@ -59,11 +46,13 @@ const Workspace = () => {
         todoList: true,
       }));
     } else if (widget === "ambient-music") {
-      setShowAmbientSounds(true);
-      setWidgetsInitialized((prev) => ({
-        ...prev,
-        ambientSounds: true,
-      }));
+      // Update the global ambient sounds state
+      if (typeof window !== "undefined") {
+        // @ts-ignore
+        window.ambientSoundsInitialized = true;
+        // @ts-ignore
+        window.showAmbientSounds = true;
+      }
     }
   };
 
@@ -119,12 +108,7 @@ const Workspace = () => {
         </div>
       )}
 
-      {/* Ambient Sounds Widget - Only initialize once, then toggle visibility */}
-      {widgetsInitialized.ambientSounds && (
-        <div style={{ display: showAmbientSounds ? "block" : "none" }}>
-          <AmbientSounds onClose={() => setShowAmbientSounds(false)} />
-        </div>
-      )}
+      {/* Ambient Sounds Widget is now managed at the App level */}
 
       {/* YouTube Player is Always Visible */}
       <YouTubePlayer />
