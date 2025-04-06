@@ -1,9 +1,77 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Play, Pause, RotateCcw, X, Coffee, Brain } from "lucide-react"
-import { useDraggable } from "../hooks/use-draggable"
-import { logFocusSession } from "../../../Api"
+import { useState, useEffect } from "react";
+import { Play, Pause, RotateCcw, X, Coffee, Brain } from "lucide-react";
+import { useDraggable } from "../hooks/use-draggable";
+import { logFocusSession } from "../../../Api";
+
+// Add this utility function at the top of the file
+const setupTimerCompletionHandler = () => {
+  const checkTimer = () => {
+    const running = localStorage.getItem("pomodoroRunning");
+    if (running === "true") {
+      const endTime = Number(localStorage.getItem("pomodoroEndTime"));
+      const storedMode = localStorage.getItem("pomodoroMode");
+      const storedInitialDuration = Number(
+        localStorage.getItem("pomodoroInitialDuration")
+      );
+
+      if (endTime && Date.now() >= endTime) {
+        // Play notification sound
+        try {
+          const audio = new Audio("/Notification.mp3");
+          audio
+            .play()
+            .catch((error) => console.log("Error playing sound:", error));
+        } catch (error) {
+          console.error("Error playing audio:", error);
+        }
+
+        // Log focus session if it was a focus mode
+        if (storedMode === "focus") {
+          const token = localStorage.getItem("token");
+          if (token && storedInitialDuration) {
+            const durationMinutes = Math.round(storedInitialDuration / 60);
+            if (durationMinutes >= 1) {
+              logFocusSession(token, {
+                duration: durationMinutes,
+                completed: true,
+                ambientSound:
+                  localStorage.getItem("activeAmbientSound") || undefined,
+              }).catch((error) =>
+                console.error("Error logging session:", error)
+              );
+            }
+          }
+        }
+
+        // Clean up
+        localStorage.removeItem("pomodoroRunning");
+        localStorage.removeItem("pomodoroEndTime");
+        localStorage.removeItem("pomodoroMode");
+        localStorage.removeItem("pomodoroInitialDuration");
+        localStorage.setItem(
+          "pomodoroTime",
+          (
+            (storedMode === "focus"
+              ? 25
+              : storedMode === "shortBreak"
+              ? 5
+              : 15) * 60
+          ).toString()
+        );
+      }
+    }
+  };
+
+  // Check every second
+  setInterval(checkTimer, 1000);
+};
+
+// Run this once when the app loads
+if (typeof window !== "undefined") {
+  setupTimerCompletionHandler();
+}
 
 const MODES = {
   FOCUS: {
@@ -27,159 +95,196 @@ const MODES = {
     icon: Coffee,
     borderColor: "border-[#FFFDFD]",
   },
-}
+};
 
 interface PomodoroProps {
-  onClose: () => void
+  onClose: () => void;
 }
 
 const Pomodoro = ({ onClose }: PomodoroProps) => {
-  const [mode, setMode] = useState(MODES.FOCUS)
+  const [mode, setMode] = useState(MODES.FOCUS);
   const [time, setTime] = useState(() => {
-    const savedTime = localStorage.getItem("pomodoroTime")
-    return savedTime ? Number.parseInt(savedTime, 10) : MODES.FOCUS.defaultTime * 60
-  })
-  const [isRunning, setIsRunning] = useState(false)
+    const savedTime = localStorage.getItem("pomodoroTime");
+    return savedTime
+      ? Number.parseInt(savedTime, 10)
+      : MODES.FOCUS.defaultTime * 60;
+  });
+  const [isRunning, setIsRunning] = useState(false);
   const [customMinutes, setCustomMinutes] = useState(() => {
-    const savedMinutes = localStorage.getItem("pomodoroMinutes")
-    return savedMinutes ? Number.parseInt(savedMinutes, 10) : MODES.FOCUS.defaultTime
-  })
-  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null)
-  const [initialDuration, setInitialDuration] = useState<number>(0)
-  const [currentAmbientSound, setCurrentAmbientSound] = useState<string | null>(null)
+    const savedMinutes = localStorage.getItem("pomodoroMinutes");
+    return savedMinutes
+      ? Number.parseInt(savedMinutes, 10)
+      : MODES.FOCUS.defaultTime;
+  });
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [initialDuration, setInitialDuration] = useState<number>(0);
+  const [currentAmbientSound, setCurrentAmbientSound] = useState<string | null>(
+    null
+  );
 
-  // Use our custom draggable hook
   const { position, handleMouseDown, isDragging } = useDraggable({
     initialPosition: {
       x: window.innerWidth - 1200,
       y: window.innerHeight - 300,
     },
     boundaryPadding: 10,
-  })
+  });
 
-  // Check if there's an active ambient sound
   useEffect(() => {
     const checkAmbientSound = () => {
-      // This is a placeholder - in a real implementation, you would
-      // get this information from your AmbientSounds component
-      const activeSound = localStorage.getItem("activeAmbientSound")
-      setCurrentAmbientSound(activeSound)
+      const activeSound = localStorage.getItem("activeAmbientSound");
+      setCurrentAmbientSound(activeSound);
+    };
+
+    checkAmbientSound();
+    const interval = setInterval(checkAmbientSound, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("pomodoroTime", time.toString());
+    localStorage.setItem("pomodoroMinutes", customMinutes.toString());
+    if (isRunning) {
+      localStorage.setItem("pomodoroRunning", "true");
+      localStorage.setItem("pomodoroMode", mode.type);
+      localStorage.setItem(
+        "pomodoroEndTime",
+        (Date.now() + time * 1000).toString()
+      );
+      localStorage.setItem(
+        "pomodoroInitialDuration",
+        initialDuration.toString()
+      );
     }
-
-    checkAmbientSound()
-    // Set up an interval to check periodically
-    const interval = setInterval(checkAmbientSound, 5000)
-
-    return () => clearInterval(interval)
-  }, [])
+  }, [time, customMinutes, isRunning, mode.type, initialDuration]);
 
   useEffect(() => {
-    localStorage.setItem("pomodoroTime", time.toString())
-    localStorage.setItem("pomodoroMinutes", customMinutes.toString())
-  }, [time, customMinutes])
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null
+    let interval: NodeJS.Timeout | null = null;
 
     if (isRunning) {
-      // If starting a new session
       if (!sessionStartTime) {
-        setSessionStartTime(new Date())
-        setInitialDuration(time)
+        setSessionStartTime(new Date());
+        setInitialDuration(time);
       }
 
       interval = setInterval(() => {
         setTime((prevTime) => {
           if (prevTime <= 1) {
-            // Timer completed
-            if (mode.type === "focus") {
-              // Log completed focus session
-              logSessionToServer(true)
-            }
-            clearInterval(interval!)
-            setIsRunning(false)
-            return 0
+            clearInterval(interval!);
+            setIsRunning(false);
+            setSessionStartTime(null);
+            return 0;
           }
-          return prevTime - 1
-        })
-      }, 1000)
+          return prevTime - 1;
+        });
+      }, 1000);
     }
 
     return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [isRunning, sessionStartTime, mode.type])
+      if (interval) clearInterval(interval);
+    };
+  }, [isRunning, sessionStartTime]);
+
+  useEffect(() => {
+    const resumeTimer = () => {
+      const running = localStorage.getItem("pomodoroRunning");
+      if (running === "true") {
+        const endTime = Number(localStorage.getItem("pomodoroEndTime"));
+        const storedMode = localStorage.getItem("pomodoroMode");
+        const storedInitialDuration = Number(
+          localStorage.getItem("pomodoroInitialDuration")
+        );
+
+        if (endTime && storedMode) {
+          const remainingTime = Math.max(
+            0,
+            Math.floor((endTime - Date.now()) / 1000)
+          );
+
+          if (remainingTime > 0) {
+            setTime(remainingTime);
+            setIsRunning(true);
+            setSessionStartTime(
+              new Date(endTime - storedInitialDuration * 1000)
+            );
+            setInitialDuration(storedInitialDuration);
+            Object.values(MODES).forEach((m) => {
+              if (m.type === storedMode) setMode(m);
+            });
+          }
+        }
+      }
+    };
+
+    resumeTimer();
+  }, [customMinutes]);
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs < 10 ? "0" + secs : secs}`
-  }
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? "0" + secs : secs}`;
+  };
 
   const applyCustomTime = () => {
-    setTime(customMinutes * 60)
-    setIsRunning(false)
-    setSessionStartTime(null)
-  }
+    setTime(customMinutes * 60);
+    setIsRunning(false);
+    setSessionStartTime(null);
+  };
 
   const handlePlayPause = () => {
     if (isRunning) {
-      // If pausing and it's a focus session, log it as incomplete
       if (mode.type === "focus" && sessionStartTime) {
-        logSessionToServer(false)
+        logSessionToServer(false);
       }
-      setIsRunning(false)
-      setSessionStartTime(null)
+      setIsRunning(false);
+      setSessionStartTime(null);
+      localStorage.removeItem("pomodoroRunning");
     } else {
-      setIsRunning(true)
+      setIsRunning(true);
     }
-  }
+  };
 
   const handleReset = () => {
-    // If resetting during a focus session, log it as incomplete
     if (mode.type === "focus" && isRunning && sessionStartTime) {
-      logSessionToServer(false)
+      logSessionToServer(false);
     }
-
-    setTime(customMinutes * 60)
-    setIsRunning(false)
-    setSessionStartTime(null)
-  }
+    setTime(customMinutes * 60);
+    setIsRunning(false);
+    setSessionStartTime(null);
+    localStorage.removeItem("pomodoroRunning");
+  };
 
   const logSessionToServer = async (completed: boolean) => {
-    if (!sessionStartTime || mode.type !== "focus") return
+    if (mode.type !== "focus") return;
 
     try {
-      const token = localStorage.getItem("token")
-      if (!token) return
+      const token = localStorage.getItem("token");
+      if (!token) return;
 
-      const durationMinutes = Math.round((initialDuration - time) / 60)
+      let durationMinutes = sessionStartTime
+        ? Math.round((initialDuration - time) / 60)
+        : Math.round(initialDuration / 60);
 
-      // Only log sessions that lasted at least 1 minute
-      if (durationMinutes < 1) return
+      if (durationMinutes < 1) return;
 
       await logFocusSession(token, {
         duration: durationMinutes,
         completed,
         ambientSound: currentAmbientSound || undefined,
-      })
-
-      console.log(`Focus session logged: ${durationMinutes} minutes, ${completed ? "completed" : "incomplete"}`)
+      });
     } catch (error) {
-      console.error("Failed to log focus session:", error)
+      console.error("Failed to log focus session:", error);
     }
-  }
+  };
 
   const handleClose = () => {
-    // If closing during a focus session, log it as incomplete
     if (mode.type === "focus" && isRunning && sessionStartTime) {
-      logSessionToServer(false)
+      logSessionToServer(false);
     }
+    onClose();
+  };
 
-    onClose()
-  }
-
-  const ModeIcon = mode.icon
+  const ModeIcon = mode.icon;
 
   return (
     <div
@@ -192,7 +297,6 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
       className={`fixed bg-[#121212] text-white rounded-xl shadow-lg p-5 w-64 transition-all cursor-grab active:cursor-grabbing 
       border-4 ${mode.borderColor}`}
     >
-      {/* Header (Draggable) */}
       <div
         className="flex justify-between items-center cursor-grab active:cursor-grabbing mb-4"
         onMouseDown={handleMouseDown}
@@ -200,35 +304,36 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
         <h3 className="text-lg font-semibold flex items-center">
           <ModeIcon className="w-5 h-5 mr-2" /> {mode.label}
         </h3>
-        <button onClick={handleClose} className="text-white/70 hover:text-white transition">
+        <button
+          onClick={handleClose}
+          className="text-white/70 hover:text-white transition"
+        >
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Timer Display */}
       <div className="text-center mb-4">
         <div className="text-4xl font-bold">{formatTime(time)}</div>
       </div>
 
-      {/* Mode Selector */}
       <div className="grid grid-cols-3 gap-2 mb-4">
         {Object.values(MODES).map((m) => (
           <button
             key={m.type}
             onClick={() => {
-              // If changing mode during a focus session, log it as incomplete
               if (mode.type === "focus" && isRunning && sessionStartTime) {
-                logSessionToServer(false)
+                logSessionToServer(false);
               }
-
-              setMode(m)
-              setTime(m.defaultTime * 60)
-              setCustomMinutes(m.defaultTime)
-              setIsRunning(false)
-              setSessionStartTime(null)
+              setMode(m);
+              setTime(m.defaultTime * 60);
+              setCustomMinutes(m.defaultTime);
+              setIsRunning(false);
+              setSessionStartTime(null);
             }}
             className={`px-2 py-1 rounded text-xs font-medium ${
-              mode.type === m.type ? "bg-[#333] shadow-inner" : "bg-[#222] hover:bg-[#333]"
+              mode.type === m.type
+                ? "bg-[#333] shadow-inner"
+                : "bg-[#222] hover:bg-[#333]"
             }`}
           >
             {m.label}
@@ -236,27 +341,34 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
         ))}
       </div>
 
-      {/* Custom Time Input */}
       <div className="flex items-center justify-center space-x-2 mb-4">
         <input
           type="number"
           min="1"
           value={customMinutes}
-          onChange={(e) => setCustomMinutes(Number.parseInt(e.target.value, 10))}
+          onChange={(e) =>
+            setCustomMinutes(Number.parseInt(e.target.value, 10))
+          }
           className="w-14 text-center bg-[#222] text-white border-none rounded p-1 text-sm"
         />
-        <button onClick={applyCustomTime} className="px-2 py-1 bg-[#222] rounded text-sm hover:bg-[#333]">
+        <button
+          onClick={applyCustomTime}
+          className="px-2 py-1 bg-[#222] rounded text-sm hover:bg-[#333]"
+        >
           Set
         </button>
       </div>
 
-      {/* Timer Controls */}
       <div className="flex justify-center space-x-4">
         <button
           onClick={handlePlayPause}
           className="p-3 rounded-full bg-[#222] hover:bg-[#333] transition-all transform hover:scale-105"
         >
-          {isRunning ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+          {isRunning ? (
+            <Pause className="w-5 h-5" />
+          ) : (
+            <Play className="w-5 h-5" />
+          )}
         </button>
         <button
           onClick={handleReset}
@@ -266,13 +378,13 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
         </button>
       </div>
 
-      {/* Ambient Sound Indicator */}
       {currentAmbientSound && (
-        <div className="mt-4 text-center text-xs text-gray-400">Using: {currentAmbientSound}</div>
+        <div className="mt-4 text-center text-xs text-gray-400">
+          Using: {currentAmbientSound}
+        </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default Pomodoro
-
+export default Pomodoro;

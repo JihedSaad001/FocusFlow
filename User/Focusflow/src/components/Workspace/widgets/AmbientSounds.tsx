@@ -13,7 +13,95 @@ import {
   ChevronUp,
 } from "lucide-react";
 import Draggable from "react-draggable";
-import { logFocusSession } from "../../../Api"; // Correct import for your Api.tsx file
+import { logFocusSession } from "../../../Api";
+
+// Global audio management - move this outside the component to persist across unmounts
+const globalAudioInstances: { [key: string]: HTMLAudioElement } = {};
+let globalSessionStartTime: Date | null = null;
+
+// Setup a global handler that runs even when the component is not mounted
+const setupAudioStateHandler = () => {
+  // This function will sync the localStorage state with the actual audio state
+  const syncAudioState = () => {
+    try {
+      const storedSounds = localStorage.getItem("activeAmbientSounds");
+      if (!storedSounds) return;
+
+      const sounds = JSON.parse(storedSounds);
+      const updatedSounds = sounds.map((sound: any) => {
+        const audio = globalAudioInstances[sound.id];
+        const isActuallyPlaying = audio ? !audio.paused : false;
+
+        return {
+          ...sound,
+          isPlaying: isActuallyPlaying,
+        };
+      });
+
+      // Update localStorage with the actual playing state
+      localStorage.setItem(
+        "activeAmbientSounds",
+        JSON.stringify(updatedSounds)
+      );
+
+      // Update the activeAmbientSound item for other components to use
+      const activeSoundNames = Object.entries(globalAudioInstances)
+        .filter(([_, audio]) => !audio.paused)
+        .map(([id]) => {
+          const sound = updatedSounds.find((s: any) => s.id === id);
+          return sound ? sound.name : "Unknown";
+        })
+        .join(", ");
+
+      if (activeSoundNames) {
+        localStorage.setItem("activeAmbientSound", activeSoundNames);
+      } else {
+        localStorage.removeItem("activeAmbientSound");
+      }
+
+      // Handle session tracking
+      if (
+        Object.values(globalAudioInstances).some((audio) => !audio.paused) &&
+        !globalSessionStartTime
+      ) {
+        globalSessionStartTime = new Date();
+      } else if (
+        !Object.values(globalAudioInstances).some((audio) => !audio.paused) &&
+        globalSessionStartTime
+      ) {
+        // Log session when all sounds are stopped
+        const token = localStorage.getItem("token");
+        if (token) {
+          const now = new Date();
+          const sessionDuration = Math.floor(
+            (now.getTime() - globalSessionStartTime.getTime()) / 60000
+          );
+
+          if (sessionDuration >= 1) {
+            logFocusSession(token, {
+              duration: sessionDuration,
+              completed: true,
+              ambientSound: activeSoundNames,
+            }).catch((err) =>
+              console.error("Error logging focus session:", err)
+            );
+          }
+        }
+        globalSessionStartTime = null;
+      }
+    } catch (error) {
+      console.error("Error in audio state handler:", error);
+    }
+  };
+
+  // Run this check every 5 seconds
+  setInterval(syncAudioState, 5000);
+};
+
+// Initialize the handler when the app loads
+if (typeof window !== "undefined") {
+  setupAudioStateHandler();
+}
 
 type AmbientSound = {
   _id: string;
@@ -26,7 +114,6 @@ type ActiveSound = {
   id: string;
   name: string;
   url: string;
-  audio: HTMLAudioElement;
   isPlaying: boolean;
   volume: number;
   isMuted: boolean;
@@ -40,92 +127,136 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
   const [isMasterMuted, setIsMasterMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const previousMasterVolumeRef = useRef(70);
+  const previousMasterVolumeRef = useRef(masterVolume);
   const nodeRef = useRef(null);
-  const sessionStartTimeRef = useRef<Date | null>(null);
 
+  // Restore state from localStorage on mount and sync with actual audio state
   useEffect(() => {
+    console.log("AmbientSounds component mounted");
+
+    // Restore master volume and mute state
+    const storedMasterVolume = localStorage.getItem("ambientMasterVolume");
+    const storedMasterMuted = localStorage.getItem("ambientMasterMuted");
+
+    if (storedMasterVolume) {
+      setMasterVolume(Number(storedMasterVolume));
+    }
+
+    if (storedMasterMuted) {
+      setIsMasterMuted(storedMasterMuted === "true");
+    }
+
+    // Always sync with the actual audio instances that might be playing
+    syncWithAudioState();
+
     fetchAmbientSounds();
-
-    // Cleanup function
-    return () => {
-      // Log any active focus sessions when component unmounts
-      logActiveSoundsForAnalytics();
-
-      // Stop all sounds
-      activeSounds.forEach((sound) => {
-        try {
-          sound.audio.pause();
-        } catch (err) {
-          console.error("Error pausing audio during cleanup:", err);
-        }
-      });
-    };
   }, []);
 
-  // Log active sounds for analytics when component unmounts or sounds change
-  const logActiveSoundsForAnalytics = () => {
-    if (sessionStartTimeRef.current && activeSounds.some((s) => s.isPlaying)) {
+  // Sync with the actual audio state
+  const syncWithAudioState = () => {
+    // Get all active sound IDs from localStorage
+    const storedSounds = localStorage.getItem("activeAmbientSounds");
+
+    if (storedSounds) {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
+        const parsedSounds: ActiveSound[] = JSON.parse(storedSounds);
 
-        const now = new Date();
-        const sessionDuration = Math.floor(
-          (now.getTime() - sessionStartTimeRef.current.getTime()) / 60000
-        ); // Convert to minutes
+        // Map through stored sounds and check their actual playing state
+        const restoredSounds = parsedSounds.map((sound) => {
+          // Get existing audio instance if it exists
+          const audio = globalAudioInstances[sound.id];
 
-        if (sessionDuration >= 1) {
-          // Only log sessions that lasted at least 1 minute
-          const activeSoundNames = activeSounds
-            .filter((s) => s.isPlaying)
-            .map((s) => s.name)
-            .join(", ");
+          // Check the actual playing state of the audio
+          const isActuallyPlaying = audio ? !audio.paused : false;
 
-          logFocusSession(token, {
-            duration: sessionDuration,
-            completed: true,
-            ambientSound: activeSoundNames,
-          });
+          return {
+            ...sound,
+            isPlaying: isActuallyPlaying, // Use the actual playing state
+            showVolumeControl: false,
+          };
+        });
 
-          console.log(
-            `Logged ambient sound session: ${sessionDuration} minutes with ${activeSoundNames}`
-          );
-        }
-      } catch (err) {
-        console.error("Error logging focus session:", err);
+        setActiveSounds(restoredSounds);
+      } catch (error) {
+        console.error("Error parsing stored sounds:", error);
       }
-
-      // Reset the session start time
-      sessionStartTimeRef.current = null;
     }
   };
+
+  // Sync component state with actual audio state on each render
+  useEffect(() => {
+    // This ensures the UI always reflects the actual audio state
+    setActiveSounds((prevSounds) =>
+      prevSounds.map((sound) => {
+        const audio = globalAudioInstances[sound.id];
+        const isActuallyPlaying = audio ? !audio.paused : false;
+
+        return {
+          ...sound,
+          isPlaying: isActuallyPlaying,
+        };
+      })
+    );
+  }, []);
+
+  // Persist state to localStorage
+  useEffect(() => {
+    localStorage.setItem("ambientMasterVolume", masterVolume.toString());
+    localStorage.setItem("ambientMasterMuted", isMasterMuted.toString());
+
+    // Store the actual playing state from the audio elements
+    const soundsToStore = activeSounds.map((sound) => {
+      const audio = globalAudioInstances[sound.id];
+      const isActuallyPlaying = audio ? !audio.paused : false;
+
+      return {
+        ...sound,
+        isPlaying: isActuallyPlaying,
+      };
+    });
+
+    localStorage.setItem("activeAmbientSounds", JSON.stringify(soundsToStore));
+
+    const activeSoundNames = activeSounds
+      .filter(
+        (s) => globalAudioInstances[s.id] && !globalAudioInstances[s.id].paused
+      )
+      .map((s) => s.name)
+      .join(", ");
+    if (activeSoundNames) {
+      localStorage.setItem("activeAmbientSound", activeSoundNames);
+    } else {
+      localStorage.removeItem("activeAmbientSound");
+    }
+  }, [activeSounds, masterVolume, isMasterMuted]);
+
+  useEffect(() => {
+    activeSounds.forEach((sound) => {
+      const audio = globalAudioInstances[sound.id];
+      if (audio) {
+        audio.volume = calculateVolume(sound.volume, sound.isMuted);
+      }
+    });
+  }, [masterVolume, isMasterMuted, activeSounds]);
 
   const fetchAmbientSounds = async () => {
     try {
       setIsLoading(true);
-      console.log("Fetching ambient sounds from MongoDB...");
-
       const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/resources/ambient-sounds"
+        "http://localhost:5000/api/resources/ambient-sounds"
       );
       if (!response.ok) throw new Error("Failed to fetch ambient sounds");
-
       const data = await response.json();
-      console.log("Fetched Ambient Sounds:", data);
-
       setSounds(data);
     } catch (err) {
       console.error("Error fetching ambient sounds:", err);
       setError("Failed to load ambient sounds. Using default sounds instead.");
-      // Set default sounds if API fails
       setSounds(getDefaultSounds());
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Default sounds as fallback
   const getDefaultSounds = (): AmbientSound[] => [
     {
       _id: "default-1",
@@ -153,72 +284,20 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
     },
   ];
 
-  // Calculate and apply volume for a sound based on its individual volume and master volume
   const calculateVolume = (soundVolume: number, isSoundMuted: boolean) => {
     if (isMasterMuted || isSoundMuted) return 0;
     return (soundVolume / 100) * (masterVolume / 100);
   };
 
-  // Apply volume changes to all active sounds when master volume changes
-  useEffect(() => {
-    activeSounds.forEach((sound) => {
-      try {
-        sound.audio.volume = calculateVolume(sound.volume, sound.isMuted);
-      } catch (err) {
-        console.error("Error setting volume:", err);
-      }
-    });
-  }, [masterVolume, isMasterMuted, activeSounds]);
-
-  // Track active sounds for analytics
-  useEffect(() => {
-    // If any sound is playing and we don't have a session start time, set it
-    if (activeSounds.some((s) => s.isPlaying) && !sessionStartTimeRef.current) {
-      sessionStartTimeRef.current = new Date();
-
-      // Store active sound in localStorage for other components to access
-      const activeSoundNames = activeSounds
-        .filter((s) => s.isPlaying)
-        .map((s) => s.name)
-        .join(", ");
-
-      localStorage.setItem("activeAmbientSound", activeSoundNames);
-    }
-    // If no sounds are playing but we have a session start time, log the session
-    else if (
-      !activeSounds.some((s) => s.isPlaying) &&
-      sessionStartTimeRef.current
-    ) {
-      logActiveSoundsForAnalytics();
-      localStorage.removeItem("activeAmbientSound");
-    }
-  }, [activeSounds]);
-
   const handleSoundToggle = (sound: AmbientSound) => {
     setError(null);
-
-    // Check if sound is already active
     const existingSound = activeSounds.find((s) => s.id === sound._id);
 
     if (existingSound) {
-      // Toggle play/pause for existing sound
-      if (existingSound.isPlaying) {
-        // Pause the sound
+      const audio = globalAudioInstances[sound._id];
+      if (audio.paused) {
         try {
-          existingSound.audio.pause();
-          setActiveSounds((prev) =>
-            prev.map((s) =>
-              s.id === sound._id ? { ...s, isPlaying: false } : s
-            )
-          );
-        } catch (err) {
-          console.error("Error pausing sound:", err);
-          setError(`Failed to pause ${sound.name}.`);
-        }
-      } else {
-        // Resume the sound
-        try {
-          existingSound.audio.play().catch((err) => {
+          audio.play().catch((err) => {
             console.error("Error playing sound:", err);
             setError(`Failed to play ${sound.name}. Please try again.`);
           });
@@ -231,40 +310,43 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
           console.error("Error resuming sound:", err);
           setError(`Failed to play ${sound.name}. Please try again.`);
         }
+      } else {
+        try {
+          audio.pause();
+          setActiveSounds((prev) =>
+            prev.map((s) =>
+              s.id === sound._id ? { ...s, isPlaying: false } : s
+            )
+          );
+        } catch (err) {
+          console.error("Error pausing sound:", err);
+          setError(`Failed to pause ${sound.name}.`);
+        }
       }
     } else {
-      // Create and play a new sound
       try {
-        const audio = new Audio();
-        audio.src = sound.url;
+        const audio = new Audio(sound.url);
         audio.loop = true;
-
-        // Create the new active sound object with default volume settings
         const newSound: ActiveSound = {
           id: sound._id,
           name: sound.name,
           url: sound.url,
-          audio: audio,
-          isPlaying: false, // Start as not playing until confirmed
-          volume: 70, // Default individual volume
+          isPlaying: false,
+          volume: 70,
           isMuted: false,
           showVolumeControl: false,
         };
-
-        // Set initial volume based on master and individual settings
         audio.volume = calculateVolume(newSound.volume, newSound.isMuted);
+        globalAudioInstances[sound._id] = audio;
 
-        // Add error handler
         audio.onerror = () => {
           console.error(`Error loading sound: ${sound.name}`);
           setError(`Failed to load ${sound.name}. Please try another sound.`);
           setActiveSounds((prev) => prev.filter((s) => s.id !== sound._id));
+          delete globalAudioInstances[sound._id];
         };
 
-        // Add to active sounds
         setActiveSounds((prev) => [...prev, newSound]);
-
-        // Try to play the sound
         audio
           .play()
           .then(() => {
@@ -286,16 +368,17 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
   };
 
   const removeSound = (soundId: string) => {
-    const soundToRemove = activeSounds.find((s) => s.id === soundId);
-    if (soundToRemove) {
+    const audio = globalAudioInstances[soundId];
+    if (audio) {
       try {
-        soundToRemove.audio.pause();
-        soundToRemove.audio.src = "";
+        audio.pause();
+        audio.src = "";
+        delete globalAudioInstances[soundId];
       } catch (err) {
         console.error("Error removing sound:", err);
       }
-      setActiveSounds((prev) => prev.filter((s) => s.id !== soundId));
     }
+    setActiveSounds((prev) => prev.filter((s) => s.id !== soundId));
   };
 
   const toggleMasterMute = () => {
@@ -313,12 +396,9 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
       prev.map((sound) => {
         if (sound.id === soundId) {
           const newMuteState = !sound.isMuted;
-          try {
-            sound.audio.volume = newMuteState
-              ? 0
-              : calculateVolume(sound.volume, false);
-          } catch (err) {
-            console.error("Error toggling mute:", err);
+          const audio = globalAudioInstances[soundId];
+          if (audio) {
+            audio.volume = calculateVolume(sound.volume, newMuteState);
           }
           return { ...sound, isMuted: newMuteState };
         }
@@ -331,10 +411,9 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
     setActiveSounds((prev) =>
       prev.map((sound) => {
         if (sound.id === soundId) {
-          try {
-            sound.audio.volume = calculateVolume(newVolume, sound.isMuted);
-          } catch (err) {
-            console.error("Error updating sound volume:", err);
+          const audio = globalAudioInstances[soundId];
+          if (audio) {
+            audio.volume = calculateVolume(newVolume, sound.isMuted);
           }
           return { ...sound, volume: newVolume };
         }
@@ -354,33 +433,17 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
   };
 
   const handleClose = () => {
-    // Log any active focus sessions before closing
-    logActiveSoundsForAnalytics();
-
-    // Stop all sounds
-    activeSounds.forEach((sound) => {
-      try {
-        sound.audio.pause();
-        sound.audio.src = "";
-      } catch (err) {
-        console.error("Error stopping sound:", err);
-      }
-    });
-
-    // Clear localStorage
-    localStorage.removeItem("activeAmbientSound");
-
-    setActiveSounds([]);
     onClose();
   };
 
+  // Use these functions to check the actual playing state directly from the audio elements
   const isSoundActive = (soundId: string) => {
     return activeSounds.some((s) => s.id === soundId);
   };
 
   const isSoundPlaying = (soundId: string) => {
-    const sound = activeSounds.find((s) => s.id === soundId);
-    return sound ? sound.isPlaying : false;
+    const audio = globalAudioInstances[soundId];
+    return audio ? !audio.paused : false;
   };
 
   return (
@@ -502,7 +565,7 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
                           }
                           className="p-1 rounded-full hover:bg-gray-700 transition-all duration-200"
                         >
-                          {sound.isPlaying ? (
+                          {isSoundPlaying(sound.id) ? (
                             <Pause className="w-4 h-4 text-red-400" />
                           ) : (
                             <Play className="w-4 h-4 text-gray-400" />
@@ -529,7 +592,6 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
                             onChange={(e) => {
                               const value = Number.parseInt(e.target.value);
                               if (value > 0 && sound.isMuted) {
-                                // Unmute if volume is increased from zero
                                 setActiveSounds((prev) =>
                                   prev.map((s) =>
                                     s.id === sound.id

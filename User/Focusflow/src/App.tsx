@@ -1,13 +1,13 @@
 // User/App.js
 import { useEffect, useState } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import Navbar from "./components/Navbar"; 
-import Sidebar from "./components/Sidebar"; 
-import MainMenu from "./components/MainMenu"; 
-import Dashboard from "./components/Dashboard"; 
-import Profile from "./components/Profile"; 
-import SignIn from "./components/SignIn"; 
-import SignUp from "./components/SignUp"; 
+import Navbar from "./components/Navbar";
+import Sidebar from "./components/Sidebar";
+import MainMenu from "./components/MainMenu";
+import Dashboard from "./components/Dashboard";
+import Profile from "./components/Profile";
+import SignIn from "./components/SignIn";
+import SignUp from "./components/SignUp";
 import Home from "./components/Home";
 import Workspace from "./components/Workspace/Workspace";
 import KanbanBoard from "./components/KanbanBoard";
@@ -16,8 +16,8 @@ import CreateProject from "./components/CreateProject";
 import ProjectDetails from "./components/ProjectDetails";
 import PlanningSession from "./components/Poker/PlanningSession";
 import ForgotPassword from "./components/ForgotPassword";
-import ResetPassword from "./components/ResetPassword"; 
-import VerifyEmail from "./components/VerifyEmail"; 
+import ResetPassword from "./components/ResetPassword";
+import VerifyEmail from "./components/VerifyEmail";
 
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("user"));
