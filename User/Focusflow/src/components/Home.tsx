@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Calendar, Brain, Music, CheckSquare, BarChart2 } from "lucide-react";
+import { Calendar } from "lucide-react";
 import NewsSection from "./NewsSection";
 import ProductivityAssistant from "./ProductivityAssistant";
 
@@ -110,41 +110,6 @@ const Home = () => {
               style={{ width: `${dayProgress}%` }}
             ></div>
           </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          <a
-            href="/workspace"
-            className="bg-[#1E1E1E] hover:bg-[#252525] transition-colors p-4 rounded-xl flex flex-col items-center text-center"
-          >
-            <Brain className="w-8 h-8 mb-2 text-[#ff4e50]" />
-            <span className="font-medium">Focus Mode</span>
-          </a>
-
-          <a
-            href="/workspace"
-            className="bg-[#1E1E1E] hover:bg-[#252525] transition-colors p-4 rounded-xl flex flex-col items-center text-center"
-          >
-            <Music className="w-8 h-8 mb-2 text-[#fc913a]" />
-            <span className="font-medium">Ambient Sounds</span>
-          </a>
-
-          <a
-            href="/workspace"
-            className="bg-[#1E1E1E] hover:bg-[#252525] transition-colors p-4 rounded-xl flex flex-col items-center text-center"
-          >
-            <CheckSquare className="w-8 h-8 mb-2 text-[#ff4e50]" />
-            <span className="font-medium">Tasks</span>
-          </a>
-
-          <a
-            href="/dashboard"
-            className="bg-[#1E1E1E] hover:bg-[#252525] transition-colors p-4 rounded-xl flex flex-col items-center text-center"
-          >
-            <BarChart2 className="w-8 h-8 mb-2 text-[#fc913a]" />
-            <span className="font-medium">Dashboard</span>
-          </a>
         </div>
 
         {/* Two-column layout for News and Quote */}

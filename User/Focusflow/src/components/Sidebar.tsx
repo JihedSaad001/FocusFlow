@@ -10,7 +10,6 @@ import {
   LibraryBig,
   Kanban,
   FolderKanban,
-  FolderPlus,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -93,15 +92,6 @@ const Sidebar = () => {
           >
             <FolderKanban className="w-5 h-5 text-gray-400 group-hover:text-[#ff4e50] transition-colors" />
             {isExpanded && <span className="ml-3 opacity-100">Projects</span>}
-          </Link>
-          <Link
-            to="/createProject"
-            className="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group hover:bg-white/[0.08] active:bg-white/[0.12]"
-          >
-            <FolderPlus className="w-5 h-5 text-gray-400 group-hover:text-[#ff4e50] transition-colors" />
-            {isExpanded && (
-              <span className="ml-3 opacity-100">Create Project</span>
-            )}
           </Link>
         </div>
       </nav>

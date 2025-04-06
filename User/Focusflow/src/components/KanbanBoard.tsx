@@ -11,7 +11,6 @@ import {
   DragOverlay,
   type DragStartEvent,
   type DragEndEvent,
-  type DragOverEvent,
   useSensor,
   useSensors,
   PointerSensor,
@@ -29,7 +28,7 @@ const initialBoard: Board = {
     { id: uuidv4(), title: "Backlog", tasks: [] },
     { id: uuidv4(), title: "To Do", tasks: [] },
     { id: uuidv4(), title: "Doing", tasks: [] },
-    { id: uuidv4(), title: "To Test", tasks: [] },
+    { id: uuidv4(), title: "Blocked", tasks: [] },
     { id: uuidv4(), title: "Done", tasks: [] },
   ],
 };
@@ -50,6 +49,9 @@ const KanbanBoard: React.FC = () => {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
+      options: {
+        ignoreFrom: ".bg-red-500, button",
+      },
     })
   );
 
@@ -144,57 +146,9 @@ const KanbanBoard: React.FC = () => {
     const { active } = event;
     const { task, columnId } = active.data.current || {};
     if (task) {
-      // Store a backup of the task and its column for recovery if needed
       setDraggedTaskBackup({ task, columnId });
       setActiveTask(task);
       setActiveColumnId(columnId);
-    }
-  };
-
-  // Handle drag over (move task to a new column)
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-
-    const activeId = active.id;
-    const overId = over.id;
-    if (activeId === overId) return;
-
-    const isActiveATask = active.data.current?.task;
-    const isOverAColumn = !over.data.current?.task;
-
-    if (isActiveATask && isOverAColumn) {
-      setBoard((prevBoard) => {
-        const activeColumn = prevBoard.columns.find(
-          (col) => col.id === active.data.current?.columnId
-        );
-        const overColumn = prevBoard.columns.find((col) => col.id === overId);
-
-        if (!activeColumn || !overColumn) return prevBoard;
-
-        const activeTaskIndex = activeColumn.tasks.findIndex(
-          (task) => task._id === activeId
-        );
-        if (activeTaskIndex === -1) return prevBoard;
-
-        const updatedColumns = prevBoard.columns.map((col) => {
-          if (col.id === activeColumn.id) {
-            return {
-              ...col,
-              tasks: col.tasks.filter((task) => task._id !== activeId),
-            };
-          }
-          if (col.id === overColumn.id) {
-            return {
-              ...col,
-              tasks: [...col.tasks, activeColumn.tasks[activeTaskIndex]],
-            };
-          }
-          return col;
-        });
-
-        return { ...prevBoard, columns: updatedColumns };
-      });
     }
   };
 
@@ -205,9 +159,7 @@ const KanbanBoard: React.FC = () => {
     // If there's no over target, restore the task to its original position
     if (!over) {
       if (draggedTaskBackup) {
-        // Restore the task to its original position
         setBoard((prevBoard) => {
-          // Make sure the task isn't already in the board (avoid duplicates)
           const taskExists = prevBoard.columns.some((col) =>
             col.tasks.some((task) => task._id === draggedTaskBackup.task._id)
           );
@@ -224,7 +176,9 @@ const KanbanBoard: React.FC = () => {
             return col;
           });
 
-          return { ...prevBoard, columns: updatedColumns };
+          const updatedBoard = { ...prevBoard, columns: updatedColumns };
+          saveBoard(updatedBoard); // Ensure the board is saved even if the drag is canceled
+          return updatedBoard;
         });
       }
 
@@ -237,7 +191,6 @@ const KanbanBoard: React.FC = () => {
     const activeId = active.id;
     const overId = over.id;
 
-    // If dragging onto itself, do nothing
     if (activeId === overId) {
       setActiveTask(null);
       setActiveColumnId(null);
@@ -248,7 +201,7 @@ const KanbanBoard: React.FC = () => {
     const isActiveATask = active.data.current?.task;
     if (isActiveATask) {
       const activeColumnId = active.data.current?.columnId;
-      const overColumnId = over.data.current?.columnId || over.id;
+      const overColumnId = over.data.current?.columnId || over.id; // Handle case where over is a column
 
       setBoard((prevBoard) => {
         const activeColumn = prevBoard.columns.find(
@@ -297,13 +250,14 @@ const KanbanBoard: React.FC = () => {
           const [movedTask] = newSourceTasks.splice(activeTaskIndex, 1);
           const newDestTasks = [...overColumn.tasks];
 
+          // If over is a task, insert at the task's position; if over is a column, append
           if (over.data.current?.task) {
             const overTaskIndex = newDestTasks.findIndex(
               (task) => task._id === overId
             );
             newDestTasks.splice(overTaskIndex, 0, movedTask);
           } else {
-            newDestTasks.push(movedTask);
+            newDestTasks.push(movedTask); // Append to the end if dropping on a column
           }
 
           updatedColumns[activeColumnIndex] = {
@@ -317,7 +271,7 @@ const KanbanBoard: React.FC = () => {
         }
 
         const updatedBoard = { ...prevBoard, columns: updatedColumns };
-        saveBoard(updatedBoard);
+        saveBoard(updatedBoard); // Ensure saveBoard is called after the state update
         return updatedBoard;
       });
     }
@@ -328,12 +282,18 @@ const KanbanBoard: React.FC = () => {
   };
 
   const handleAddTask = (columnId: string, task: Task) => {
+    console.log(`Adding task to column: ${columnId}`, task);
     setBoard((prevBoard) => {
       const updatedColumns = prevBoard.columns.map((col) =>
-        col.id === columnId ? { ...col, tasks: [...col.tasks, task] } : col
+        col.id === columnId
+          ? { ...col, tasks: [...(col.tasks || []), task] }
+          : col
       );
       const updatedBoard = { ...prevBoard, columns: updatedColumns };
+
+      console.log("Updated board:", updatedBoard);
       saveBoard(updatedBoard);
+
       return updatedBoard;
     });
   };
@@ -392,7 +352,6 @@ const KanbanBoard: React.FC = () => {
       }
     };
 
-    // Count project tasks
     const projectTaskCount = column.tasks.filter(
       (task) => task.projectId
     ).length;
@@ -403,7 +362,10 @@ const KanbanBoard: React.FC = () => {
         className="bg-[#1E1E1E] rounded-xl shadow-lg flex flex-col max-h-[calc(100vh-150px)] border border-gray-700"
       >
         {/* Column Header */}
-        <div className="flex items-center justify-between p-4 bg-red-500 rounded-t-xl">
+        <div
+          className="flex items-center justify-between p-4 bg-red-500 rounded-t-xl"
+          data-no-dnd="true"
+        >
           <div className="flex items-center">
             <h3 className="font-semibold text-white text-lg">{column.title}</h3>
             <span className="ml-3 bg-gray-800 text-white text-xs font-medium px-2 py-1 rounded-full">
@@ -440,6 +402,7 @@ const KanbanBoard: React.FC = () => {
                   columnId={column.id}
                   onDelete={onDeleteTask}
                   isProjectTask={!!task.projectId}
+                  data-draggable="true"
                 />
               ))
             ) : (
@@ -557,7 +520,6 @@ const KanbanBoard: React.FC = () => {
           sensors={sensors}
           collisionDetection={closestCorners}
           onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
           <div

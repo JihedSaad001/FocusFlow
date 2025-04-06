@@ -43,8 +43,8 @@ const UserSchema = new mongoose.Schema({
       columns: [
         { id: "backlog-1", title: "Backlog", tasks: [] },
         { id: "todo-1", title: "To Do", tasks: [] },
-        { id: "doing-1", title: "Doing", tasks: [] },
-        { id: "totest-1", title: "To Test", tasks: [] },
+        { id: "in progress-1", title: "In progress", tasks: [] },
+        { id: "Blocked-1", title: "Blocked", tasks: [] },
         { id: "done-1", title: "Done", tasks: [] },
       ],
     },
