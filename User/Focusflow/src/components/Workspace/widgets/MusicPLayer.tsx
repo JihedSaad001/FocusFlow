@@ -217,7 +217,9 @@ const MusicPlayer = ({ onClose }: { onClose: () => void }) => {
   const fetchMusicTracks = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("https://focusflow-production.up.railway.app/api/resources/music");
+      const response = await fetch(
+        "https://focusflow-production.up.railway.app/api/resources/music"
+      );
       if (!response.ok) throw new Error("Failed to fetch music tracks");
       const data = await response.json();
       setTracks(data);
