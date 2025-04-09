@@ -64,6 +64,12 @@ export function IssueList({ issues, onIssueSelect, currentIssueId, onDeleteIssue
             </button>
           </div>
           <p className="text-gray-400 text-sm">{issue.description}</p>
+          {issue.deadline && (
+            <div className="mt-1 text-xs text-gray-400 flex items-center">
+              <Clock size={12} className="mr-1" />
+              Due: {new Date(issue.deadline).toLocaleDateString()}
+            </div>
+          )}
           {issue.finalEstimate && (
             <div className="mt-2">
               <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full">
@@ -78,4 +84,3 @@ export function IssueList({ issues, onIssueSelect, currentIssueId, onDeleteIssue
 }
 
 export default IssueList
-

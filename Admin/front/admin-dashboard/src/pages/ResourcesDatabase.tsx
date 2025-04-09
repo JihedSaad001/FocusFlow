@@ -18,21 +18,25 @@ import {
 
 const ResourcesDatabase = () => {
   const [activeTab, setActiveTab] = useState("wallpapers");
-  const [files, setFiles] = useState<any[]>([]);
-  const [audioFiles, setAudioFiles] = useState<any[]>([]);
-  const [file, setFile] = useState<File | null>(null);
-  const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [audioName, setAudioName] = useState("");
-  const [category, setCategory] = useState("abstract"); // Default to a valid category
-  const [tags, setTags] = useState(""); // Tags for both wallpapers and audio
+  const [files, setFiles] = useState<any[]>([]); // Wallpapers
+  const [audioFiles, setAudioFiles] = useState<any[]>([]); // Ambient sounds
+  const [musicFiles, setMusicFiles] = useState<any[]>([]); // Music tracks
+  const [file, setFile] = useState<File | null>(null); // Wallpaper file
+  const [audioFile, setAudioFile] = useState<File | null>(null); // Ambient sound file
+  const [musicFile, setMusicFile] = useState<File | null>(null); // Music file
+  const [audioName, setAudioName] = useState(""); // Ambient sound name
+  const [musicName, setMusicName] = useState(""); // Music name
+  const [category, setCategory] = useState("abstract"); // Wallpaper category
+  const [tags, setTags] = useState(""); // Tags for all resource types
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState<{
     text: string;
     type: "success" | "error";
-  } | null>(null); // For success/error messages
-  const fileInputRef = useRef<HTMLInputElement>(null); // Ref to reset file input
-  const audioInputRef = useRef<HTMLInputElement>(null); // Ref to reset audio input
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null); // Wallpaper input ref
+  const audioInputRef = useRef<HTMLInputElement>(null); // Ambient sound input ref
+  const musicInputRef = useRef<HTMLInputElement>(null); // Music input ref
   const token = localStorage.getItem("adminToken");
 
   useEffect(() => {
@@ -45,9 +49,16 @@ const ResourcesDatabase = () => {
       if (activeTab === "wallpapers") {
         const data = await fetchResources();
         setFiles(data);
-      } else {
+      } else if (activeTab === "audio") {
         const data = await fetchAudioResources();
         setAudioFiles(data);
+      } else if (activeTab === "music") {
+        const response = await fetch(
+          "https://focusflow-production.up.railway.app/api/resources/music"
+        );
+        if (!response.ok) throw new Error("Failed to fetch music tracks");
+        const data = await response.json();
+        setMusicFiles(data);
       }
     } catch (error) {
       console.error("Failed to load resources", error);
@@ -78,12 +89,11 @@ const ResourcesDatabase = () => {
       console.log("✅ Upload Successful!");
       setMessage({ text: "Wallpaper uploaded successfully!", type: "success" });
       loadResources();
-      // Reset form
       setFile(null);
       setTags("");
       setCategory("abstract");
       if (fileInputRef.current) {
-        fileInputRef.current.value = ""; // Reset file input
+        fileInputRef.current.value = "";
       }
     } catch (error: any) {
       console.error("🔥 Upload failed", error);
@@ -98,7 +108,6 @@ const ResourcesDatabase = () => {
       setMessage({ text: "No audio file selected!", type: "error" });
       return;
     }
-
     if (!audioName.trim()) {
       setMessage({
         text: "Please provide a name for the audio",
@@ -123,15 +132,77 @@ const ResourcesDatabase = () => {
       console.log("✅ Audio Upload Successful!");
       setMessage({ text: "Audio uploaded successfully!", type: "success" });
       loadResources();
-      // Reset form
       setAudioFile(null);
       setAudioName("");
       setTags("");
       if (audioInputRef.current) {
-        audioInputRef.current.value = ""; // Reset file input
+        audioInputRef.current.value = "";
       }
     } catch (error: any) {
       console.error("🔥 Audio upload failed", error);
+      setMessage({ text: `Upload failed: ${error.message}`, type: "error" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMusicUpload = async () => {
+    if (!musicFile) {
+      setMessage({ text: "No music file selected!", type: "error" });
+      return;
+    }
+    if (!musicName.trim()) {
+      setMessage({
+        text: "Please provide a name for the music",
+        type: "error",
+      });
+      return;
+    }
+
+    console.log(
+      "🎶 Uploading music:",
+      musicFile.name,
+      "Name:",
+      musicName,
+      "Tags:",
+      tags
+    );
+
+    setLoading(true);
+    setMessage(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", musicFile);
+      formData.append("name", musicName);
+      if (tags) formData.append("tags", tags);
+
+      const response = await fetch(
+        "https://focusflow-production.up.railway.app/api/resources/upload-music",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to upload music");
+      }
+
+      console.log("✅ Music Upload Successful!");
+      setMessage({ text: "Music uploaded successfully!", type: "success" });
+      loadResources();
+      setMusicFile(null);
+      setMusicName("");
+      setTags("");
+      if (musicInputRef.current) {
+        musicInputRef.current.value = "";
+      }
+    } catch (error: any) {
+      console.error("🔥 Music upload failed", error);
       setMessage({ text: `Upload failed: ${error.message}`, type: "error" });
     } finally {
       setLoading(false);
@@ -165,7 +236,7 @@ const ResourcesDatabase = () => {
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">Resources Database</h1>
 
-        {/* Custom tabs without shadcn */}
+        {/* Custom tabs */}
         <div className="mb-6">
           <div className="flex border-b border-gray-700">
             <button
@@ -187,6 +258,16 @@ const ResourcesDatabase = () => {
               }`}
             >
               <FaMusic /> Ambient Sounds
+            </button>
+            <button
+              onClick={() => handleTabChange("music")}
+              className={`flex items-center gap-2 px-4 py-2 ${
+                activeTab === "music"
+                  ? "border-b-2 border-red-500 text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <FaMusic /> Music
             </button>
           </div>
         </div>
@@ -212,7 +293,7 @@ const ResourcesDatabase = () => {
               onChange={(e) =>
                 setFile(e.target.files ? e.target.files[0] : null)
               }
-              accept="image/*" // Restrict to image files
+              accept="image/*"
               className="block w-80 mb-3 p-2 border border-gray-600 rounded-lg bg-black"
             />
             <select
@@ -263,7 +344,7 @@ const ResourcesDatabase = () => {
                   )
                   .map((file) => (
                     <div
-                      key={file._id} // Use _id from MongoDB
+                      key={file._id}
                       className="bg-[#151515] p-4 rounded-lg shadow-lg border border-white/20 flex justify-between items-center"
                     >
                       <div>
@@ -322,7 +403,7 @@ const ResourcesDatabase = () => {
               onChange={(e) =>
                 setAudioFile(e.target.files ? e.target.files[0] : null)
               }
-              accept="audio/mp3,audio/wav,audio/ogg" // Restrict to audio files
+              accept="audio/mp3,audio/wav,audio/ogg"
               className="block w-80 mb-3 p-2 border border-gray-600 rounded-lg bg-black"
             />
             <input
@@ -365,6 +446,111 @@ const ResourcesDatabase = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {audioFiles
+                  .filter((file) =>
+                    file.name.toLowerCase().includes(search.toLowerCase())
+                  )
+                  .map((file) => (
+                    <div
+                      key={file._id}
+                      className="bg-[#151515] p-4 rounded-lg shadow-lg border border-white/20 flex justify-between items-center"
+                    >
+                      <div>
+                        <p>{file.name}</p>
+                        <p className="text-gray-400 text-sm">
+                          Format: {file.format}
+                        </p>
+                        <p className="text-gray-400 text-sm">
+                          Tags: {file.tags.join(", ")}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <a
+                          href={file.url}
+                          download
+                          className="bg-green-500 p-2 rounded-lg shadow-lg hover:opacity-90"
+                        >
+                          <FaDownload />
+                        </a>
+                        {token && (
+                          <button
+                            onClick={() => handleDelete(file._id)}
+                            className="bg-red-500 p-2 rounded-lg shadow-lg hover:opacity-90"
+                          >
+                            <FaTrash />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Music Tab Content */}
+        {activeTab === "music" && (
+          <div className="bg-[#151515] p-6 rounded-lg shadow-lg border border-white/20">
+            <h2 className="text-xl font-semibold mb-4">Upload a Music Track</h2>
+            {message && (
+              <p
+                className={`mb-4 p-2 rounded-lg ${
+                  message.type === "success"
+                    ? "bg-green-500/20 text-green-400"
+                    : "bg-red-500/20 text-red-400"
+                }`}
+              >
+                {message.text}
+              </p>
+            )}
+            <input
+              type="file"
+              ref={musicInputRef}
+              onChange={(e) =>
+                setMusicFile(e.target.files ? e.target.files[0] : null)
+              }
+              accept="audio/mp3,audio/wav,audio/ogg"
+              className="block w-80 mb-3 p-2 border border-gray-600 rounded-lg bg-black"
+            />
+            <input
+              type="text"
+              value={musicName}
+              onChange={(e) => setMusicName(e.target.value)}
+              placeholder="Music Name (e.g., Chill Lo-Fi)"
+              className="block w-80 mb-3 p-2 border border-gray-600 rounded-lg bg-black"
+            />
+            <input
+              type="text"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="Tags (comma-separated, e.g., chill,lofi)"
+              className="block w-80 mb-3 p-2 border border-gray-600 rounded-lg bg-black"
+            />
+            <button
+              onClick={handleMusicUpload}
+              disabled={loading}
+              className={`bg-red-500 px-6 py-2 rounded-lg shadow-lg hover:opacity-90 flex items-center gap-2 ${
+                loading ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            >
+              <FaUpload /> {loading ? "Uploading..." : "Upload"}
+            </button>
+
+            <h2 className="text-xl font-semibold mt-8 mb-4">
+              Available Music Tracks
+            </h2>
+            <input
+              type="text"
+              placeholder="Search music..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-120 mb-4 p-2 border border-gray-600 rounded-lg bg-black"
+            />
+
+            {loading ? (
+              <p>Loading...</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {musicFiles
                   .filter((file) =>
                     file.name.toLowerCase().includes(search.toLowerCase())
                   )

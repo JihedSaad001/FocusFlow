@@ -16,8 +16,9 @@ import {
   Plus,
   Check,
   X,
+  Clock,
 } from "lucide-react";
-import type { Issue, Vote } from "../../types"; // Ensure this matches the shared type definition
+import type { Issue, Vote } from "../../types";
 
 const CARD_VALUES = ["0", "1", "2", "3", "5", "8", "13", "21", "?"];
 
@@ -51,6 +52,12 @@ interface Sprint {
   active: boolean;
 }
 
+interface ValidationIssue {
+  issue: Issue;
+  selectedMemberId: string;
+  deadline: Date; // Changed from delay (number) to deadline (Date)
+}
+
 export function PlanningSession() {
   const { id } = useParams<RouteParams>();
   const navigate = useNavigate();
@@ -74,8 +81,10 @@ export function PlanningSession() {
 
   // New state for validation popup
   const [showValidationPopup, setShowValidationPopup] = useState(false);
+  const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>(
+    []
+  );
   const [selectedSprintId, setSelectedSprintId] = useState<string>("");
-  const [selectedMemberId, setSelectedMemberId] = useState<string>("");
 
   const getUserId = (): string | null => {
     const token = localStorage.getItem("token");
@@ -94,10 +103,8 @@ export function PlanningSession() {
   useEffect(() => {
     if (!id) return;
 
-    // Get user ID from token
     getUserId();
 
-    // Create socket connection if it doesn't exist
     if (!socketRef.current) {
       console.log("Creating new Socket.IO connection");
       socketRef.current = io("https://focusflow-production.up.railway.app", {
@@ -109,12 +116,9 @@ export function PlanningSession() {
       });
     }
 
-    // Set up connection event handlers
     socketRef.current.on("connect", () => {
       console.log("Socket.IO connected:", socketRef.current.id);
       setSocketConnected(true);
-
-      // Join the room for this project
       socketRef.current.emit("joinRoom", id);
       console.log(`Emitted joinRoom event for project ${id}`);
     });
@@ -130,10 +134,7 @@ export function PlanningSession() {
     socketRef.current.on("disconnect", (reason: string) => {
       console.log("Socket.IO disconnected:", reason);
       setSocketConnected(false);
-
-      // Attempt to reconnect if disconnected
       if (reason === "io server disconnect") {
-        // the disconnection was initiated by the server, reconnect manually
         socketRef.current.connect();
       }
     });
@@ -141,12 +142,9 @@ export function PlanningSession() {
     socketRef.current.on("reconnect", (attemptNumber: number) => {
       console.log(`Socket.IO reconnected after ${attemptNumber} attempts`);
       setSocketConnected(true);
-
-      // Re-join the room after reconnection
       socketRef.current.emit("joinRoom", id);
     });
 
-    // Clean up function
     return () => {
       console.log("Cleaning up Socket.IO connection");
       if (socketRef.current) {
@@ -160,14 +158,12 @@ export function PlanningSession() {
   useEffect(() => {
     if (!socketRef.current || !id) return;
 
-    // Remove any existing listeners to prevent duplicates
     socketRef.current.off("voteUpdate");
     socketRef.current.off("votesRevealed");
     socketRef.current.off("issueAdded");
     socketRef.current.off("issueDeleted");
     socketRef.current.off("votesReset");
 
-    // Listen for vote updates
     socketRef.current.on(
       "voteUpdate",
       ({
@@ -191,7 +187,6 @@ export function PlanningSession() {
         setIssues((prevIssues) => {
           return prevIssues.map((issue) => {
             if (issue._id === issueId) {
-              // Find if this user already has a vote
               const existingVoteIndex = issue.votes?.findIndex((v) => {
                 const user = v.user;
                 return typeof user === "string"
@@ -205,14 +200,12 @@ export function PlanningSession() {
                 existingVoteIndex !== undefined &&
                 issue.votes
               ) {
-                // Update existing vote
                 updatedVotes = [...issue.votes];
                 updatedVotes[existingVoteIndex] = {
                   ...updatedVotes[existingVoteIndex],
                   vote,
                 };
               } else {
-                // Add new vote
                 updatedVotes = [
                   ...(issue.votes || []),
                   { user: { _id: userId, username }, vote },
@@ -227,7 +220,6 @@ export function PlanningSession() {
       }
     );
 
-    // Listen for votes revealed
     socketRef.current.on(
       "votesRevealed",
       ({
@@ -270,11 +262,9 @@ export function PlanningSession() {
       }
     );
 
-    // Listen for new issues
     socketRef.current.on("issueAdded", ({ issue }: { issue: Issue }) => {
       console.log("Received issueAdded event:", issue);
       setIssues((prevIssues) => {
-        // Check if the issue already exists to prevent duplicates
         const exists = prevIssues.some((i) => i._id === issue._id);
         if (exists) {
           return prevIssues;
@@ -283,7 +273,6 @@ export function PlanningSession() {
       });
     });
 
-    // Listen for deleted issues
     socketRef.current.on("issueDeleted", ({ issueId }: { issueId: string }) => {
       console.log("Received issueDeleted event:", issueId);
       setIssues((prevIssues) =>
@@ -305,7 +294,6 @@ export function PlanningSession() {
       }
     });
 
-    // Listen for vote resets
     socketRef.current.on("votesReset", ({ issueId }: { issueId: string }) => {
       console.log("Received votesReset event:", issueId);
       setIssues((prevIssues) =>
@@ -333,7 +321,6 @@ export function PlanningSession() {
       }
     });
 
-    // Debug event to confirm room joining
     socketRef.current.on(
       "roomJoined",
       ({ projectId }: { projectId: string }) => {
@@ -404,7 +391,6 @@ export function PlanningSession() {
       const data = await response.json();
       console.log("Fetched poker session data:", data);
 
-      // Ensure each issue has a valid status
       const issuesWithStatus = (data.issues || []).map((issue: Issue) => ({
         ...issue,
         status: issue.status || "Not Started",
@@ -437,17 +423,11 @@ export function PlanningSession() {
       const data = await response.json();
       setProject(data);
 
-      // Set default selected sprint if there's an active one
       const activeSprint = data.sprints?.find((s: Sprint) => s.active);
       if (activeSprint) {
         setSelectedSprintId(activeSprint._id);
       } else if (data.sprints?.length > 0) {
         setSelectedSprintId(data.sprints[0]._id);
-      }
-
-      // Set default selected member if current user is a member
-      if (data.members?.length > 0) {
-        setSelectedMemberId(data.members[0]._id);
       }
     } catch (error: any) {
       console.error("❌ Error fetching project:", error);
@@ -457,7 +437,6 @@ export function PlanningSession() {
 
   const handleVote = async (value: string) => {
     if (votesRevealed || (currentIssue && currentIssue.status === "Revealed")) {
-      // Just return early instead of showing an error
       return;
     }
 
@@ -490,7 +469,6 @@ export function PlanningSession() {
           return;
         }
 
-        // The server will emit the voteUpdate event to all clients
         console.log("Vote recorded successfully");
       } catch (error: any) {
         console.error("Error recording vote:", error);
@@ -517,10 +495,6 @@ export function PlanningSession() {
           throw new Error(`Failed to reveal votes: ${errorText}`);
         }
 
-        // The server will emit the votesRevealed event to all clients
-        console.log("Votes revealed successfully");
-
-        // Update the local state as well to ensure UI consistency
         setCurrentIssue((prev) =>
           prev ? { ...prev, status: "Revealed" } : null
         );
@@ -551,7 +525,6 @@ export function PlanningSession() {
           throw new Error(`Failed to reset votes: ${errorText}`);
         }
 
-        // The server will emit the votesReset event to all clients
         console.log("Votes reset successfully");
       } catch (error: any) {
         setError(`Error resetting votes: ${error.message}`);
@@ -562,28 +535,113 @@ export function PlanningSession() {
   };
 
   const handleValidate = () => {
-    if (!currentIssue || !votesRevealed) {
-      setError("Please reveal votes before validating the session.");
-      return;
-    }
-
     // Only project owner can validate
     if (!isProjectOwner) {
       setError("Only the project owner can validate issues.");
       return;
     }
 
-    // Show validation popup instead of immediately validating
+    // Get all revealed issues
+    const revealedIssues = issues.filter(
+      (issue) => issue.status === "Revealed"
+    );
+    if (revealedIssues.length === 0) {
+      setError("No issues with revealed votes to validate.");
+      return;
+    }
+
+    // Calculate vote stats for each issue and set default assignees
+    const validationIssues: ValidationIssue[] = revealedIssues.map((issue) => {
+      const votes = issue.votes || [];
+      const numericVotes = votes
+        .map((v) => (v.vote ? Number.parseInt(v.vote, 10) : 0))
+        .filter((v: number) => !isNaN(v) && v !== null);
+
+      let mostCommon = 0;
+      if (numericVotes.length > 0) {
+        const voteCounts: { [key: number]: number } = {};
+        numericVotes.forEach((v) => {
+          voteCounts[v] = (voteCounts[v] || 0) + 1;
+        });
+        let maxCount = 0;
+        Object.entries(voteCounts).forEach(([vote, count]) => {
+          if (count > maxCount) {
+            maxCount = count;
+            mostCommon = Number.parseInt(vote);
+          }
+        });
+      }
+
+      // Find the member whose vote is closest to the most common
+      let closestMemberId = project?.members[0]?._id || "";
+      let minDifference = Number.POSITIVE_INFINITY;
+      votes.forEach((vote) => {
+        const voteValue = Number.parseInt(vote.vote, 10);
+        if (!isNaN(voteValue)) {
+          const difference = Math.abs(voteValue - mostCommon);
+          if (difference < minDifference) {
+            minDifference = difference;
+            closestMemberId =
+              typeof vote.user === "string" ? vote.user : vote.user._id;
+          }
+        }
+      });
+
+      // Use the issue's existing deadline if available, otherwise default to 7 days from now
+      let initialDeadline;
+      if (issue.deadline) {
+        initialDeadline = new Date(issue.deadline);
+      } else {
+        initialDeadline = new Date();
+        initialDeadline.setDate(initialDeadline.getDate() + 7); // Default to 7 days if no deadline
+      }
+
+      return {
+        issue: { ...issue, finalEstimate: mostCommon.toString() },
+        selectedMemberId: closestMemberId,
+        deadline: initialDeadline,
+      };
+    });
+
+    setValidationIssues(validationIssues);
     setShowValidationPopup(true);
   };
 
   const submitValidation = async () => {
-    if (!currentIssue) return;
+    if (!selectedSprintId) {
+      setError("Please select a sprint.");
+      return;
+    }
 
     setIsUpdating(true);
     try {
+      // Calculate the delay (in days) for each issue based on the selected deadline
+      const currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0); // Normalize to start of day for comparison
+
+      const issuesWithDelay = validationIssues.map((valIssue) => {
+        const deadline = new Date(valIssue.deadline);
+        deadline.setHours(0, 0, 0, 0); // Normalize to start of day
+
+        // Calculate the difference in days between the deadline and current date
+        const timeDifference = deadline.getTime() - currentDate.getTime();
+        const delayInDays = Math.max(
+          0,
+          Math.floor(timeDifference / (1000 * 60 * 60 * 24))
+        ); // Ensure delay is non-negative
+
+        return {
+          issueId: valIssue.issue._id,
+          finalEstimate: valIssue.issue.finalEstimate,
+          sprintId: selectedSprintId,
+          assignedTo: valIssue.selectedMemberId,
+          delay: delayInDays,
+        };
+      });
+
+      // Batch validate all issues
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/validate`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/poker/batch-validate`,
         {
           method: "POST",
           headers: {
@@ -591,39 +649,51 @@ export function PlanningSession() {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
           body: JSON.stringify({
-            finalEstimate: voteStats.mostCommon.toString(),
-            sprintId: selectedSprintId,
-            assignedTo: selectedMemberId,
+            issues: issuesWithDelay,
           }),
         }
       );
+
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Failed to validate session: ${errorText}`);
+        throw new Error(`Failed to validate issues: ${errorText}`);
       }
 
-      setIssues((prevIssues) =>
-        prevIssues.map((issue) =>
-          issue._id === currentIssue._id
-            ? {
-                ...issue,
-                status: "Finished",
-                finalEstimate: voteStats.mostCommon.toString(),
+      // Add tasks to users' Kanban boards
+      for (const valIssue of validationIssues) {
+        if (valIssue.selectedMemberId === currentUserId) {
+          try {
+            const kanbanResponse = await fetch(
+              `https://focusflow-production.up.railway.app/api/user/kanban/project-task`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+                body: JSON.stringify({
+                  projectId: id,
+                  sprintId: selectedSprintId,
+                  taskId: valIssue.issue._id,
+                }),
               }
-            : issue
-        )
-      );
+            );
 
-      setCurrentIssue((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "Finished",
-              finalEstimate: voteStats.mostCommon.toString(),
+            if (!kanbanResponse.ok) {
+              console.warn("Failed to add task to user's kanban board");
+            } else {
+              console.log("Task added to user's kanban board successfully");
             }
-          : prev
-      );
+          } catch (error) {
+            console.error("Error adding task to kanban board:", error);
+          }
+        }
+      }
 
+      // Close the validation popup and reset the form
+      setShowValidationPopup(false);
+      setValidationIssues([]);
+      setCurrentIssue(null);
       setVotesRevealed(false);
       setVoteStats({
         average: 0,
@@ -631,38 +701,8 @@ export function PlanningSession() {
         range: { min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY },
       });
       setVotingUsers([]);
-      setShowValidationPopup(false);
-
-      // If the task is assigned to the current user, add it to their Kanban board
-      if (selectedMemberId === currentUserId) {
-        try {
-          const kanbanResponse = await fetch(
-            `https://focusflow-production.up.railway.app/api/user/kanban/project-task`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${localStorage.getItem("token")}`,
-              },
-              body: JSON.stringify({
-                projectId: id,
-                sprintId: selectedSprintId,
-                taskId: currentIssue._id,
-              }),
-            }
-          );
-
-          if (!kanbanResponse.ok) {
-            console.warn("Failed to add task to user's kanban board");
-          } else {
-            console.log("Task added to user's kanban board successfully");
-          }
-        } catch (error) {
-          console.error("Error adding task to kanban board:", error);
-        }
-      }
     } catch (error: any) {
-      setError(`Error validating session: ${error.message}`);
+      setError(`Error validating issues: ${error.message}`);
     } finally {
       setIsUpdating(false);
     }
@@ -782,8 +822,8 @@ export function PlanningSession() {
                 {isProjectOwner && (
                   <button
                     onClick={handleValidate}
-                    disabled={isUpdating || !currentIssue || !votesRevealed}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-500 rounded-lg hover:bg-green-600 transition-colors text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
+                    disabled={isUpdating}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500 rounded-lg hover:bg-red-600 transition-colors text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
                   >
                     <Check size={20} />
                     Validate
@@ -847,6 +887,13 @@ export function PlanningSession() {
                     <h2 className="text-xl font-semibold text-white mb-2">
                       {currentIssue.title}
                     </h2>
+                    {currentIssue?.deadline && (
+                      <div className="flex items-center text-gray-400 mb-4">
+                        <Clock size={16} className="mr-2" />
+                        Due date:{" "}
+                        {new Date(currentIssue.deadline).toLocaleDateString()}
+                      </div>
+                    )}
                     {currentIssue.description && (
                       <p className="text-gray-400 mb-6">
                         {currentIssue.description}
@@ -874,7 +921,7 @@ export function PlanningSession() {
                               <button
                                 onClick={handleRevote}
                                 disabled={isUpdating}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 px-4 py-2 bg-red-500 rounded-lg hover:bg-red-600 transition-colors text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
                               >
                                 <Eye size={20} />
                                 Revote
@@ -1001,80 +1048,170 @@ export function PlanningSession() {
         </div>
       </div>
 
-      {/* Validation Popup */}
+      {/* Validation Popup - Update colors */}
       {showValidationPopup && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1E1E1E] rounded-xl border border-gray-700 p-6 max-w-md w-full">
-            <div className="flex justify-between items-center mb-4">
+          <div className="bg-[#1E1E1E] rounded-xl border border-gray-700 p-6 max-w-4xl w-full">
+            <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold text-white">
-                Validate Issue
+                Validate Revealed Issues
               </h3>
               <button
                 onClick={() => setShowValidationPopup(false)}
-                className="text-gray-400 hover:text-white"
+                className="text-gray-400 hover:text-white transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <p className="text-gray-300 mb-4">
-              Final estimate:{" "}
-              <span className="text-red-400 font-semibold">
-                {voteStats.mostCommon}
-              </span>
-            </p>
+            <div className="mb-6">
+              <label className="block text-gray-300 mb-2 font-medium">
+                Add to Sprint
+              </label>
+              <select
+                value={selectedSprintId}
+                onChange={(e) => setSelectedSprintId(e.target.value)}
+                className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
+              >
+                {project?.sprints.map((sprint) => (
+                  <option key={sprint._id} value={sprint._id}>
+                    {sprint.name} {sprint.active ? "(Active)" : ""}
+                  </option>
+                ))}
+                {(!project?.sprints || project.sprints.length === 0) && (
+                  <option value="">No sprints available</option>
+                )}
+              </select>
+            </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-gray-300 mb-2">
-                  Add to Sprint
-                </label>
-                <select
-                  value={selectedSprintId}
-                  onChange={(e) => setSelectedSprintId(e.target.value)}
-                  className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
-                >
-                  {project?.sprints.map((sprint) => (
-                    <option key={sprint._id} value={sprint._id}>
-                      {sprint.name} {sprint.active ? "(Active)" : ""}
-                    </option>
-                  ))}
-                  {(!project?.sprints || project.sprints.length === 0) && (
-                    <option value="">No sprints available</option>
-                  )}
-                </select>
+            <div className="overflow-x-auto">
+              <div className="bg-black/50 rounded-lg border border-gray-700 shadow-lg">
+                <table className="w-full text-left text-gray-300">
+                  <thead>
+                    <tr className="bg-gray-800/70 text-gray-100">
+                      <th className="p-4 font-semibold text-sm uppercase tracking-wide border-b border-gray-700">
+                        Issue
+                      </th>
+                      <th className="p-4 font-semibold text-sm uppercase tracking-wide border-b border-gray-700">
+                        Final Estimate
+                      </th>
+                      <th className="p-4 font-semibold text-sm uppercase tracking-wide border-b border-gray-700">
+                        Votes
+                      </th>
+                      <th className="p-4 font-semibold text-sm uppercase tracking-wide border-b border-gray-700">
+                        Assign To
+                      </th>
+                      <th className="p-4 font-semibold text-sm uppercase tracking-wide border-b border-gray-700">
+                        Deadline
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {validationIssues.map((valIssue, index) => {
+                      const votes = valIssue.issue.votes || [];
+                      return (
+                        <tr
+                          key={valIssue.issue._id}
+                          className={`border-b border-gray-700/50 transition-colors ${
+                            index % 2 === 0 ? "bg-[#1E1E1E]" : "bg-black/30"
+                          } hover:bg-gray-700/50`}
+                        >
+                          <td className="p-4 text-gray-200">
+                            {valIssue.issue.title}
+                          </td>
+                          <td className="p-4 text-red-400 font-medium">
+                            {valIssue.issue.finalEstimate}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex gap-2 flex-wrap">
+                              {votes.map((vote) => (
+                                <span
+                                  key={
+                                    typeof vote.user === "string"
+                                      ? vote.user
+                                      : vote.user._id
+                                  }
+                                  className="bg-gray-700/50 rounded-full px-2 py-1 text-xs"
+                                >
+                                  {typeof vote.user === "string"
+                                    ? "Unknown"
+                                    : vote.user.username}{" "}
+                                  :{" "}
+                                  <span className="text-red-400">
+                                    {vote.vote}
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <select
+                              value={valIssue.selectedMemberId}
+                              onChange={(e) => {
+                                setValidationIssues((prev) =>
+                                  prev.map((item, i) =>
+                                    i === index
+                                      ? {
+                                          ...item,
+                                          selectedMemberId: e.target.value,
+                                        }
+                                      : item
+                                  )
+                                );
+                              }}
+                              className="bg-black/50 text-white p-2 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200 w-full max-w-xs"
+                            >
+                              {project?.members.map((member) => (
+                                <option key={member._id} value={member._id}>
+                                  {member.username}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="p-4">
+                            <input
+                              type="date"
+                              value={
+                                valIssue.deadline.toISOString().split("T")[0]
+                              } // Format date as YYYY-MM-DD
+                              onChange={(e) => {
+                                const newDate = new Date(e.target.value);
+                                if (!isNaN(newDate.getTime())) {
+                                  setValidationIssues((prev) =>
+                                    prev.map((item, i) =>
+                                      i === index
+                                        ? { ...item, deadline: newDate }
+                                        : item
+                                    )
+                                  );
+                                }
+                              }}
+                              min={new Date().toISOString().split("T")[0]} // Prevent past dates
+                              className="bg-black/50 text-white p-2 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200 w-full max-w-[150px]"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-gray-300 mb-2">Assign To</label>
-                <select
-                  value={selectedMemberId}
-                  onChange={(e) => setSelectedMemberId(e.target.value)}
-                  className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
-                >
-                  {project?.members.map((member) => (
-                    <option key={member._id} value={member._id}>
-                      {member.username}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex gap-4 mt-6">
-                <button
-                  onClick={() => setShowValidationPopup(false)}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg font-medium transition-colors duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={submitValidation}
-                  disabled={isUpdating || !selectedSprintId}
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-medium transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed"
-                >
-                  {isUpdating ? "Validating..." : "Validate"}
-                </button>
-              </div>
+            <div className="flex gap-4 mt-6">
+              <button
+                onClick={() => setShowValidationPopup(false)}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg font-medium transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitValidation}
+                disabled={isUpdating || !selectedSprintId}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 rounded-lg font-medium transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed"
+              >
+                {isUpdating ? "Validating..." : "Validate All"}
+              </button>
             </div>
           </div>
         </div>

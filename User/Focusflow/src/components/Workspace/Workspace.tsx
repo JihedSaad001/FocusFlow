@@ -21,6 +21,8 @@ const Workspace = () => {
   const [widgetsInitialized, setWidgetsInitialized] = useState({
     pomodoro: false,
     todoList: false,
+    ambientSounds: false,
+    musicPlayer: false,
   });
 
   useEffect(() => {
@@ -52,6 +54,22 @@ const Workspace = () => {
         window.ambientSoundsInitialized = true;
         // @ts-ignore
         window.showAmbientSounds = true;
+        setWidgetsInitialized((prev) => ({
+          ...prev,
+          ambientSounds: true,
+        }));
+      }
+    } else if (widget === "music-player") {
+      // Update the global music player state
+      if (typeof window !== "undefined") {
+        // @ts-ignore
+        window.musicPlayerInitialized = true;
+        // @ts-ignore
+        window.showMusicPlayer = true;
+        setWidgetsInitialized((prev) => ({
+          ...prev,
+          musicPlayer: true,
+        }));
       }
     }
   };
@@ -108,7 +126,7 @@ const Workspace = () => {
         </div>
       )}
 
-      {/* Ambient Sounds Widget is now managed at the App level */}
+      {/* Ambient Sounds and Music Player are managed at the App level */}
 
       {/* YouTube Player is Always Visible */}
       <YouTubePlayer />

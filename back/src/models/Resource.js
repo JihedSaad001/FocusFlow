@@ -2,19 +2,15 @@ const mongoose = require("mongoose");
 
 const ResourceSchema = new mongoose.Schema(
   {
-    type: { type: String, enum: ["wallpaper", "audio"], required: true }, // Type of resource
-    name: { type: String, required: true }, // Name of file
-    url: { type: String, required: true }, // File URL (stored in Supabase, Firebase, etc.)
-    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Who uploaded it
-    isActive: { type: Boolean, default: true }, // Enables/disables the resource (admins only)
-
-    // Wallpaper-specific fields
+    type: { type: String, enum: ["wallpaper", "audio", "music"], required: true },
+    name: { type: String, required: true },
+    url: { type: String, required: true },
+    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    isActive: { type: Boolean, default: true },
     category: { type: String, enum: ["nature", "abstract", "dark", "minimal"], default: "abstract" },
-    tags: [{ type: String }], // Flexible tags for better categorization
-
-    // Audio-specific fields
-    duration: { type: Number, default: 0 }, // Audio duration in seconds
-    format: { type: String, enum: ["mp3", "wav", "ogg"], default: "mp3" }, // Audio format
+    tags: [{ type: String }],
+    duration: { type: Number, default: 0 },
+    format: { type: String, enum: ["mp3", "wav", "ogg"], default: "mp3" },
   },
   { timestamps: true }
 );

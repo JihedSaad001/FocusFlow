@@ -1,5 +1,4 @@
-
-import { Timer, CheckSquare, Music2, Headphones, Image } from "lucide-react";
+import { Timer, CheckSquare, Headphones, Disc, Image } from "lucide-react";
 
 const WidgetSidebar = ({
   onSelectFeature,
@@ -15,8 +14,9 @@ const WidgetSidebar = ({
       key: "ambient-music",
       icon: <Headphones className="w-6 h-6 text-gray-400" />,
     },
-    { key: "music-player", icon: <Music2 className="w-6 h-6 text-gray-400" /> },
-    { key: "wallpaper", icon: <Image className="w-6 h-6 text-gray-400" /> }, // Wallpaper button
+    { key: "music-player", icon: <Disc className="w-6 h-6 text-gray-400" /> },
+
+    { key: "wallpaper", icon: <Image className="w-6 h-6 text-gray-400" /> },
   ];
 
   return (

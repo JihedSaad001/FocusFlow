@@ -1,24 +1,27 @@
-"use client";
-
 import type React from "react";
-
 import { useState, useRef, useEffect } from "react";
-import { Play, X, Move } from "lucide-react";
+import { Search, X, Move } from "lucide-react";
+import Draggable from "react-draggable";
 
 const YouTubePlayer = () => {
-  const [videoURL, setVideoURL] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [videoID, setVideoID] = useState<string | null>(null);
   const [size, setSize] = useState({ width: 640, height: 360 });
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isDraggingActive, setIsDraggingActive] = useState(false);
   const [isResizingActive, setIsResizingActive] = useState(false);
-  const isDragging = useRef(false);
+  const [error, setError] = useState<string | null>(null);
   const isResizing = useRef(false);
   const lastMousePosition = useRef({ x: 0, y: 0 });
   const animationFrame = useRef<number | null>(null);
   const dragEndTimer = useRef<NodeJS.Timeout | null>(null);
+  const nodeRef = useRef<HTMLDivElement | null>(null);
 
-  const searchBarRef = useRef<HTMLDivElement | null>(null);
+  // Replace with your YouTube Data API key from environment variables (Vite uses import.meta.env)
+  // Ensure you have VITE_YOUTUBE_API_KEY in your .env file
+  const YOUTUBE_API_KEY = import.meta.env.YOUTUBE_API_KEY || "";
+  if (!YOUTUBE_API_KEY) {
+    console.error("YouTube API key is not set in the environment variables.");
+  }
 
   // Cleanup animation frame and timers on unmount
   useEffect(() => {
@@ -32,81 +35,47 @@ const YouTubePlayer = () => {
     };
   }, []);
 
-  // Extract Video ID from YouTube URL
-  const extractVideoID = (url: string) => {
-    const match = url.match(
-      /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/
-    );
-    return match ? match[1] : null;
-  };
+  // Handle search
+  const handleSearch = async () => {
+    if (searchQuery.trim() === "") {
+      setSearchResults([]);
+      return;
+    }
 
-  // Play Video & Auto-Position Below Search Bar
-  const handlePlay = () => {
-    const id = extractVideoID(videoURL);
-    if (id) {
-      setVideoID(id);
+    try {
+      setError(null);
+      const response = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
+          searchQuery
+        )}&type=video&maxResults=8&key=${YOUTUBE_API_KEY}`
+      );
 
-      // Auto-position below search bar
-      if (searchBarRef.current) {
-        const rect = searchBarRef.current.getBoundingClientRect();
-        setPosition({
-          x: rect.left + 50, // Align with search bar
-          y: rect.bottom + 10, // Just below search bar
-        });
+      if (!response.ok) {
+        throw new Error("Failed to fetch search results");
       }
+
+      const data = await response.json();
+      if (data.items && data.items.length > 0) {
+        setSearchResults(data.items);
+      } else {
+        setSearchResults([]);
+        setError("No videos found for this search.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Error searching videos. Please try again.");
+      setSearchResults([]);
     }
   };
 
-  // Handle Dragging with Super Smooth Animation
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    isDragging.current = true;
-    setIsDraggingActive(true);
-    lastMousePosition.current = { x: e.clientX, y: e.clientY };
-
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!isDragging.current) return;
-
-      const deltaX = event.clientX - lastMousePosition.current.x;
-      const deltaY = event.clientY - lastMousePosition.current.y;
-      lastMousePosition.current = { x: event.clientX, y: event.clientY };
-
-      // Use requestAnimationFrame for smoother updates
-      if (!animationFrame.current) {
-        animationFrame.current = requestAnimationFrame(() => {
-          setPosition((prev) => ({
-            x: Math.max(
-              10,
-              Math.min(window.innerWidth - size.width - 10, prev.x + deltaX)
-            ),
-            y: Math.max(
-              10,
-              Math.min(window.innerHeight - size.height - 10, prev.y + deltaY)
-            ),
-          }));
-          animationFrame.current = null;
-        });
-      }
-    };
-
-    const handleMouseUp = () => {
-      isDragging.current = false;
-
-      // Delay turning off dragging state to ensure smooth transition
-      if (dragEndTimer.current) clearTimeout(dragEndTimer.current);
-      dragEndTimer.current = setTimeout(() => {
-        setIsDraggingActive(false);
-      }, 100);
-
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
+  // Play selected video
+  const playVideo = (videoId: string) => {
+    setVideoID(videoId);
+    setSearchResults([]); // Clear results after selection
+    setSearchQuery(""); // Clear search input
   };
 
-  // Handle Resizing
+  // Handle resizing
   const handleResizeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -121,7 +90,6 @@ const YouTubePlayer = () => {
       const deltaY = event.clientY - lastMousePosition.current.y;
       lastMousePosition.current = { x: event.clientX, y: event.clientY };
 
-      // Use requestAnimationFrame for smoother updates
       if (!animationFrame.current) {
         animationFrame.current = requestAnimationFrame(() => {
           setSize((prev) => ({
@@ -135,8 +103,6 @@ const YouTubePlayer = () => {
 
     const handleResizeMouseUp = () => {
       isResizing.current = false;
-
-      // Delay turning off resizing state to ensure smooth transition
       if (dragEndTimer.current) clearTimeout(dragEndTimer.current);
       dragEndTimer.current = setTimeout(() => {
         setIsResizingActive(false);
@@ -152,76 +118,108 @@ const YouTubePlayer = () => {
 
   return (
     <div className="w-full max-w-3xl mx-auto mt-6">
-      {/* Input Bar */}
-      <div ref={searchBarRef} className="flex items-center space-x-2">
+      {/* Search Bar */}
+      <div className="flex items-center space-x-2">
         <input
           type="text"
-          placeholder="Paste your YouTube link"
-          value={videoURL}
-          onChange={(e) => setVideoURL(e.target.value)}
+          placeholder="Search for focus music or videos..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handlePlay();
+            if (e.key === "Enter") handleSearch();
           }}
           className="flex-1 px-5 py-3 bg-[#0D0D0D] text-white text-lg placeholder-gray-400 border border-[#ff4e50] rounded-xl shadow-lg focus:outline-none focus:ring-2 focus:ring-[#ff4e50] transition-all duration-300"
         />
         <button
-          onClick={handlePlay}
+          onClick={handleSearch}
           className="p-3 bg-gradient-to-r from-red-500 to-red-700 text-white rounded-xl shadow-lg hover:bg-[#e0443e] transition-all duration-300"
         >
-          <Play className="w-6 h-6" />
+          <Search className="w-6 h-6" />
         </button>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="mt-2 bg-red-900/30 text-red-300 p-2 rounded-md text-sm">
+          {error}
+          <button className="ml-2 underline" onClick={() => setError(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Search Results */}
+      {searchResults.length > 0 && (
+        <div className="mt-4 max-h-[300px] overflow-y-auto bg-[#0D0D0D] rounded-xl p-4">
+          {searchResults.map((item) => (
+            <div
+              key={item.id.videoId}
+              className="flex items-center space-x-4 p-2 hover:bg-[#252525] rounded-lg cursor-pointer"
+              onClick={() => playVideo(item.id.videoId)}
+            >
+              <img
+                src={item.snippet.thumbnails.default.url}
+                alt={item.snippet.title}
+                className="w-24 h-16 object-cover rounded"
+              />
+              <div>
+                <p className="text-white text-sm font-medium">
+                  {item.snippet.title}
+                </p>
+                <p className="text-gray-400 text-xs">
+                  {item.snippet.channelTitle}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Video Player Window */}
       {videoID && (
-        <div
-          style={{
-            width: `${size.width}px`,
-            height: `${size.height}px`,
-            left: `${position.x}px`,
-            top: `${position.y}px`,
-            willChange:
-              isDraggingActive || isResizingActive
-                ? "transform, width, height"
-                : "auto",
+        <Draggable
+          nodeRef={nodeRef}
+          handle=".drag-handle"
+          bounds="body"
+          defaultPosition={{
+            x: window.innerWidth / 2 - size.width / 2,
+            y: 100,
           }}
-          className="fixed bg-[#121212] backdrop-blur-xl bg-opacity-90 p-4 rounded-xl shadow-2xl z-50 transition-all cursor-grab border border-[#ff4e50]"
         >
-          {/* Header (Draggable) */}
           <div
-            className="flex justify-between items-center cursor-grab active:cursor-grabbing px-3 py-2 border-b border-gray-700"
-            onMouseDown={handleMouseDown}
-          >
-            <div className="flex items-center space-x-2">
-              <Move className="w-5 h-5 text-gray-400" />
-              <span className="text-white text-sm font-semibold">
-                YouTube Player
-              </span>
-            </div>
-            <button
-              onClick={() => setVideoID(null)}
-              className="text-gray-400 hover:text-white transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Video Inside the Box (Fixed Sizing) */}
-          <div
+            ref={nodeRef}
             style={{
-              width: "100%",
-              height: "calc(100% - 40px)",
-              overflow: "hidden",
+              width: `${size.width}px`,
+              height: `${size.height}px`,
+              willChange: isResizingActive ? "width, height" : "auto",
             }}
-            className="rounded-lg"
+            className="fixed bg-[#121212] backdrop-blur-xl bg-opacity-90 p-4 rounded-xl shadow-2xl z-50 border border-[#ff4e50]"
           >
-            {isDraggingActive || isResizingActive ? (
-              <div className="w-full h-full bg-black flex items-center justify-center">
-                <div className="text-white text-opacity-80">
-                  Moving player...
-                </div>
+            {/* Header (Draggable) */}
+            <div className="flex justify-between items-center drag-handle cursor-move px-3 py-2 border-b border-gray-700">
+              <div className="flex items-center space-x-2">
+                <Move className="w-5 h-5 text-gray-400" />
+                <span className="text-white text-sm font-semibold">
+                  YouTube Player
+                </span>
               </div>
-            ) : (
+              <button
+                onClick={() => setVideoID(null)}
+                className="text-gray-400 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Video Inside the Box */}
+            <div
+              style={{
+                width: "100%",
+                height: "calc(100% - 40px)",
+                overflow: "hidden",
+              }}
+              className="rounded-lg"
+            >
               <iframe
                 width="100%"
                 height="100%"
@@ -231,15 +229,15 @@ const YouTubePlayer = () => {
                 allowFullScreen
                 className="rounded-lg"
               ></iframe>
-            )}
-          </div>
+            </div>
 
-          {/* Resize Handle */}
-          <div
-            className="absolute bottom-2 right-2 w-5 h-5 bg-[#ff4e50] rounded-br-xl cursor-se-resize"
-            onMouseDown={handleResizeMouseDown}
-          ></div>
-        </div>
+            {/* Resize Handle */}
+            <div
+              className="absolute bottom-2 right-2 w-5 h-5 bg-[#ff4e50] rounded-br-xl cursor-se-resize"
+              onMouseDown={handleResizeMouseDown}
+            ></div>
+          </div>
+        </Draggable>
       )}
     </div>
   );

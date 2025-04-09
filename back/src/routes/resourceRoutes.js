@@ -236,6 +236,90 @@ router.delete("/:id", authenticateJWT, isAdmin, async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message })
   }
 })
+/**
+ * @route   GET /api/resources/music
+ * @desc    Fetch all active music tracks
+ * @access  Public
+ */
+router.get("/music", async (req, res) => {
+  try {
+    const music = await Resource.find({ type: "music", isActive: true });
+    res.json(music);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+/**
+ * @route   POST /api/resources/upload-music
+ * @desc    Admin uploads a music file to Supabase
+ * @access  Private (Admin)
+ */
+router.post("/upload-music", authenticateJWT, isAdmin, upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
 
+    // Validate audio format
+    const validFormats = ["mp3", "wav", "ogg"];
+    const fileExtension = req.file.originalname.split(".").pop()?.toLowerCase();
+
+    if (!fileExtension || !validFormats.includes(fileExtension)) {
+      return res.status(400).json({
+        message: `Invalid music format. Must be one of: ${validFormats.join(", ")}`,
+      });
+    }
+
+    const fileName = `music/${Date.now()}-${req.file.originalname}`;
+
+    // Upload music to Supabase Storage
+    const { data, error } = await supabase.storage.from("music").upload(fileName, req.file.buffer, {
+      contentType: req.file.mimetype,
+      cacheControl: "3600",
+      upsert: true,
+    });
+
+    if (error) {
+      console.error("Supabase upload error:", error);
+      throw new Error(`Failed to upload to Supabase: ${error.message}`);
+    }
+
+    console.log("Supabase music upload successful:", data);
+
+    // Retrieve the public URL
+    const { data: publicUrlData } = supabase.storage.from("music").getPublicUrl(fileName);
+
+    const publicUrl = publicUrlData?.publicUrl;
+    if (!publicUrl || typeof publicUrl !== "string") {
+      return res.status(500).json({ message: "Failed to retrieve a valid public URL from Supabase" });
+    }
+
+    console.log("Music Public URL:", publicUrl);
+
+    // Save the music in MongoDB
+    const newMusic = new Resource({
+      type: "music",
+      name: req.body.name || req.file.originalname,
+      url: publicUrl,
+      uploadedBy: req.user.id,
+      format: fileExtension,
+      tags: req.body.tags ? req.body.tags.split(",").map((tag) => tag.trim()) : [],
+      duration: req.body.duration || 0,
+    });
+
+    await newMusic.save();
+
+    console.log("Music saved to MongoDB:", newMusic);
+
+    res.status(200).json({
+      message: "Music uploaded successfully",
+      url: publicUrl,
+      music: newMusic,
+    });
+  } catch (error) {
+    console.error("Upload error:", error);
+    res.status(500).json({ message: "Upload error", error: error.message });
+  }
+});
 module.exports = router
 

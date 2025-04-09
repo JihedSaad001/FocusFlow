@@ -5,10 +5,11 @@ declare global {
   interface Window {
     ambientSoundsInitialized?: boolean;
     showAmbientSounds?: boolean;
+    musicPlayerInitialized?: boolean;
+    showMusicPlayer?: boolean;
   }
 }
 
-// User/App.js
 import { useEffect, useState } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import Navbar from "./components/Navbar";
@@ -29,23 +30,30 @@ import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
 import VerifyEmail from "./components/VerifyEmail";
 import AmbientSounds from "./components/Workspace/widgets/AmbientSounds";
+import MusicPlayer from "./components/Workspace/widgets/MusicPlayer";
 
-// Global state for ambient sounds
+// Global state for ambient sounds and music player
 if (typeof window !== "undefined") {
-  // @ts-ignore - Add the ambientSoundsInitialized property to the window object
+  // @ts-ignore
   window.ambientSoundsInitialized = window.ambientSoundsInitialized || false;
-  // @ts-ignore - Add the showAmbientSounds property to the window object
+  // @ts-ignore
   window.showAmbientSounds = window.showAmbientSounds || false;
+  // @ts-ignore
+  window.musicPlayerInitialized = window.musicPlayerInitialized || false;
+  // @ts-ignore
+  window.showMusicPlayer = window.showMusicPlayer || false;
 }
 
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("user"));
-  // State for persistent ambient sounds
+  // State for persistent ambient sounds and music player
   const [showAmbientSounds, setShowAmbientSounds] = useState(false);
   const [ambientSoundsInitialized, setAmbientSoundsInitialized] =
     useState(false);
+  const [showMusicPlayer, setShowMusicPlayer] = useState(false);
+  const [musicPlayerInitialized, setMusicPlayerInitialized] = useState(false);
 
-  // ✅ Detect login/logout changes instantly
+  // Detect login/logout changes
   useEffect(() => {
     const handleStorageChange = () => {
       setIsLoggedIn(!!localStorage.getItem("user"));
@@ -55,10 +63,11 @@ const App = () => {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // Initialize ambient sounds state
+  // Initialize ambient sounds and music player state
   useEffect(() => {
-    // Check if any ambient sounds are active
+    // Check if any ambient sounds or music tracks are active
     const activeAmbientSound = localStorage.getItem("activeAmbientSound");
+    const activeMusicTrack = localStorage.getItem("activeMusicTrack");
 
     // Initialize from window global or localStorage
     if (typeof window !== "undefined") {
@@ -68,11 +77,21 @@ const App = () => {
       );
       // @ts-ignore
       setShowAmbientSounds(window.showAmbientSounds || false);
+      // @ts-ignore
+      setMusicPlayerInitialized(
+        window.musicPlayerInitialized || activeMusicTrack !== null
+      );
+      // @ts-ignore
+      setShowMusicPlayer(window.showMusicPlayer || false);
 
       // Update the global variables
       if (activeAmbientSound) {
         // @ts-ignore
         window.ambientSoundsInitialized = true;
+      }
+      if (activeMusicTrack) {
+        // @ts-ignore
+        window.musicPlayerInitialized = true;
       }
     }
 
@@ -83,10 +102,13 @@ const App = () => {
         setShowAmbientSounds(window.showAmbientSounds || false);
         // @ts-ignore
         setAmbientSoundsInitialized(window.ambientSoundsInitialized || false);
+        // @ts-ignore
+        setShowMusicPlayer(window.showMusicPlayer || false);
+        // @ts-ignore
+        setMusicPlayerInitialized(window.musicPlayerInitialized || false);
       }
     };
 
-    // Check periodically
     const interval = setInterval(checkGlobals, 500);
     return () => clearInterval(interval);
   }, []);
@@ -98,16 +120,22 @@ const App = () => {
     if (typeof window !== "undefined") window.showAmbientSounds = false;
   };
 
+  // Handle closing the music player panel
+  const handleCloseMusicPlayer = () => {
+    setShowMusicPlayer(false);
+    // @ts-ignore
+    if (typeof window !== "undefined") window.showMusicPlayer = false;
+  };
+
   return (
     <Router>
       <div className="min-h-screen bg-[#121212] ">
-        {/* ✅ Show Sidebar when logged in, Navbar when logged out */}
+        {/* Show Sidebar when logged in, Navbar when logged out */}
         {isLoggedIn && <Sidebar />}
         <div className={`flex-1 ${isLoggedIn ? "ml-20" : ""} `}>
           {!isLoggedIn && <Navbar />}
           <Routes>
-            <Route path="/" element={<MainMenu />} />{" "}
-            {/* ✅ MainMenu is now correct */}
+            <Route path="/" element={<MainMenu />} />
             <Route path="/home" element={<Home />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/profile" element={<Profile />} />
@@ -125,7 +153,7 @@ const App = () => {
           </Routes>
         </div>
 
-        {/* Persistent AmbientSounds component - always mounted, visibility controlled by state */}
+        {/* Persistent AmbientSounds component */}
         {ambientSoundsInitialized && (
           <div
             style={{
@@ -135,6 +163,19 @@ const App = () => {
             }}
           >
             <AmbientSounds onClose={handleCloseAmbientSounds} />
+          </div>
+        )}
+
+        {/* Persistent MusicPlayer component */}
+        {musicPlayerInitialized && (
+          <div
+            style={{
+              display: showMusicPlayer ? "block" : "none",
+              position: "fixed",
+              zIndex: 9999,
+            }}
+          >
+            <MusicPlayer onClose={handleCloseMusicPlayer} />
           </div>
         )}
       </div>

@@ -6,7 +6,7 @@ export interface Task {
   priority: "Low" | "Medium" | "High"
   assignedTo?: string
   deadline?: string
-  status?: "To Do" | "In Progress" | "Done"
+  status?: "To Do" | "In Progress" |"Testing"|"Blocked"| "Done"
   finalEstimate?: string
   icon?: string
   // Add these properties for kanban integration
@@ -71,6 +71,7 @@ export interface Issue {
   status: "Not Started" | "Voting" | "Revealed" | "Finished"
   finalEstimate?: string
   votes?: { user: string | { _id: string; username: string }; vote: string }[]
+  deadline?: string;
 }
 
 export interface Vote {

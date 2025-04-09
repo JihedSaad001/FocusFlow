@@ -187,6 +187,7 @@ function Projects() {
                 {filteredProjects.map((project) => (
                   <div
                     key={project._id}
+                    onClick={() => navigate(`/projects/${project._id}`)}
                     className={`group cursor-pointer ${
                       viewMode === "grid"
                         ? "bg-black/50 rounded-xl border border-gray-700 hover:border-red-500/50 overflow-hidden transform transition-all duration-200 hover:scale-[1.02]"
@@ -209,10 +210,7 @@ function Projects() {
                       </div>
                       <div className="flex-grow min-w-0">
                         <div className="flex justify-between items-start">
-                          <h3
-                            onClick={() => navigate(`/projects/${project._id}`)}
-                            className="text-xl font-semibold text-white truncate hover:underline"
-                          >
+                          <h3 className="text-xl font-semibold text-white truncate hover:underline">
                             {project.name}
                           </h3>
                           <button

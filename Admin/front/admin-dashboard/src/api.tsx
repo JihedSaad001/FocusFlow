@@ -205,7 +205,35 @@ export const updateUserRole = async (
     throw error;
   }
 };
+export const uploadMusic = async (
+  file: File,
+  name: string,
+  tags: string,
+  token: string | null
+) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("name", name);
+  if (tags) formData.append("tags", tags);
 
+  const response = await fetch(
+    "https://focusflow-production.up.railway.app/api/resources/upload-music",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to upload music");
+  }
+
+  return response.json();
+};
 // New function to fetch user statistics
 export const fetchUserStats = async (token: string) => {
   try {

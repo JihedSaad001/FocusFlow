@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react"; // Add useRef
 import { Plus, X, Check, Trash2, Loader2 } from "lucide-react";
-import { useDraggable } from "./../hooks/use-draggable";
+import Draggable from "react-draggable"; // Import react-draggable
 import { logCompletedTask } from "../../../Api";
 
 interface ToDoListProps {
@@ -25,11 +25,8 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
   const [error, setError] = useState<string | null>(null);
   const [useLocalStorage, setUseLocalStorage] = useState(false);
 
-  // Use our custom draggable hook
-  const { position, handleMouseDown, isDragging } = useDraggable({
-    initialPosition: { x: window.innerWidth - 580, y: 50 },
-    boundaryPadding: 10,
-  });
+  // Create a ref for the draggable node
+  const nodeRef = useRef(null);
 
   // Load tasks when component mounts
   useEffect(() => {
@@ -190,136 +187,132 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
   };
 
   return (
-    <div
-      style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        zIndex: 50,
-        transition: isDragging ? "none" : "transform 0.1s ease-out",
-      }}
-      className="fixed w-[460px] bg-[#121212] text-white border-3 border-[#ff4e50] rounded-xl shadow-2xl p-6 transition-all cursor-grab active:cursor-grabbing"
-    >
-      {/* Header (Draggable) */}
+    <Draggable nodeRef={nodeRef} handle=".drag-handle" bounds="body">
       <div
-        className="flex justify-between items-center cursor-grab active:cursor-grabbing mb-4"
-        onMouseDown={handleMouseDown}
+        ref={nodeRef}
+        className="fixed w-[460px] bg-[#121212] text-white border-2 border-[#ff4e50] rounded-xl shadow-2xl p-6 z-[50]"
       >
-        <h3 className="text-lg font-semibold">To-Do List</h3>
-        <button
-          onClick={onClose}
-          className="text-white/70 hover:text-white transition"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Input Section */}
-      <div className="flex space-x-2 mb-4">
-        <input
-          type="text"
-          placeholder="Add a new task..."
-          value={newTask}
-          onChange={(e) => setNewTask(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") addTask();
-          }}
-          className="flex-1 px-3 py-2 bg-[#252525] rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30"
-        />
-        <button
-          onClick={addTask}
-          className="px-3 py-2 bg-[#D42F2F] rounded-lg text-sm transition-all hover:bg-[#E14444]"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Storage Mode Indicator */}
-      {useLocalStorage && (
-        <div className="bg-yellow-900/30 text-yellow-300 p-2 rounded-md mb-3 text-xs">
-          Using local storage mode (changes won't sync across devices)
-        </div>
-      )}
-
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-900/30 text-red-300 p-2 rounded-md mb-3 text-sm">
-          {error}
-          <button className="ml-2 underline" onClick={() => setError(null)}>
-            Dismiss
+        {/* Header (Draggable) */}
+        <div className="flex justify-between items-center drag-handle cursor-move mb-4">
+          <h3 className="text-lg font-semibold">To-Do List</h3>
+          <button
+            onClick={onClose}
+            className="text-white/70 hover:text-white transition"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
-      )}
 
-      {/* Filter Tabs */}
-      <div className="flex justify-between mb-3 text-sm">
-        <span className="text-gray-400">{tasks.length} tasks</span>
-        <div className="flex space-x-3">
-          {["All", "Pending", "Done"].map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setSelectedFilter(filter)}
-              className={`px-3 py-1 rounded-md transition-all ${
-                selectedFilter === filter
-                  ? "bg-[#D42F2F] text-white"
-                  : "bg-[#252525] text-gray-300 hover:bg-[#353535]"
-              }`}
-            >
-              {filter}
+        {/* Input Section */}
+        <div className="flex space-x-2 mb-4">
+          <input
+            type="text"
+            placeholder="Add a new task..."
+            value={newTask}
+            onChange={(e) => setNewTask(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") addTask();
+            }}
+            className="flex-1 px-3 py-2 bg-[#252525] rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30"
+          />
+          <button
+            onClick={addTask}
+            className="px-3 py-2 bg-[#D42F2F] rounded-lg text-sm transition-all hover:bg-[#E14444]"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Storage Mode Indicator */}
+        {useLocalStorage && (
+          <div className="bg-yellow-900/30 text-yellow-300 p-2 rounded-md mb-3 text-xs">
+            Using local storage mode (changes won't sync across devices)
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-900/30 text-red-300 p-2 rounded-md mb-3 text-sm">
+            {error}
+            <button className="ml-2 underline" onClick={() => setError(null)}>
+              Dismiss
             </button>
-          ))}
+          </div>
+        )}
+
+        {/* Filter Tabs */}
+        <div className="flex justify-between mb-3 text-sm">
+          <span className="text-gray-400">{tasks.length} tasks</span>
+          <div className="flex space-x-3">
+            {["All", "Pending", "Done"].map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setSelectedFilter(filter)}
+                className={`px-3 py-1 rounded-md transition-all ${
+                  selectedFilter === filter
+                    ? "bg-[#D42F2F] text-white"
+                    : "bg-[#252525] text-gray-300 hover:bg-[#353535]"
+                }`}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Task List */}
+        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+          {isLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <Loader2 className="w-6 h-6 text-white/50 animate-spin" />
+            </div>
+          ) : tasks.length === 0 ? (
+            <p className="text-gray-400 text-center py-4">
+              No tasks yet. Add one above!
+            </p>
+          ) : (
+            tasks
+              .filter((task) =>
+                selectedFilter === "All"
+                  ? true
+                  : selectedFilter === "Done"
+                  ? task.completed
+                  : !task.completed
+              )
+              .map((task) => (
+                <div
+                  key={task.id}
+                  className="flex items-center justify-between px-3 py-2 bg-[#252525] rounded-lg"
+                >
+                  <button
+                    onClick={() => toggleTaskCompletion(task.id)}
+                    className={`p-2 rounded-full ${
+                      task.completed ? "bg-green-500" : "bg-gray-600"
+                    } transition-all`}
+                  >
+                    <Check className="w-4 h-4 text-white" />
+                  </button>
+                  <span
+                    className={`flex-1 mx-2 text-sm ${
+                      task.completed
+                        ? "line-through text-gray-500"
+                        : "text-white"
+                    }`}
+                  >
+                    {task.text}
+                  </span>
+                  <button
+                    onClick={() => removeTask(task.id)}
+                    className="text-red-400 hover:text-red-500 transition-all"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ))
+          )}
         </div>
       </div>
-
-      {/* Task List */}
-      <div className="space-y-2 max-h-[300px] overflow-y-auto">
-        {isLoading ? (
-          <div className="flex justify-center items-center py-8">
-            <Loader2 className="w-6 h-6 text-white/50 animate-spin" />
-          </div>
-        ) : tasks.length === 0 ? (
-          <p className="text-gray-400 text-center py-4">
-            No tasks yet. Add one above!
-          </p>
-        ) : (
-          tasks
-            .filter((task) =>
-              selectedFilter === "All"
-                ? true
-                : selectedFilter === "Done"
-                ? task.completed
-                : !task.completed
-            )
-            .map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center justify-between px-3 py-2 bg-[#252525] rounded-lg"
-              >
-                <button
-                  onClick={() => toggleTaskCompletion(task.id)}
-                  className={`p-2 rounded-full ${
-                    task.completed ? "bg-green-500" : "bg-gray-600"
-                  } transition-all`}
-                >
-                  <Check className="w-4 h-4 text-white" />
-                </button>
-                <span
-                  className={`flex-1 mx-2 text-sm ${
-                    task.completed ? "line-through text-gray-500" : "text-white"
-                  }`}
-                >
-                  {task.text}
-                </span>
-                <button
-                  onClick={() => removeTask(task.id)}
-                  className="text-red-400 hover:text-red-500 transition-all"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
-            ))
-        )}
-      </div>
-    </div>
+    </Draggable>
   );
 };
 

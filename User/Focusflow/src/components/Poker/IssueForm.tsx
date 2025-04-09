@@ -12,6 +12,7 @@ interface IssueFormProps {
 export function IssueForm({ sessionId, onIssueAdded }: IssueFormProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [deadline, setDeadline] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -39,7 +40,7 @@ export function IssueForm({ sessionId, onIssueAdded }: IssueFormProps) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ title, description }),
+          body: JSON.stringify({ title, description, deadline }),
         }
       );
 
@@ -48,6 +49,7 @@ export function IssueForm({ sessionId, onIssueAdded }: IssueFormProps) {
       if (response.ok) {
         setTitle("");
         setDescription("");
+        setDeadline("");
         setError(null);
         onIssueAdded();
       } else {
@@ -82,6 +84,16 @@ export function IssueForm({ sessionId, onIssueAdded }: IssueFormProps) {
         className="w-full p-2 bg-black/30 border border-gray-700 rounded"
         disabled={isSubmitting}
       />
+      <div className="mt-4">
+        <label className="block text-gray-300 mb-2 text-sm">Due Date</label>
+        <input
+          type="date"
+          value={deadline}
+          onChange={(e) => setDeadline(e.target.value)}
+          className="w-full p-2 bg-black/30 border border-gray-700 rounded"
+          disabled={isSubmitting}
+        />
+      </div>
       <button
         type="submit"
         className={`w-full py-2 ${

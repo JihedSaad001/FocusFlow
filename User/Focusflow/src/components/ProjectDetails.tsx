@@ -22,6 +22,8 @@ import {
   UserMinus,
   MessageSquare,
   CheckCircle,
+  Bug,
+  XCircle,
 } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { io } from "socket.io-client";
@@ -181,7 +183,9 @@ function ProjectDetails() {
           body: JSON.stringify(taskData),
         }
       );
-      if (!response.ok) throw new Error("Failed to add task");
+      if (!response.ok) {
+        throw new Error("Failed to add task to backlog");
+      }
       const updatedProject = await response.json();
       setProject(updatedProject);
       setNewTask({
@@ -409,15 +413,44 @@ function ProjectDetails() {
     }
   };
 
+  // Modified updateTaskStatus function that uses a different approach
   const updateTaskStatus = async (
     taskId: string,
-    status: "To Do" | "In Progress" | "Done"
+    status: "To Do" | "In Progress" | "Testing" | "Blocked" | "Done"
   ) => {
     if (!project || !activeSprint) {
       setError("Project or active sprint not loaded yet");
       return;
     }
 
+    // Find the current task to get its assignedTo value
+    const currentTask = activeSprint.tasks.find((task) => task._id === taskId);
+    if (!currentTask) {
+      setError("Task not found");
+      return;
+    }
+
+    // Create a local copy of the project and update it
+    const updatedProject = { ...project };
+    const updatedSprint = updatedProject.sprints.find(
+      (s) => s._id === activeSprint._id
+    );
+
+    if (updatedSprint) {
+      const updatedTask = updatedSprint.tasks.find((t) => t._id === taskId);
+      if (updatedTask) {
+        updatedTask.status = status;
+        // Keep the existing assignedTo value
+      }
+    }
+
+    // Update the UI immediately with the local copy
+    setProject(updatedProject);
+    setActiveSprint(
+      updatedProject.sprints.find((s) => s._id === activeSprint._id) || null
+    );
+
+    // Then send the update to the server
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
@@ -428,17 +461,16 @@ function ProjectDetails() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ status }),
+          body: JSON.stringify({
+            status,
+            assignedTo: currentTask.assignedTo,
+          }),
         }
       );
+
       if (!response.ok) throw new Error("Failed to update task status");
-      const updatedProject = await response.json();
-      setProject(updatedProject);
-      setActiveSprint(
-        updatedProject.sprints.find(
-          (s: Sprint) => s._id === activeSprint._id
-        ) || null
-      );
+
+      await response.json();
 
       setNotification({
         message: `Task moved to ${status}`,
@@ -450,6 +482,31 @@ function ProjectDetails() {
       }, 3000);
     } catch (error: any) {
       console.error("❌ Error updating task status:", error);
+
+      // If there's an error, fetch the project again to get the correct state
+      try {
+        const fetchResponse = await fetch(
+          `https://focusflow-production.up.railway.app/api/projects/${id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (fetchResponse.ok) {
+          const fetchedProject = await fetchResponse.json();
+          setProject(fetchedProject);
+          setActiveSprint(
+            fetchedProject.sprints.find(
+              (s: Sprint) => s._id === activeSprint._id
+            ) || null
+          );
+        }
+      } catch (fetchError) {
+        console.error(
+          "❌ Error fetching project after failed update:",
+          fetchError
+        );
+      }
+
       setNotification({
         message: "Error updating task status",
         type: "error",
@@ -694,12 +751,6 @@ function ProjectDetails() {
         type: "error",
       });
     }
-  };
-
-  const openAssignTaskModal = (task: Task) => {
-    setSelectedTaskForAssignment(task);
-    setSelectedMemberForAssignment(task.assignedTo || "");
-    setAssignTaskModalOpen(true);
   };
 
   if (loading)
@@ -1152,6 +1203,472 @@ function ProjectDetails() {
                                 )
                               )}
                             </div>
+
+                            {/* Show Sprint Board directly under the selected sprint */}
+                            {activeSprint &&
+                              activeSprint._id === sprint._id && (
+                                <div className="mt-6">
+                                  <div
+                                    className="flex items-center justify-between cursor-pointer p-4 bg-black/30 rounded-lg mb-4 hover:bg-black/40 transition-colors duration-200"
+                                    onClick={() =>
+                                      setShowSprintBoard(!showSprintBoard)
+                                    }
+                                  >
+                                    <div className="flex items-center">
+                                      <ClipboardList className="w-6 h-6 mr-3 text-red-500" />
+                                      <h2 className="text-2xl font-semibold">
+                                        Sprint Board
+                                      </h2>
+                                    </div>
+                                    {showSprintBoard ? (
+                                      <ChevronUp />
+                                    ) : (
+                                      <ChevronDown />
+                                    )}
+                                  </div>
+
+                                  {showSprintBoard && (
+                                    <div className="overflow-x-auto">
+                                      <div className="grid grid-flow-col auto-cols-[minmax(300px,1fr)] gap-6 pb-4">
+                                        {/* To Do Column */}
+                                        <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50 min-w-[300px]">
+                                          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                                            <ListTodo className="w-5 h-5 mr-2 text-gray-400" />
+                                            To Do
+                                          </h3>
+                                          <div className="space-y-3">
+                                            {activeSprint.tasks
+                                              .filter(
+                                                (t: Task) =>
+                                                  t.status === "To Do"
+                                              )
+                                              .map((task: Task) => (
+                                                <div
+                                                  key={`todo-${task._id}`}
+                                                  className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
+                                                >
+                                                  <div className="flex justify-between items-start mb-2 gap-2">
+                                                    <h4
+                                                      className="font-medium text-white truncate flex-1"
+                                                      title={task.title} // Tooltip to show full title on hover
+                                                    >
+                                                      {task.title}
+                                                    </h4>
+                                                    <div className="flex gap-2 flex-shrink-0">
+                                                      <button
+                                                        onClick={() =>
+                                                          updateTaskStatus(
+                                                            task._id,
+                                                            "In Progress"
+                                                          )
+                                                        }
+                                                        className="text-yellow-400 hover:text-yellow-300 transition-colors text-sm"
+                                                      >
+                                                        Start
+                                                      </button>
+                                                      <button
+                                                        onClick={() =>
+                                                          updateTaskStatus(
+                                                            task._id,
+                                                            "Blocked"
+                                                          )
+                                                        }
+                                                        className="text-red-400 hover:text-red-300 transition-colors text-sm"
+                                                      >
+                                                        Block
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                  <p className="text-gray-400 text-sm mb-3 flex-grow">
+                                                    {task.description}
+                                                  </p>
+                                                  {task.finalEstimate && (
+                                                    <div className="flex items-center text-gray-500 text-sm mb-3">
+                                                      <span className="text-red-400 font-semibold">
+                                                        Estimate:{" "}
+                                                        {task.finalEstimate}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {task.assignedTo && (
+                                                    <div className="flex items-center text-gray-500 text-sm mb-3">
+                                                      <UserCircle className="w-4 h-4 mr-1" />
+                                                      Assigned to:{" "}
+                                                      {getMemberName(
+                                                        task.assignedTo
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                  <button
+                                                    onClick={() =>
+                                                      deleteTaskFromSprint(
+                                                        task._id
+                                                      )
+                                                    }
+                                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
+                                                  >
+                                                    <Trash2 className="w-4 h-4" />{" "}
+                                                    Delete
+                                                  </button>
+                                                </div>
+                                              ))}
+                                          </div>
+                                        </div>
+
+                                        {/* In Progress Column */}
+                                        <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50 min-w-[300px]">
+                                          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                                            <Loader2 className="w-5 h-5 mr-2 text-yellow-500" />
+                                            In Progress
+                                          </h3>
+                                          <div className="space-y-3">
+                                            {activeSprint.tasks
+                                              .filter(
+                                                (t: Task) =>
+                                                  t.status === "In Progress"
+                                              )
+                                              .map((task: Task) => (
+                                                <div
+                                                  key={`inprogress-${task._id}`}
+                                                  className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
+                                                >
+                                                  <div className="flex justify-between items-start mb-2 gap-2">
+                                                    <h4
+                                                      className="font-medium text-white truncate flex-1"
+                                                      title={task.title}
+                                                    >
+                                                      {task.title}
+                                                    </h4>
+                                                    <div className="flex gap-2 flex-shrink-0">
+                                                      <button
+                                                        onClick={() =>
+                                                          updateTaskStatus(
+                                                            task._id,
+                                                            "Testing"
+                                                          )
+                                                        }
+                                                        className="text-purple-400 hover:text-purple-300 transition-colors text-sm"
+                                                      >
+                                                        Test
+                                                      </button>
+                                                      <button
+                                                        onClick={() =>
+                                                          updateTaskStatus(
+                                                            task._id,
+                                                            "Blocked"
+                                                          )
+                                                        }
+                                                        className="text-red-400 hover:text-red-300 transition-colors text-sm"
+                                                      >
+                                                        Block
+                                                      </button>
+                                                      <button
+                                                        onClick={() =>
+                                                          updateTaskStatus(
+                                                            task._id,
+                                                            "To Do"
+                                                          )
+                                                        }
+                                                        className="text-blue-400 hover:text-blue-300 transition-colors text-sm"
+                                                      >
+                                                        Move Back
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                  <p className="text-gray-400 text-sm mb-3 flex-grow">
+                                                    {task.description}
+                                                  </p>
+                                                  {task.finalEstimate && (
+                                                    <div className="flex items-center text-gray-500 text-sm mb-3">
+                                                      <span className="text-red-400 font-semibold">
+                                                        Estimate:{" "}
+                                                        {task.finalEstimate}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {task.assignedTo && (
+                                                    <div className="flex items-center text-gray-500 text-sm mb-3">
+                                                      <UserCircle className="w-4 h-4 mr-1" />
+                                                      Assigned to:{" "}
+                                                      {getMemberName(
+                                                        task.assignedTo
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                  <button
+                                                    onClick={() =>
+                                                      deleteTaskFromSprint(
+                                                        task._id
+                                                      )
+                                                    }
+                                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
+                                                  >
+                                                    <Trash2 className="w-4 h-4" />{" "}
+                                                    Delete
+                                                  </button>
+                                                </div>
+                                              ))}
+                                          </div>
+                                        </div>
+
+                                        {/* Testing Column */}
+                                        <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50 min-w-[300px]">
+                                          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                                            <Bug className="w-5 h-5 mr-2 text-purple-500" />
+                                            Testing
+                                          </h3>
+                                          <div className="space-y-3">
+                                            {activeSprint.tasks
+                                              .filter(
+                                                (t: Task) =>
+                                                  t.status === "Testing"
+                                              )
+                                              .map((task: Task) => (
+                                                <div
+                                                  key={`testing-${task._id}`}
+                                                  className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
+                                                >
+                                                  <div className="flex justify-between items-start mb-2 gap-2">
+                                                    <h4
+                                                      className="font-medium text-white truncate flex-1"
+                                                      title={task.title}
+                                                    >
+                                                      {task.title}
+                                                    </h4>
+                                                    <div className="flex gap-2 flex-shrink-0">
+                                                      <button
+                                                        onClick={() =>
+                                                          updateTaskStatus(
+                                                            task._id,
+                                                            "Done"
+                                                          )
+                                                        }
+                                                        className="text-green-400 hover:text-green-300 transition-colors text-sm"
+                                                      >
+                                                        Complete
+                                                      </button>
+                                                      <button
+                                                        onClick={() =>
+                                                          updateTaskStatus(
+                                                            task._id,
+                                                            "Blocked"
+                                                          )
+                                                        }
+                                                        className="text-red-400 hover:text-red-300 transition-colors text-sm"
+                                                      >
+                                                        Block
+                                                      </button>
+                                                      <button
+                                                        onClick={() =>
+                                                          updateTaskStatus(
+                                                            task._id,
+                                                            "In Progress"
+                                                          )
+                                                        }
+                                                        className="text-blue-400 hover:text-blue-300 transition-colors text-sm"
+                                                      >
+                                                        Move Back
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                  <p className="text-gray-400 text-sm mb-3 flex-grow">
+                                                    {task.description}
+                                                  </p>
+                                                  {task.finalEstimate && (
+                                                    <div className="flex items-center text-gray-500 text-sm mb-3">
+                                                      <span className="text-red-400 font-semibold">
+                                                        Estimate:{" "}
+                                                        {task.finalEstimate}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {task.assignedTo && (
+                                                    <div className="flex items-center text-gray-500 text-sm mb-3">
+                                                      <UserCircle className="w-4 h-4 mr-1" />
+                                                      Assigned to:{" "}
+                                                      {getMemberName(
+                                                        task.assignedTo
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                  <button
+                                                    onClick={() =>
+                                                      deleteTaskFromSprint(
+                                                        task._id
+                                                      )
+                                                    }
+                                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
+                                                  >
+                                                    <Trash2 className="w-4 h-4" />{" "}
+                                                    Delete
+                                                  </button>
+                                                </div>
+                                              ))}
+                                          </div>
+                                        </div>
+
+                                        {/* Blocked Column */}
+                                        <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50 min-w-[300px]">
+                                          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                                            <XCircle className="w-5 h-5 mr-2 text-red-500" />
+                                            Blocked
+                                          </h3>
+                                          <div className="space-y-3">
+                                            {activeSprint.tasks
+                                              .filter(
+                                                (t: Task) =>
+                                                  t.status === "Blocked"
+                                              )
+                                              .map((task: Task) => (
+                                                <div
+                                                  key={`blocked-${task._id}`}
+                                                  className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
+                                                >
+                                                  <div className="flex justify-between items-start mb-2 gap-2">
+                                                    <h4
+                                                      className="font-medium text-white truncate flex-1"
+                                                      title={task.title}
+                                                    >
+                                                      {task.title}
+                                                    </h4>
+                                                    <div className="flex gap-2 flex-shrink-0 flex-wrap">
+                                                      <button
+                                                        onClick={() =>
+                                                          updateTaskStatus(
+                                                            task._id,
+                                                            "To Do"
+                                                          )
+                                                        }
+                                                        className="text-blue-400 hover:text-blue-300 transition-colors text-sm"
+                                                      >
+                                                        To Do
+                                                      </button>
+                                                      <button
+                                                        onClick={() =>
+                                                          updateTaskStatus(
+                                                            task._id,
+                                                            "In Progress"
+                                                          )
+                                                        }
+                                                        className="text-yellow-400 hover:text-yellow-300 transition-colors text-sm"
+                                                      >
+                                                        In Progress
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                  <p className="text-gray-400 text-sm mb-3 flex-grow">
+                                                    {task.description}
+                                                  </p>
+                                                  {task.finalEstimate && (
+                                                    <div className="flex items-center text-gray-500 text-sm mb-3">
+                                                      <span className="text-red-400 font-semibold">
+                                                        Estimate:{" "}
+                                                        {task.finalEstimate}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {task.assignedTo && (
+                                                    <div className="flex items-center text-gray-500 text-sm mb-3">
+                                                      <UserCircle className="w-4 h-4 mr-1" />
+                                                      Assigned to:{" "}
+                                                      {getMemberName(
+                                                        task.assignedTo
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                  <button
+                                                    onClick={() =>
+                                                      deleteTaskFromSprint(
+                                                        task._id
+                                                      )
+                                                    }
+                                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
+                                                  >
+                                                    <Trash2 className="w-4 h-4" />{" "}
+                                                    Delete
+                                                  </button>
+                                                </div>
+                                              ))}
+                                          </div>
+                                        </div>
+
+                                        {/* Done Column */}
+                                        <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50 min-w-[300px]">
+                                          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                                            <CheckSquare className="w-5 h-5 mr-2 text-green-500" />
+                                            Done
+                                          </h3>
+                                          <div className="space-y-3">
+                                            {activeSprint.tasks
+                                              .filter(
+                                                (t: Task) => t.status === "Done"
+                                              )
+                                              .map((task: Task) => (
+                                                <div
+                                                  key={`done-${task._id}`}
+                                                  className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
+                                                >
+                                                  <div className="flex justify-between items-start mb-2 gap-2">
+                                                    <h4
+                                                      className="font-medium text-white truncate flex-1"
+                                                      title={task.title}
+                                                    >
+                                                      {task.title}
+                                                    </h4>
+                                                    <div className="flex gap-2 flex-shrink-0">
+                                                      <button
+                                                        onClick={() =>
+                                                          updateTaskStatus(
+                                                            task._id,
+                                                            "Testing"
+                                                          )
+                                                        }
+                                                        className="text-purple-400 hover:text-purple-300 transition-colors text-sm"
+                                                      >
+                                                        Move to Testing
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                  <p className="text-gray-400 text-sm mb-3 flex-grow">
+                                                    {task.description}
+                                                  </p>
+                                                  {task.finalEstimate && (
+                                                    <div className="flex items-center text-gray-500 text-sm mb-3">
+                                                      <span className="text-red-400 font-semibold">
+                                                        Estimate:{" "}
+                                                        {task.finalEstimate}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {task.assignedTo && (
+                                                    <div className="flex items-center text-gray-500 text-sm mb-3">
+                                                      <UserCircle className="w-4 h-4 mr-1" />
+                                                      Assigned to:{" "}
+                                                      {getMemberName(
+                                                        task.assignedTo
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                  <button
+                                                    onClick={() =>
+                                                      deleteTaskFromSprint(
+                                                        task._id
+                                                      )
+                                                    }
+                                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
+                                                  >
+                                                    <Trash2 className="w-4 h-4" />{" "}
+                                                    Delete
+                                                  </button>
+                                                </div>
+                                              ))}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                           </div>
                         ))}
                       </div>
@@ -1160,189 +1677,6 @@ function ProjectDetails() {
                 </div>
               )}
             </div>
-
-            {/* Sprint Board Section */}
-            {activeSprint && showSprintBoard && (
-              <div className="mb-8">
-                <div
-                  className="flex items-center justify-between cursor-pointer p-4 bg-black/30 rounded-lg mb-4 hover:bg-black/40 transition-colors duration-200"
-                  onClick={() => setShowSprintBoard(!showSprintBoard)}
-                >
-                  <div className="flex items-center">
-                    <ClipboardList className="w-6 h-6 mr-3 text-red-500" />
-                    <h2 className="text-2xl font-semibold">Sprint Board</h2>
-                  </div>
-                  {showSprintBoard ? <ChevronUp /> : <ChevronDown />}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                      <ListTodo className="w-5 h-5 mr-2 text-gray-400" />
-                      To Do
-                    </h3>
-                    <div className="space-y-3">
-                      {activeSprint.tasks
-                        .filter((t: Task) => t.status === "To Do")
-                        .map((task: Task) => (
-                          <div
-                            key={`todo-${task._id}`}
-                            className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
-                          >
-                            <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-medium text-white">
-                                {task.title}
-                              </h4>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() =>
-                                    updateTaskStatus(task._id, "In Progress")
-                                  }
-                                  className="text-yellow-400 hover:text-yellow-300 transition-colors"
-                                >
-                                  Start
-                                </button>
-                                <button
-                                  onClick={() => openAssignTaskModal(task)}
-                                  className="text-blue-400 hover:text-blue-300 transition-colors"
-                                >
-                                  Assign
-                                </button>
-                              </div>
-                            </div>
-                            <p className="text-gray-400 text-sm mb-3 flex-grow">
-                              {task.description}
-                            </p>
-                            {task.finalEstimate && (
-                              <div className="flex items-center text-gray-500 text-sm mb-3">
-                                <span className="text-red-400 font-semibold">
-                                  Estimate: {task.finalEstimate}
-                                </span>
-                              </div>
-                            )}
-                            {task.assignedTo && (
-                              <div className="flex items-center text-gray-500 text-sm mb-3">
-                                <UserCircle className="w-4 h-4 mr-1" />
-                                Assigned to: {getMemberName(task.assignedTo)}
-                              </div>
-                            )}
-                            <button
-                              onClick={() => deleteTaskFromSprint(task._id)}
-                              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
-                            >
-                              <Trash2 className="w-4 h-4" /> Delete
-                            </button>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-
-                  <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                      <Loader2 className="w-5 h-5 mr-2 text-yellow-500" />
-                      In Progress
-                    </h3>
-                    <div className="space-y-3">
-                      {activeSprint.tasks
-                        .filter((t: Task) => t.status === "In Progress")
-                        .map((task: Task) => (
-                          <div
-                            key={`inprogress-${task._id}`}
-                            className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
-                          >
-                            <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-medium text-white">
-                                {task.title}
-                              </h4>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() =>
-                                    updateTaskStatus(task._id, "Done")
-                                  }
-                                  className="text-green-400 hover:text-green-300 transition-colors"
-                                >
-                                  Complete
-                                </button>
-                                <button
-                                  onClick={() => openAssignTaskModal(task)}
-                                  className="text-blue-400 hover:text-blue-300 transition-colors"
-                                >
-                                  Assign
-                                </button>
-                              </div>
-                            </div>
-                            <p className="text-gray-400 text-sm mb-3 flex-grow">
-                              {task.description}
-                            </p>
-                            {task.finalEstimate && (
-                              <div className="flex items-center text-gray-500 text-sm mb-3">
-                                <span className="text-red-400 font-semibold">
-                                  Estimate: {task.finalEstimate}
-                                </span>
-                              </div>
-                            )}
-                            {task.assignedTo && (
-                              <div className="flex items-center text-gray-500 text-sm mb-3">
-                                <UserCircle className="w-4 h-4 mr-1" />
-                                Assigned to: {getMemberName(task.assignedTo)}
-                              </div>
-                            )}
-                            <button
-                              onClick={() => deleteTaskFromSprint(task._id)}
-                              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
-                            >
-                              <Trash2 className="w-4 h-4" /> Delete
-                            </button>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-
-                  <div className="bg-[#1E1E1E] rounded-lg p-6 border border-gray-700/50">
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                      <CheckSquare className="w-5 h-5 mr-2 text-green-500" />
-                      Done
-                    </h3>
-                    <div className="space-y-3">
-                      {activeSprint.tasks
-                        .filter((t: Task) => t.status === "Done")
-                        .map((task: Task) => (
-                          <div
-                            key={`done-${task._id}`}
-                            className="bg-black/30 rounded-lg p-4 border border-gray-700/50 flex flex-col"
-                          >
-                            <h4 className="font-medium text-white mb-2">
-                              {task.title}
-                            </h4>
-                            <p className="text-gray-400 text-sm mb-3 flex-grow">
-                              {task.description}
-                            </p>
-                            {task.finalEstimate && (
-                              <div className="flex items-center text-gray-500 text-sm mb-3">
-                                <span className="text-red-400 font-semibold">
-                                  Estimate: {task.finalEstimate}
-                                </span>
-                              </div>
-                            )}
-                            {task.assignedTo && (
-                              <div className="flex items-center text-gray-500 text-sm mb-3">
-                                <UserCircle className="w-4 h-4 mr-1" />
-                                Assigned to: {getMemberName(task.assignedTo)}
-                              </div>
-                            )}
-                            <button
-                              onClick={() => deleteTaskFromSprint(task._id)}
-                              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg font-medium transition-colors duration-200 mt-auto flex items-center justify-center gap-2"
-                            >
-                              <Trash2 className="w-4 h-4" /> Delete
-                            </button>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Chat Section */}
             <div className="mb-8">
