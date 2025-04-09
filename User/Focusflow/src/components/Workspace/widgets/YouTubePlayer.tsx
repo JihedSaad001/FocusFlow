@@ -16,12 +16,8 @@ const YouTubePlayer = () => {
   const dragEndTimer = useRef<NodeJS.Timeout | null>(null);
   const nodeRef = useRef<HTMLDivElement | null>(null);
 
-  // Replace with your YouTube Data API key from environment variables (Vite uses import.meta.env)
-  // Ensure you have VITE_YOUTUBE_API_KEY in your .env file
-  const YOUTUBE_API_KEY = import.meta.env.YOUTUBE_API_KEY || "";
-  if (!YOUTUBE_API_KEY) {
-    console.error("YouTube API key is not set in the environment variables.");
-  }
+  // Replace with your YouTube Data API key (secure in production)
+  const YOUTUBE_API_KEY = "AIzaSyC__R5zCrk6EzqLlBPv1SIA8fVmfLAD7KY";
 
   // Cleanup animation frame and timers on unmount
   useEffect(() => {
