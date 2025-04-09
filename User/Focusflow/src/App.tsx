@@ -30,7 +30,7 @@ import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
 import VerifyEmail from "./components/VerifyEmail";
 import AmbientSounds from "./components/Workspace/widgets/AmbientSounds";
-import MusicPlayer from "./components/Workspace/widgets/MusicPlayer.tsx";
+import MusicPlayer from "./components/Workspace/widgets/MusicPlayer";
 
 // Global state for ambient sounds and music player
 if (typeof window !== "undefined") {
