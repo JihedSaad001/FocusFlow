@@ -31,7 +31,7 @@ const YouTubePlayer = () => {
     };
   }, []);
 
-  // Handle search
+  
   const handleSearch = async () => {
     if (searchQuery.trim() === "") {
       setSearchResults([]);
