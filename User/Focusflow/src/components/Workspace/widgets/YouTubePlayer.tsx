@@ -17,7 +17,7 @@ const YouTubePlayer = () => {
   const nodeRef = useRef<HTMLDivElement | null>(null);
 
   // Replace with your YouTube Data API key (secure in production)
-  const YOUTUBE_API_KEY = "AIzaSyC__R5zCrk6EzqLlBPv1SIA8fVmfLAD7KY";
+  const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 
   // Cleanup animation frame and timers on unmount
   useEffect(() => {
