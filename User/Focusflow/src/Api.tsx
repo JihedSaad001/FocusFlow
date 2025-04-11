@@ -1,21 +1,5 @@
 import { supabase } from "./config/supabase";
-import { jwtDecode } from "jwt-decode";
-
-// Interface for decoding JWT tokens
-interface DecodedToken {
-  id: string;
-  exp: number;
-}
-
-// Function to check if a token is expired
-export const isTokenExpired = (token: string): boolean => {
-  try {
-    const decoded: DecodedToken = jwtDecode(token);
-    return decoded.exp < Date.now() / 1000; // Compare with current time
-  } catch {
-    return true; // Assume expired if decoding fails
-  }
-};
+import { isTokenExpired } from "./utils/auth";
 
 // Function to update user details (username, password, profilePic)
 export const updateUser = async (data: any, token: string) => {

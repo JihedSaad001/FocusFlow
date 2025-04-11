@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FolderPlus, FileText } from "lucide-react";
+import { getToken } from "../utils/auth";
 
 function CreateProject() {
   const [formData, setFormData] = useState({ name: "", description: "" });
@@ -19,15 +20,14 @@ function CreateProject() {
     setError("");
     setLoading(true);
 
-    const token = localStorage.getItem("token");
-    console.log("Token:", token);
-    if (!token) {
-      console.warn("❌ No token found, redirecting to login.");
-      navigate("/signin");
-      return;
-    }
-
     try {
+      const token = getToken();
+      if (!token) {
+        console.warn("❌ No token found, redirecting to login.");
+        navigate("/signin");
+        return;
+      }
+
       const response = await fetch(
         "https://focusflow-production.up.railway.app/api/projects",
         {

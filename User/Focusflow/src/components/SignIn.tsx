@@ -5,6 +5,7 @@ import type React from "react";
 import { useState } from "react";
 import { Mail, Lock, AlertCircle } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
+import { setToken } from "../utils/auth";
 
 const SignIn = () => {
   const navigate = useNavigate();
@@ -52,11 +53,11 @@ const SignIn = () => {
         throw new Error("Login failed: No token received.");
       }
 
-      console.log("✅ Token received:", data.token); // Debugging log
+      // Use centralized setToken from auth.ts
+      setToken(data.token);
 
-      // Store user data and token in localStorage
+      // Store user data in localStorage
       localStorage.setItem("user", JSON.stringify(data.user));
-      localStorage.setItem("token", data.token);
 
       // Notify other components about the storage update
       window.dispatchEvent(new Event("storage"));
@@ -65,7 +66,7 @@ const SignIn = () => {
       navigate("/dashboard");
     } catch (err: any) {
       setError(err.message);
-      console.error("❌ Login Error:", err.message); // Debugging log
+      console.error("❌ Login Error:", err.message);
     } finally {
       setLoading(false);
     }

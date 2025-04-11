@@ -5,6 +5,7 @@ import type React from "react";
 import { useState } from "react";
 import { User, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
+import { setToken } from "../utils/auth";
 
 function SignUp() {
   const navigate = useNavigate();
@@ -52,6 +53,15 @@ function SignUp() {
       const data = text ? JSON.parse(text) : {};
 
       if (!response.ok) throw new Error(data.message || "Signup failed");
+
+      // If signup is successful and a token is provided
+      if (data.token) {
+        // Use centralized setToken from auth.ts
+        setToken(data.token);
+
+        // Store user data in localStorage
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
 
       setSignupSuccess(true);
       // Clear the form

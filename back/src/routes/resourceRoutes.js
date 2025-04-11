@@ -69,17 +69,7 @@ router.get("/ambient-sounds", async (req, res) => {
  * @desc    Fetch a single wallpaper by ID
  * @access  Public
  */
-router.get("/wallpapers/:id", async (req, res) => {
-  try {
-    const wallpaper = await Resource.findById(req.params.id)
-    if (!wallpaper) {
-      return res.status(404).json({ message: "Wallpaper not found" })
-    }
-    res.json(wallpaper)
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message })
-  }
-})
+
 
 /**
  * @route   POST /api/resources/upload-wallpaper
