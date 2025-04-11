@@ -1,28 +1,18 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const router = express.Router();
-
-// Models
 const Project = require("../models/Project");
 const User = require("../models/User");
+const { authenticateJWT } = require("../middleware/authMiddleware");
 
-// Middleware
-const { authenticateJWT, isAdmin } = require("../middleware/authMiddleware");
+const router = express.Router();
 
 module.exports = (io) => {
-  // Pass Socket.IO to routes that need it
   router.use((req, res, next) => {
     req.io = io;
     next();
   });
 
-  // ==================== Project Management Routes ====================
-
-  /**
-   * @route   POST /api/projects/
-   * @desc    Create a new project
-   * @access  Private
-   */
+  // Route to create a new project
   router.post("/", authenticateJWT, async (req, res) => {
     try {
       const { name, description } = req.body;
@@ -41,11 +31,7 @@ module.exports = (io) => {
     }
   });
 
-  /**
-   * @route   GET /api/projects/
-   * @desc    Get all projects for a user
-   * @access  Private
-   */
+  // Route to get all projects for a user
   router.get("/", authenticateJWT, async (req, res) => {
     try {
       const projects = await Project.find({ members: req.user.id }).populate("members", "username email");
@@ -56,11 +42,7 @@ module.exports = (io) => {
     }
   });
 
-  /**
-   * @route   GET /api/projects/:projectId
-   * @desc    Get a specific project by ID
-   * @access  Private
-   */
+  // Route to get a specific project by ID
   router.get("/:projectId", authenticateJWT, async (req, res) => {
     try {
       const project = await Project.findById(req.params.projectId)
@@ -82,11 +64,7 @@ module.exports = (io) => {
     }
   });
 
-  /**
-   * @route   PUT /api/projects/:projectId
-   * @desc    Update a project
-   * @access  Private
-   */
+  // Route to update a project
   router.put("/:projectId", authenticateJWT, async (req, res) => {
     try {
       const projectId = req.params.projectId;
@@ -114,11 +92,7 @@ module.exports = (io) => {
     }
   });
 
-  /**
-   * @route   DELETE /api/projects/:projectId
-   * @desc    Delete a project
-   * @access  Private
-   */
+  // Route to delete a project
   router.delete("/:projectId", authenticateJWT, async (req, res) => {
     try {
       const project = await Project.findById(req.params.projectId);
@@ -141,11 +115,7 @@ module.exports = (io) => {
     }
   });
 
-  /**
-   * @route   POST /api/projects/:projectId/members
-   * @desc    Add a member to a project
-   * @access  Private
-   */
+  // Route to add a member to a project
   router.post("/:projectId/members", authenticateJWT, async (req, res) => {
     try {
       const { email } = req.body;
@@ -169,11 +139,7 @@ module.exports = (io) => {
     }
   });
 
-  /**
-   * @route   DELETE /api/projects/:projectId/members/:memberId
-   * @desc    Remove a member from a project
-   * @access  Private
-   */
+  // Route to remove a member from a project
   router.delete("/:projectId/members/:memberId", authenticateJWT, async (req, res) => {
     try {
       const project = await Project.findById(req.params.projectId)
@@ -207,31 +173,7 @@ module.exports = (io) => {
     }
   });
 
-  /**
-   * @route   GET /api/projects/stats/projects
-   * @desc    Get project statistics
-   * @access  Private (Admin)
-   */
-  router.get("/stats/projects", authenticateJWT, isAdmin, async (req, res) => {
-    try {
-      const totalProjects = await Project.countDocuments();
-
-      res.status(200).json({
-        totalProjects,
-      });
-    } catch (error) {
-      console.error("Error fetching project statistics:", error);
-      res.status(500).json({ message: "Server error", error: error.message });
-    }
-  });
-
-  // ==================== Project Poker Routes ====================
-
-  /**
-   * @route   POST /api/projects/:projectId/poker/start
-   * @desc    Start a poker session
-   * @access  Private
-   */
+  // Route to start a poker session
   router.post("/:projectId/poker/start", authenticateJWT, async (req, res) => {
     try {
       const project = await Project.findById(req.params.projectId);
@@ -248,11 +190,7 @@ module.exports = (io) => {
     }
   });
 
-  /**
-   * @route   GET /api/projects/:projectId/poker
-   * @desc    Get the poker session
-   * @access  Private
-   */
+  // Route to get the poker session
   router.get("/:projectId/poker", authenticateJWT, async (req, res) => {
     console.log("Incoming request to fetch poker session for project", req.params.projectId);
     try {
@@ -273,11 +211,7 @@ module.exports = (io) => {
     }
   });
 
-  /**
-   * @route   POST /api/projects/:projectId/poker/issue
-   * @desc    Add an issue to the poker session
-   * @access  Private
-   */
+  // Route to add an issue to the poker session
   router.post("/:projectId/poker/issue", authenticateJWT, async (req, res) => {
     const { projectId } = req.params;
     const { title, description } = req.body;
@@ -296,6 +230,7 @@ module.exports = (io) => {
       project.activePokerSession.issues.push(newIssue);
       await project.save();
 
+      // Get the saved issue with proper MongoDB ObjectId
       const savedIssue = project.activePokerSession.issues.find(
         (i) => i.title === title && i.description === description,
       );
@@ -310,11 +245,7 @@ module.exports = (io) => {
     }
   });
 
-  /**
-   * @route   POST /api/projects/:projectId/poker/issue/:issueId/vote
-   * @desc    Record a vote for an issue
-   * @access  Private
-   */
+  // Route to record a vote for an issue
   router.post("/:projectId/poker/issue/:issueId/vote", authenticateJWT, async (req, res) => {
     const { projectId, issueId } = req.params;
     const { vote } = req.body;
@@ -373,11 +304,40 @@ module.exports = (io) => {
     }
   });
 
-  /**
-   * @route   POST /api/projects/:projectId/poker/issue/:issueId/revote
-   * @desc    Reset votes for an issue
-   * @access  Private
-   */
+  // Fetch chat messages
+  router.get("/:projectId/chat", authenticateJWT, async (req, res) => {
+    const project = await Project.findById(req.params.projectId).populate("chatMessages.user", "username profilePic");
+    if (!project) return res.status(404).json({ message: "Project not found" });
+    if (!project.members.map((m) => m._id.toString()).includes(req.user.id))
+      return res.status(403).json({ message: "Unauthorized" });
+    res.status(200).json(project.chatMessages || []);
+  });
+
+  // Socket.IO event for sending messages
+  io.on("connection", (socket) => {
+    socket.on("joinRoom", (projectId) => {
+      socket.join(projectId);
+      console.log(`Socket ${socket.id} joined room ${projectId}`);
+
+      // Notify the client that they've successfully joined the room
+      socket.emit("roomJoined", { projectId });
+    });
+
+    socket.on("sendMessage", async ({ projectId, userId, message }) => {
+      const project = await Project.findById(projectId);
+      if (!project) return;
+      const user = await User.findById(userId).select("username profilePic");
+      const newMessage = { user: userId, message, timestamp: new Date() };
+      project.chatMessages.push(newMessage);
+      await project.save();
+      io.to(projectId).emit("receiveMessage", {
+        user: { _id: userId, username: user.username, profilePic: user.profilePic },
+        message,
+        timestamp: newMessage.timestamp,
+      });
+    });
+  });
+
   router.post("/:projectId/poker/issue/:issueId/revote", authenticateJWT, async (req, res) => {
     try {
       const project = await Project.findById(req.params.projectId);
@@ -403,11 +363,172 @@ module.exports = (io) => {
     }
   });
 
-  /**
-   * @route   POST /api/projects/:projectId/poker/issue/:issueId/reveal
-   * @desc    Reveal votes for an issue
-   * @access  Private
-   */
+  // Batch validate endpoint for poker issues
+  router.post("/:projectId/poker/batch-validate", authenticateJWT, async (req, res) => {
+    try {
+      const { issues } = req.body;
+      const projectId = req.params.projectId;
+      const userId = req.user.id;
+
+      // Validate request body
+      if (!issues || !Array.isArray(issues) || issues.length === 0) {
+        return res.status(400).json({ message: "Issues array is required and must not be empty" });
+      }
+
+      const project = await Project.findById(projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Only project owner can validate
+      if (project.owner.toString() !== userId) {
+        return res.status(403).json({ message: "Only the project owner can validate issues" });
+      }
+
+      // Process each issue
+      const validatedIssueIds = [];
+      for (const issueData of issues) {
+        const { issueId, finalEstimate, sprintId, assignedTo, delay } = issueData;
+
+        // Validate required fields
+        if (!issueId || !sprintId || !finalEstimate || !assignedTo) {
+          return res.status(400).json({ message: "Missing required fields for issue validation" });
+        }
+
+        // Find the issue in the poker session
+        const issue = project.activePokerSession?.issues?.find(
+          (i) => i._id.toString() === issueId
+        );
+        if (!issue) {
+          return res.status(404).json({ message: `Issue ${issueId} not found in poker session` });
+        }
+
+        // Find the sprint
+        const sprint = project.sprints.id(sprintId);
+        if (!sprint) {
+          return res.status(404).json({ message: `Sprint ${sprintId} not found` });
+        }
+
+        // Calculate deadline based on delay (number of days from now)
+        let deadline = null;
+        if (delay !== undefined && !isNaN(delay) && delay >= 0) {
+          const currentDate = new Date();
+          deadline = new Date(currentDate.setDate(currentDate.getDate() + delay));
+        }
+
+        // Add the task to the sprint
+        sprint.tasks.push({
+          _id: issue._id,
+          title: issue.title,
+          description: issue.description,
+          status: "To Do",
+          priority: issue.priority || "Medium",
+          assignedTo,
+          deadline, // Set the calculated deadline
+          finalEstimate,
+        });
+
+        // Mark the issue as finished
+        issue.status = "Finished";
+        issue.finalEstimate = finalEstimate;
+        issue.assignedTo = assignedTo;
+
+        // Add to validated issues list for cleanup
+        validatedIssueIds.push(issueId);
+      }
+
+      // Remove validated issues from the poker session
+      project.activePokerSession.issues = project.activePokerSession.issues.filter(
+        (issue) => !validatedIssueIds.includes(issue._id.toString())
+      );
+
+      // Remove validated issues from the backlog
+      project.backlog = project.backlog.filter(
+        (task) => !validatedIssueIds.includes(task._id.toString())
+      );
+
+      // Save the changes
+      await project.save();
+
+      // Emit events for each deleted issue to notify clients
+      for (const issueId of validatedIssueIds) {
+        req.io.to(projectId).emit("issueDeleted", { issueId });
+      }
+
+      res.status(200).json({ message: "Issues validated, added to sprint, and removed from poker session and backlog successfully" });
+    } catch (error) {
+      console.error("Error in batch validation:", error);
+      res.status(500).json({ message: "Error validating issues", error: error.message });
+    }
+  });
+
+  // Updated validate route to handle sprint assignment, member assignment, and deadline
+  router.post("/:projectId/poker/issue/:issueId/validate", authenticateJWT, async (req, res) => {
+    try {
+      const { finalEstimate, sprintId, assignedTo, delay } = req.body;
+      const project = await Project.findById(req.params.projectId);
+      if (!project) return res.status(404).json({ message: "Project not found" });
+
+      // Only project owner can validate
+      if (project.owner.toString() !== req.user.id) {
+        return res.status(403).json({ message: "Only the project owner can validate issues" });
+      }
+
+      const issue = project.activePokerSession.issues.id(req.params.issueId);
+      if (!issue) return res.status(404).json({ message: "Issue not found" });
+
+      // Update the issue with the final estimate and set status to "Finished"
+      issue.finalEstimate = finalEstimate;
+      issue.status = "Finished";
+      issue.assignedTo = assignedTo;
+
+      // Find the sprint to add the task to
+      const sprint = project.sprints.id(sprintId);
+      if (!sprint) {
+        return res.status(404).json({ message: "Sprint not found" });
+      }
+
+      // Calculate deadline based on delay (number of days from now)
+      let deadline = null;
+      if (delay !== undefined && !isNaN(delay) && delay >= 0) {
+        const currentDate = new Date();
+        deadline = new Date(currentDate.setDate(currentDate.getDate() + delay));
+      }
+
+      // Add the task to the selected sprint
+      sprint.tasks.push({
+        _id: issue._id,
+        title: issue.title,
+        description: issue.description,
+        status: "To Do",
+        priority: issue.priority || "Medium",
+        assignedTo: assignedTo,
+        deadline, // Set the calculated deadline
+        finalEstimate,
+      });
+
+      // Remove the issue from the poker session
+      project.activePokerSession.issues = project.activePokerSession.issues.filter(
+        (i) => i._id.toString() !== req.params.issueId
+      );
+
+      // Remove the task from the backlog
+      project.backlog = project.backlog.filter(
+        (task) => task._id.toString() !== req.params.issueId
+      );
+
+      await project.save();
+
+      // Emit issue deleted event
+      req.io.to(req.params.projectId).emit("issueDeleted", { issueId: req.params.issueId });
+
+      res.status(200).json({ message: "Issue validated, added to sprint, and removed from poker session and backlog successfully" });
+    } catch (error) {
+      console.error("Error validating session:", error);
+      res.status(500).json({ message: "Error validating session", error: error.message });
+    }
+  });
+
   router.post("/:projectId/poker/issue/:issueId/reveal", authenticateJWT, async (req, res) => {
     try {
       const project = await Project.findById(req.params.projectId).populate(
@@ -422,6 +543,7 @@ module.exports = (io) => {
       issue.status = "Revealed";
       await project.save();
 
+      // Get the populated votes to send to clients
       const populatedIssue = await Project.findById(req.params.projectId)
         .populate("activePokerSession.issues.votes.user", "username")
         .then((p) => p.activePokerSession.issues.id(req.params.issueId));
@@ -445,478 +567,216 @@ module.exports = (io) => {
     }
   });
 
-  /**
-   * @route   POST /api/projects/:projectId/poker/issue/:issueId/validate
-   * @desc    Validate an issue and add to sprint
-   * @access  Private
-   */
-  router.post("/:projectId/poker/issue/:issueId/validate", authenticateJWT, async (req, res) => {
-    try {
-      const { finalEstimate, sprintId, assignedTo, delay } = req.body;
-      const project = await Project.findById(req.params.projectId);
-      if (!project) return res.status(404).json({ message: "Project not found" });
-
-      if (project.owner.toString() !== req.user.id) {
-        return res.status(403).json({ message: "Only the project owner can validate issues" });
-      }
-
-      const issue = project.activePokerSession.issues.id(req.params.issueId);
-      if (!issue) return res.status(404).json({ message: "Issue not found" });
-
-      issue.finalEstimate = finalEstimate;
-      issue.status = "Finished";
-      issue.assignedTo = assignedTo;
-
-      const sprint = project.sprints.id(sprintId);
-      if (!sprint) {
-        return res.status(404).json({ message: "Sprint not found" });
-      }
-
-      let deadline = null;
-      if (delay !== undefined && !isNaN(delay) && delay >= 0) {
-        const currentDate = new Date();
-        deadline = new Date(currentDate.setDate(currentDate.getDate() + delay));
-      }
-
-      sprint.tasks.push({
-        _id: issue._id,
-        title: issue.title,
-        description: issue.description,
-        status: "To Do",
-        priority: issue.priority || "Medium",
-        assignedTo: assignedTo,
-        deadline,
-        finalEstimate,
-      });
-
-      project.activePokerSession.issues = project.activePokerSession.issues.filter(
-        (i) => i._id.toString() !== req.params.issueId
-      );
-
-      project.backlog = project.backlog.filter(
-        (task) => task._id.toString() !== req.params.issueId
-      );
-
-      await project.save();
-
-      req.io.to(req.params.projectId).emit("issueDeleted", { issueId: req.params.issueId });
-
-      res.status(200).json({ message: "Issue validated, added to sprint, and removed from poker session and backlog successfully" });
-    } catch (error) {
-      console.error("Error validating session:", error);
-      res.status(500).json({ message: "Error validating session", error: error.message });
-    }
-  });
-
-  /**
-   * @route   POST /api/projects/:projectId/poker/batch-validate
-   * @desc    Batch validate poker issues
-   * @access  Private
-   */
-  router.post("/:projectId/poker/batch-validate", authenticateJWT, async (req, res) => {
-    try {
-      const { issues } = req.body;
-      const projectId = req.params.projectId;
-      const userId = req.user.id;
-
-      if (!issues || !Array.isArray(issues) || issues.length === 0) {
-        return res.status(400).json({ message: "Issues array is required and must not be empty" });
-      }
-
-      const project = await Project.findById(projectId);
-      if (!project) {
-        return res.status(404).json({ message: "Project not found" });
-      }
-
-      if (project.owner.toString() !== userId) {
-        return res.status(403).json({ message: "Only the project owner can validate issues" });
-      }
-
-      const validatedIssueIds = [];
-      for (const issueData of issues) {
-        const { issueId, finalEstimate, sprintId, assignedTo, delay } = issueData;
-
-        if (!issueId || !sprintId || !finalEstimate || !assignedTo) {
-          return res.status(400).json({ message: "Missing required fields for issue validation" });
-        }
-
-        const issue = project.activePokerSession?.issues?.find(
-          (i) => i._id.toString() === issueId
-        );
-        if (!issue) {
-          return res.status(404).json({ message: `Issue ${issueId} not found in poker session` });
-        }
-
-        const sprint = project.sprints.id(sprintId);
-        if (!sprint) {
-          return res.status(404).json({ message: `Sprint ${sprintId} not found` });
-        }
-
-        let deadline = null;
-        if (delay !== undefined && !isNaN(delay) && delay >= 0) {
-          const currentDate = new Date();
-          deadline = new Date(currentDate.setDate(currentDate.getDate() + delay));
-        }
-
-        sprint.tasks.push({
-          _id: issue._id,
-          title: issue.title,
-          description: issue.description,
-          status: "To Do",
-          priority: issue.priority || "Medium",
-          assignedTo,
-          deadline,
-          finalEstimate,
-        });
-
-        issue.status = "Finished";
-        issue.finalEstimate = finalEstimate;
-        issue.assignedTo = assignedTo;
-
-        validatedIssueIds.push(issueId);
-      }
-
-      project.activePokerSession.issues = project.activePokerSession.issues.filter(
-        (issue) => !validatedIssueIds.includes(issue._id.toString())
-      );
-
-      project.backlog = project.backlog.filter(
-        (task) => !validatedIssueIds.includes(task._id.toString())
-      );
-
-      await project.save();
-
-      for (const issueId of validatedIssueIds) {
-        req.io.to(projectId).emit("issueDeleted", { issueId });
-      }
-
-      res.status(200).json({ message: "Issues validated, added to sprints, and removed from poker session and backlog successfully" });
-    } catch (error) {
-      console.error("Error batch validating issues:", error);
-      res.status(500).json({ message: "Error batch validating issues", error: error.message });
-    }
-  });
-
-  // ==================== Project Sprint Routes ====================
-
-  /**
-   * @route   POST /api/projects/:projectId/sprints
-   * @desc    Create a new sprint
-   * @access  Private
-   */
-  router.post("/:projectId/sprints", authenticateJWT, async (req, res) => {
-    try {
-      const { name, startDate, endDate } = req.body;
-      const project = await Project.findById(req.params.projectId);
-
-      if (!project) return res.status(404).json({ message: "Project not found" });
-      if (project.owner.toString() !== req.user.id) {
-        return res.status(403).json({ message: "Only the project owner can create sprints" });
-      }
-
-      const sprint = {
-        name,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        tasks: [],
-      };
-
-      project.sprints.push(sprint);
-      await project.save();
-
-      res.status(201).json(project.sprints[project.sprints.length - 1]);
-    } catch (error) {
-      console.error("Error creating sprint:", error);
-      res.status(500).json({ message: "Error creating sprint", error: error.message });
-    }
-  });
-
-  /**
-   * @route   GET /api/projects/:projectId/sprints
-   * @desc    Get all sprints for a project
-   * @access  Private
-   */
-  router.get("/:projectId/sprints", authenticateJWT, async (req, res) => {
-    try {
-      const project = await Project.findById(req.params.projectId);
-      if (!project) return res.status(404).json({ message: "Project not found" });
-      if (!project.members.map((m) => m._id.toString()).includes(req.user.id)) {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
-
-      res.status(200).json(project.sprints);
-    } catch (error) {
-      console.error("Error fetching sprints:", error);
-      res.status(500).json({ message: "Error fetching sprints", error: error.message });
-    }
-  });
-
-  /**
-   * @route   PUT /api/projects/:projectId/sprints/:sprintId
-   * @desc    Update a sprint
-   * @access  Private
-   */
-  router.put("/:projectId/sprints/:sprintId", authenticateJWT, async (req, res) => {
-    try {
-      const { name, startDate, endDate } = req.body;
-      const project = await Project.findById(req.params.projectId);
-
-      if (!project) return res.status(404).json({ message: "Project not found" });
-      if (project.owner.toString() !== req.user.id) {
-        return res.status(403).json({ message: "Only the project owner can update sprints" });
-      }
-
-      const sprint = project.sprints.id(req.params.sprintId);
-      if (!sprint) return res.status(404).json({ message: "Sprint not found" });
-
-      sprint.name = name || sprint.name;
-      sprint.startDate = startDate ? new Date(startDate) : sprint.startDate;
-      sprint.endDate = endDate ? new Date(endDate) : sprint.endDate;
-
-      await project.save();
-      res.status(200).json(sprint);
-    } catch (error) {
-      console.error("Error updating sprint:", error);
-      res.status(500).json({ message: "Error updating sprint", error: error.message });
-    }
-  });
-
-  /**
-   * @route   DELETE /api/projects/:projectId/sprints/:sprintId
-   * @desc    Delete a sprint
-   * @access  Private
-   */
-  router.delete("/:projectId/sprints/:sprintId", authenticateJWT, async (req, res) => {
-    try {
-      const project = await Project.findById(req.params.projectId);
-      if (!project) return res.status(404).json({ message: "Project not found" });
-      if (project.owner.toString() !== req.user.id) {
-        return res.status(403).json({ message: "Only the project owner can delete sprints" });
-      }
-
-      const sprint = project.sprints.id(req.params.sprintId);
-      if (!sprint) return res.status(404).json({ message: "Sprint not found" });
-
-      project.sprints.pull({ _id: req.params.sprintId });
-      await project.save();
-
-      res.status(200).json({ message: "Sprint deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting sprint:", error);
-      res.status(500).json({ message: "Error deleting sprint", error: error.message });
-    }
-  });
-
-  /**
-   * @route   POST /api/projects/:projectId/sprints/:sprintId/tasks
-   * @desc    Add a task to a sprint
-   * @access  Private
-   */
-  router.post("/:projectId/sprints/:sprintId/tasks", authenticateJWT, async (req, res) => {
-    try {
-      const { title, description, assignedTo, priority, deadline } = req.body;
-      const project = await Project.findById(req.params.projectId);
-
-      if (!project) return res.status(404).json({ message: "Project not found" });
-      if (!project.members.map((m) => m._id.toString()).includes(req.user.id)) {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
-
-      const sprint = project.sprints.id(req.params.sprintId);
-      if (!sprint) return res.status(404).json({ message: "Sprint not found" });
-
-      const task = {
-        title,
-        description,
-        status: "To Do",
-        priority: priority || "Medium",
-        assignedTo,
-        deadline: deadline ? new Date(deadline) : null,
-      };
-
-      sprint.tasks.push(task);
-      await project.save();
-
-      res.status(201).json(sprint.tasks[sprint.tasks.length - 1]);
-    } catch (error) {
-      console.error("Error adding task to sprint:", error);
-      res.status(500).json({ message: "Error adding task to sprint", error: error.message });
-    }
-  });
-
-  /**
-   * @route   PUT /api/projects/:projectId/sprints/:sprintId/tasks/:taskId
-   * @desc    Update a task in a sprint
-   * @access  Private
-   */
-  router.put("/:projectId/sprints/:sprintId/tasks/:taskId", authenticateJWT, async (req, res) => {
-    try {
-      const { title, description, status, assignedTo, priority, deadline } = req.body;
-      const project = await Project.findById(req.params.projectId);
-
-      if (!project) return res.status(404).json({ message: "Project not found" });
-      if (!project.members.map((m) => m._id.toString()).includes(req.user.id)) {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
-
-      const sprint = project.sprints.id(req.params.sprintId);
-      if (!sprint) return res.status(404).json({ message: "Sprint not found" });
-
-      const task = sprint.tasks.id(req.params.taskId);
-      if (!task) return res.status(404).json({ message: "Task not found" });
-
-      task.title = title || task.title;
-      task.description = description || task.description;
-      task.status = status || task.status;
-      task.assignedTo = assignedTo || task.assignedTo;
-      task.priority = priority || task.priority;
-      task.deadline = deadline ? new Date(deadline) : task.deadline;
-
-      await project.save();
-      res.status(200).json(task);
-    } catch (error) {
-      console.error("Error updating task:", error);
-      res.status(500).json({ message: "Error updating task", error: error.message });
-    }
-  });
-
-  /**
-   * @route   DELETE /api/projects/:projectId/sprints/:sprintId/tasks/:taskId
-   * @desc    Delete a task from a sprint
-   * @access  Private
-   */
-  router.delete("/:projectId/sprints/:sprintId/tasks/:taskId", authenticateJWT, async (req, res) => {
-    try {
-      const project = await Project.findById(req.params.projectId);
-      if (!project) return res.status(404).json({ message: "Project not found" });
-      if (!project.members.map((m) => m._id.toString()).includes(req.user.id)) {
-        return res.status(403).json({ message: "Unauthorized" });
-      }
-
-      const sprint = project.sprints.id(req.params.sprintId);
-      if (!sprint) return res.status(404).json({ message: "Sprint not found" });
-
-      const task = sprint.tasks.id(req.params.taskId);
-      if (!task) return res.status(404).json({ message: "Task not found" });
-
-      sprint.tasks.pull({ _id: req.params.taskId });
-      await project.save();
-
-      res.status(200).json({ message: "Task deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting task:", error);
-      res.status(500).json({ message: "Error deleting task", error: error.message });
-    }
-  });
-
-  // ==================== Project Backlog Routes ====================
-
-  /**
-   * @route   POST /api/projects/:projectId/backlog
-   * @desc    Add a task to the project backlog
-   * @access  Private
-   */
+  // Modified route to add a task to backlog and automatically create a poker issue
   router.post("/:projectId/backlog", authenticateJWT, async (req, res) => {
     try {
-      const { title, description, priority } = req.body;
+      const { title, description, priority, assignedTo, deadline } = req.body;
       const project = await Project.findById(req.params.projectId);
-
       if (!project) return res.status(404).json({ message: "Project not found" });
-      if (!project.members.map((m) => m._id.toString()).includes(req.user.id)) {
+      if (!project.members.map((m) => m._id.toString()).includes(req.user.id))
         return res.status(403).json({ message: "Unauthorized" });
-      }
 
-      const task = {
+      // Create a new task with a shared ID
+      const taskId = new mongoose.Types.ObjectId();
+      const newTask = {
+        _id: taskId,
         title,
         description,
-        priority: priority || "Medium",
+        priority,
+        status: "To Do",
+        assignedTo,
+        deadline,
       };
 
-      project.backlog.push(task);
+      // Add to backlog
+      project.backlog.push(newTask);
+
+      // Ensure activePokerSession exists
+      if (!project.activePokerSession) {
+        project.activePokerSession = { issues: [] };
+      }
+
+      // Add the same task as a poker issue with the same ID
+      const newPokerIssue = {
+        ...newTask,
+        status: "Not Started",
+        votes: [],
+      };
+      project.activePokerSession.issues.push(newPokerIssue);
+
       await project.save();
 
-      res.status(201).json(project.backlog[project.backlog.length - 1]);
+      // Emit issueAdded event for real-time updates
+      req.io.to(req.params.projectId).emit("issueAdded", { issue: newPokerIssue });
+
+      res.status(201).json(project);
     } catch (error) {
-      console.error("Error adding task to backlog:", error);
       res.status(500).json({ message: "Error adding task to backlog", error: error.message });
     }
   });
 
-  /**
-   * @route   GET /api/projects/:projectId/backlog
-   * @desc    Get all tasks in the project backlog
-   * @access  Private
-   */
-  router.get("/:projectId/backlog", authenticateJWT, async (req, res) => {
+  router.post("/:projectId/sprints", authenticateJWT, async (req, res) => {
     try {
+      const { name, startDate, endDate, goals } = req.body;
       const project = await Project.findById(req.params.projectId);
       if (!project) return res.status(404).json({ message: "Project not found" });
-      if (!project.members.map((m) => m._id.toString()).includes(req.user.id)) {
+      if (!project.members.map((m) => m._id.toString()).includes(req.user.id.toString()))
         return res.status(403).json({ message: "Unauthorized" });
-      }
-
-      res.status(200).json(project.backlog);
+      project.sprints = project.sprints || [];
+      const newSprint = { name, tasks: [], active: true, startDate, endDate, goals };
+      project.sprints.push(newSprint);
+      await project.save();
+      res.status(201).json({ message: "Sprint created", sprint: newSprint });
     } catch (error) {
-      console.error("Error fetching backlog:", error);
-      res.status(500).json({ message: "Error fetching backlog", error: error.message });
+      res.status(500).json({ message: "Error creating sprint", error: error.message });
     }
   });
 
-  /**
-   * @route   PUT /api/projects/:projectId/backlog/:taskId
-   * @desc    Update a task in the backlog
-   * @access  Private
-   */
-  router.put("/:projectId/backlog/:taskId", authenticateJWT, async (req, res) => {
+  router.post("/:projectId/sprints/:sprintId/tasks", authenticateJWT, async (req, res) => {
     try {
-      const { title, description, priority } = req.body;
+      const { taskId, assignedTo, deadline } = req.body;
       const project = await Project.findById(req.params.projectId);
-
       if (!project) return res.status(404).json({ message: "Project not found" });
-      if (!project.members.map((m) => m._id.toString()).includes(req.user.id)) {
+      if (!project.members.map((m) => m._id.toString()).includes(req.user.id.toString()))
         return res.status(403).json({ message: "Unauthorized" });
-      }
 
-      const task = project.backlog.id(req.params.taskId);
+      const sprint = project.sprints.id(req.params.sprintId);
+      if (!sprint) return res.status(404).json({ message: "Sprint not found" });
+
+      const task = project.backlog.id(taskId);
       if (!task) return res.status(404).json({ message: "Task not found" });
 
-      task.title = title || task.title;
-      task.description = description || task.description;
-      task.priority = priority || task.priority;
-
+      sprint.tasks.push({ ...task.toObject(), assignedTo, deadline });
+      project.backlog = project.backlog.filter((t) => t._id.toString() !== taskId);
       await project.save();
-      res.status(200).json(task);
+      res.status(201).json(project);
     } catch (error) {
-      console.error("Error updating backlog task:", error);
-      res.status(500).json({ message: "Error updating backlog task", error: error.message });
+      res.status(500).json({ message: "Error adding task to sprint", error: error.message });
     }
   });
 
-  /**
-   * @route   DELETE /api/projects/:projectId/backlog/:taskId
-   * @desc    Delete a task from the backlog
-   * @access  Private
-   */
+  router.put("/:projectId/sprints/:sprintId/tasks/:taskId", authenticateJWT, async (req, res) => {
+    try {
+      const { status } = req.body;
+      const project = await Project.findById(req.params.projectId);
+      if (!project) return res.status(404).json({ message: "Project not found" });
+      if (!project.members.map((m) => m._id.toString()).includes(req.user.id.toString()))
+        return res.status(403).json({ message: "Unauthorized" });
+
+      const sprint = project.sprints.id(req.params.sprintId);
+      if (!sprint) return res.status(404).json({ message: "Sprint not found" });
+
+      const task = sprint.tasks.id(req.params.taskId);
+      if (!task) return res.status(404).json({ message: "Task not found" });
+
+      task.status = status;
+      await project.save();
+      res.status(200).json(project);
+    } catch (error) {
+      res.status(500).json({ message: "Error updating task status", error: error.message });
+    }
+  });
+
   router.delete("/:projectId/backlog/:taskId", authenticateJWT, async (req, res) => {
     try {
       const project = await Project.findById(req.params.projectId);
       if (!project) return res.status(404).json({ message: "Project not found" });
-      if (!project.members.map((m) => m._id.toString()).includes(req.user.id)) {
+      if (!project.members.map((m) => m._id.toString()).includes(req.user.id.toString()))
         return res.status(403).json({ message: "Unauthorized" });
+
+      project.backlog = project.backlog.filter((task) => task._id.toString() !== req.params.taskId);
+
+      // Also remove from poker session if it exists
+      if (project.activePokerSession && project.activePokerSession.issues) {
+        const issueIndex = project.activePokerSession.issues.findIndex(
+          (issue) => issue._id.toString() === req.params.taskId,
+        );
+
+        if (issueIndex !== -1) {
+          project.activePokerSession.issues.splice(issueIndex, 1);
+          // Emit issue deleted event
+          req.io.to(req.params.projectId).emit("issueDeleted", { issueId: req.params.taskId });
+        }
       }
 
-      const task = project.backlog.id(req.params.taskId);
-      if (!task) return res.status(404).json({ message: "Task not found" });
-
-      project.backlog.pull({ _id: req.params.taskId });
       await project.save();
-
-      res.status(200).json({ message: "Task deleted from backlog successfully" });
+      res.status(200).json(project);
     } catch (error) {
-      console.error("Error deleting backlog task:", error);
-      res.status(500).json({ message: "Error deleting backlog task", error: error.message });
+      res.status(500).json({ message: "Error deleting task", error: error.message });
     }
   });
 
+  router.delete("/:projectId/sprints/:sprintId", authenticateJWT, async (req, res) => {
+    try {
+      const project = await Project.findById(req.params.projectId);
+      if (!project) return res.status(404).json({ message: "Project not found" });
+      if (!project.members.map((m) => m._id.toString()).includes(req.user.id.toString()))
+        return res.status(403).json({ message: "Unauthorized" });
+
+      project.sprints = project.sprints.filter((sprint) => sprint._id.toString() !== req.params.sprintId);
+      await project.save();
+      res.status(200).json(project);
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting sprint", error: error.message });
+    }
+  });
+
+  router.delete("/:projectId/sprints/:sprintId/tasks/:taskId", authenticateJWT, async (req, res) => {
+    try {
+      const project = await Project.findById(req.params.projectId);
+      if (!project) return res.status(404).json({ message: "Project not found" });
+      if (!project.members.map((m) => m._id.toString()).includes(req.user.id.toString()))
+        return res.status(403).json({ message: "Unauthorized" });
+
+      const sprint = project.sprints.id(req.params.sprintId);
+      if (!sprint) return res.status(404).json({ message: "Sprint not found" });
+
+      sprint.tasks = sprint.tasks.filter((task) => task._id.toString() !== req.params.taskId);
+      await project.save();
+      res.status(200).json(project);
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting task", error: error.message });
+    }
+  });
+
+  router.delete("/:projectId/poker/issue/:issueId", authenticateJWT, async (req, res) => {
+    const { projectId, issueId } = req.params;
+    try {
+      const project = await Project.findById(projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      if (!project.members.map((m) => m._id.toString()).includes(req.user.id)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      const issueIndex = project.activePokerSession?.issues?.findIndex((issue) => issue._id.toString() === issueId);
+      if (issueIndex === -1 || issueIndex === undefined) {
+        return res.status(404).json({ message: "Issue not found" });
+      }
+      project.activePokerSession.issues.splice(issueIndex, 1);
+      await project.save();
+      console.log(`Emitting issueDeleted event to room ${projectId} for issue ${issueId}`);
+      req.io.to(projectId).emit("issueDeleted", { issueId });
+      res.status(200).json({ message: "Issue deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting issue:", error);
+      res.status(500).json({ message: "Error deleting issue", error: error.message });
+    }
+  });
+  router.get("/:projectId/chat", authenticateJWT, async (req, res) => {
+    try {
+      const project = await Project.findById(req.params.projectId);
+      if (!project) return res.status(404).json({ message: "Project not found" });
+      if (!project.members.map(m => m._id.toString()).includes(req.user.id)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      // Assuming chat messages are stored in project.chatMessages
+      const chatMessages = project.chatMessages || [];
+      res.status(200).json(chatMessages);
+    } catch (error) {
+      console.error("Error fetching chat messages:", error);
+      res.status(500).json({ message: "Error fetching chat messages", error: error.message });
+    }
+  });
   return router;
 };
