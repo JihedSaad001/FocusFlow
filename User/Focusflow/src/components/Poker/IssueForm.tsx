@@ -33,7 +33,7 @@ export function IssueForm({ sessionId, onIssueAdded }: IssueFormProps) {
 
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${sessionId}/poker/issue`,
+        `focusflow-production.up.railway.app/api/projects/${sessionId}/poker/issue`,
         {
           method: "POST",
           headers: {

@@ -62,7 +62,7 @@ const KanbanBoard: React.FC = () => {
         const token = localStorage.getItem("token");
         if (!token) return;
         const response = await fetch(
-          "https://focusflow-production.up.railway.app/api/user/kanban",
+          "focusflow-production.up.railway.app/api/user/kanban",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -92,7 +92,7 @@ const KanbanBoard: React.FC = () => {
       console.log("Saving board with data:", JSON.stringify(updatedBoard));
 
       const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/user/kanban",
+        "focusflow-production.up.railway.app/api/user/kanban",
         {
           method: "PUT",
           headers: {

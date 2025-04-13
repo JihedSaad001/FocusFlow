@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "https://focusflow-production.up.railway.app"; // Update to your production URL
+const API_BASE_URL = "focusflow-production.up.railway.app"; // Update to your production URL
 
 export const fetchResources = async () => {
   try {
@@ -217,7 +217,7 @@ export const uploadMusic = async (
   if (tags) formData.append("tags", tags);
 
   const response = await fetch(
-    "https://focusflow-production.up.railway.app/api/resources/upload-music",
+    "focusflow-production.up.railway.app/api/resources/upload-music",
     {
       method: "POST",
       headers: {

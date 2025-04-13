@@ -54,7 +54,7 @@ const ResourcesDatabase = () => {
         setAudioFiles(data);
       } else if (activeTab === "music") {
         const response = await fetch(
-          "https://focusflow-production.up.railway.app/api/resources/music"
+          "focusflow-production.up.railway.app/api/resources/music"
         );
         if (!response.ok) throw new Error("Failed to fetch music tracks");
         const data = await response.json();
@@ -177,7 +177,7 @@ const ResourcesDatabase = () => {
       if (tags) formData.append("tags", tags);
 
       const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/resources/upload-music",
+        "focusflow-production.up.railway.app/api/resources/upload-music",
         {
           method: "POST",
           headers: {

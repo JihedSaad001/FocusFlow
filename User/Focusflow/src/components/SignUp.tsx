@@ -35,7 +35,7 @@ function SignUp() {
     setLoading(true);
     try {
       const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/auth/signup",
+        "focusflow-production.up.railway.app/api/auth/signup",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -20,7 +20,7 @@ const ForgotPassword = () => {
 
     try {
       const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/auth/forgot-password",
+        "focusflow-production.up.railway.app/api/auth/forgot-password",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
