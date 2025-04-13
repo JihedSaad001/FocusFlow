@@ -23,7 +23,7 @@ function Projects() {
     const fetchProjects = async () => {
       try {
         const response = await fetch(
-          "focusflow-production.up.railway.app/api/projects",
+          "https://focusflow-production.up.railway.app/api/projects",
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -56,7 +56,7 @@ function Projects() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `focusflow-production.up.railway.app/api/projects/${projectId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${projectId}`,
         {
           method: "DELETE",
           headers: {

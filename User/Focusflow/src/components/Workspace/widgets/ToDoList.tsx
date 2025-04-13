@@ -15,7 +15,7 @@ interface Task {
   completed: boolean;
 }
 
-const API_BASE_URL = "focusflow-production.up.railway.app";
+const API_BASE_URL = "https://focusflow-production.up.railway.app";
 
 const ToDoList = ({ onClose }: ToDoListProps) => {
   const [tasks, setTasks] = useState<Task[]>([]);
