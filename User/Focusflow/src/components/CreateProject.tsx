@@ -29,7 +29,7 @@ function CreateProject() {
 
     try {
       const response = await fetch(
-        "focusflow-production.up.railway.app/api/projects",
+        "https://focusflow-production.up.railway.app/api/projects",
         {
           method: "POST",
           headers: {

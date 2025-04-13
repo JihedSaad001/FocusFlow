@@ -26,7 +26,7 @@ export const updateUser = async (data: any, token: string) => {
   }
 
   const response = await fetch(
-    "focusflow-production.up.railway.app/api/auth/update-user",
+    "https://focusflow-production.up.railway.app/api/auth/update-user",
     {
       method: "PUT",
       headers: {
@@ -102,7 +102,7 @@ export const fetchUserStats = async (token: string, timeRange = "week") => {
 
   try {
     const response = await fetch(
-      `focusflow-production.up.railway.app/api/user/stats?timeRange=${timeRange}`,
+      `https://focusflow-production.up.railway.app/api/user/stats?timeRange=${timeRange}`,
       {
         method: "GET",
         headers: {
@@ -140,7 +140,7 @@ export const logFocusSession = async (
 
   try {
     const response = await fetch(
-      "focusflow-production.up.railway.app/api/user/log-focus-session",
+      "https://focusflow-production.up.railway.app/api/user/log-focus-session",
       {
         method: "POST",
         headers: {
@@ -172,7 +172,7 @@ export const logCompletedTask = async (token: string, taskId: string) => {
 
   try {
     const response = await fetch(
-      "focusflow-production.up.railway.app/api/user/log-completed-task",
+      "https://focusflow-production.up.railway.app/api/user/log-completed-task",
       {
         method: "POST",
         headers: {

@@ -10,7 +10,7 @@ export function Chat({ projectId }: { projectId: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const socketRef = useRef(
-    io("focusflow-production.up.railway.app", { withCredentials: true })
+    io("https://focusflow-production.up.railway.app", { withCredentials: true })
   );
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -32,7 +32,7 @@ export function Chat({ projectId }: { projectId: string }) {
     const fetchMessages = async () => {
       try {
         const response = await fetch(
-          `focusflow-production.up.railway.app/api/projects/${projectId}/chat`,
+          `https://focusflow-production.up.railway.app/api/projects/${projectId}/chat`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,
