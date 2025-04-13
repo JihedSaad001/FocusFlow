@@ -24,7 +24,7 @@ const VerifyEmail = () => {
         }
 
         const response = await fetch(
-          `focusflow-production.up.railway.app/api/auth/verify-email/${token}`,
+          `https://focusflow-production.up.railway.app/api/auth/verify-email/${token}`,
           {
             method: "GET",
             headers: {

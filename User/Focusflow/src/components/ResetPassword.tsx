@@ -54,7 +54,7 @@ const ResetPassword = () => {
 
     try {
       const response = await fetch(
-        `focusflow-production.up.railway.app/api/auth/reset-password/${token}`,
+        `https://focusflow-production.up.railway.app/api/auth/reset-password/${token}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
