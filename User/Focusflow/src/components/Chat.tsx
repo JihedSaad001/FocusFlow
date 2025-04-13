@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
+//to fix later
 import { jwtDecode } from "jwt-decode";
 import type { ChatMessage, DecodedToken } from "../types";
 
