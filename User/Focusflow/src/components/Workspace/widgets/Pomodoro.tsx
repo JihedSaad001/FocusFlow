@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Play, Pause, RotateCcw, X, Coffee, Brain } from "lucide-react";
 import { useDraggable } from "../hooks/use-draggable";
-import { logFocusSession } from "../../../Api";
+import { userDataAPI } from "../../../services/api";
 
 // Add this utility function at the top of the file
 const setupTimerCompletionHandler = () => {
@@ -33,14 +33,15 @@ const setupTimerCompletionHandler = () => {
           if (token && storedInitialDuration) {
             const durationMinutes = Math.round(storedInitialDuration / 60);
             if (durationMinutes >= 1) {
-              logFocusSession(token, {
-                duration: durationMinutes,
-                completed: true,
-                ambientSound:
-                  localStorage.getItem("activeAmbientSound") || undefined,
-              }).catch((error) =>
-                console.error("Error logging session:", error)
-              );
+              userDataAPI
+                .logFocusSession(
+                  durationMinutes,
+                  true,
+                  localStorage.getItem("activeAmbientSound") || undefined
+                )
+                .catch((error) =>
+                  console.error("Error logging session:", error)
+                );
             }
           }
         }
@@ -267,11 +268,11 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
 
       if (durationMinutes < 1) return;
 
-      await logFocusSession(token, {
-        duration: durationMinutes,
+      await userDataAPI.logFocusSession(
+        durationMinutes,
         completed,
-        ambientSound: currentAmbientSound || undefined,
-      });
+        currentAmbientSound || undefined
+      );
     } catch (error) {
       console.error("Failed to log focus session:", error);
     }
@@ -294,7 +295,7 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
         zIndex: 50,
         transition: isDragging ? "none" : "transform 0.2s ease-out",
       }}
-      className={`fixed bg-[#121212] text-white rounded-xl shadow-lg p-5 w-64 transition-all cursor-grab active:cursor-grabbing 
+      className={`fixed bg-[#121212] text-white rounded-xl shadow-lg p-5 w-64 transition-all cursor-grab active:cursor-grabbing
       border-4 ${mode.borderColor}`}
     >
       <div

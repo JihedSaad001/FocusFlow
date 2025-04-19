@@ -7,14 +7,30 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependency directories
 node_modules
+
+# Build outputs
 dist
 dist-ssr
+build
+storybook-static
+
+# Local development
 *.local
+.env
+.env.*
+!.env.example
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json.example
 .idea
 .DS_Store
 *.suo
@@ -22,6 +38,37 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.env
+*.swp
+*.swo
 
+# Testing and coverage
+coverage
+.nyc_output
+*.lcov
+junit.xml
+test-results.xml
+.coverage
+.eslintcache
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+.cache
+
+# OS generated files
+Thumbs.db
+desktop.ini
+
+# Deployment platforms
 .vercel
+.netlify
+
+# Misc
+*.tgz
+*.zip
+*.tar.gz
+
+# TypeScript
+tsconfig.tsbuildinfo
+*.tsbuildinfo

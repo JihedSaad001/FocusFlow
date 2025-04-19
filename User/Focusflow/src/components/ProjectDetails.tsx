@@ -26,7 +26,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
-import { io } from "socket.io-client";
+import io from "socket.io-client";
 import Chat from "./Chat";
 import type { Project, Task, Sprint, DecodedToken } from "../types";
 
@@ -64,7 +64,9 @@ function ProjectDetails() {
     type: "success" | "error";
   } | null>(null);
   const socket = useRef(
-    io("https://focusflow-production.up.railway.app", { withCredentials: true })
+    io("https://focusflow-production.up.railway.app", {
+      autoConnect: true,
+    })
   );
   const [assignTaskModalOpen, setAssignTaskModalOpen] = useState(false);
   const [selectedTaskForAssignment, setSelectedTaskForAssignment] =

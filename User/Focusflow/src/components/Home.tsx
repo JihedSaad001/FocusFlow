@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Calendar } from "lucide-react";
 import NewsSection from "./NewsSection";
-import ProductivityAssistant from "./ProductivityAssistant";
 
 const quotes = [
   "Productivity is never an accident. It is always the result of a commitment to excellence, intelligent planning, and focused effort.",
@@ -126,8 +125,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Productivity Assistant (Chat) */}
-      <ProductivityAssistant />
+      {/* Productivity Assistant removed */}
     </div>
   );
 };

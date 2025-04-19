@@ -9,7 +9,12 @@ declare global {
 }
 
 import { useEffect, useState } from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Navigate,
+} from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import MainMenu from "./components/MainMenu";
@@ -29,6 +34,7 @@ import ResetPassword from "./components/ResetPassword";
 import VerifyEmail from "./components/VerifyEmail";
 import AmbientSounds from "./components/Workspace/widgets/AmbientSounds";
 import MusicPlayer from "./components/Workspace/widgets/MusicPlayer";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Global state for ambient sounds and music player
 if (typeof window !== "undefined") {
@@ -133,21 +139,104 @@ const App = () => {
         <div className={`flex-1 ${isLoggedIn ? "ml-20" : ""} `}>
           {!isLoggedIn && <Navbar />}
           <Routes>
-            <Route path="/" element={<MainMenu />} />
-            <Route path="/home" element={<Home />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/profile" element={<Profile />} />
+            {/* Public Routes */}
+            <Route
+              path="/"
+              element={
+                isLoggedIn ? <Navigate to="/home" replace /> : <MainMenu />
+              }
+            />
             <Route path="/signin" element={<SignIn />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/workspace" element={<Workspace />} />
-            <Route path="/kanban" element={<KanbanBoard />} />
-            <Route path="/createProject" element={<CreateProject />} />
-            <Route path="/projects/:id" element={<ProjectDetails />} />
-            <Route path="/projects/:id/poker" element={<PlanningSession />} />
-            <Route path="/projects" element={<Projects />} />
+
+            {/* Protected Routes - Only accessible when logged in */}
+            <Route
+              path="/home"
+              element={
+                <ProtectedRoute>
+                  <Home />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/workspace"
+              element={
+                <ProtectedRoute>
+                  <Workspace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/kanban"
+              element={
+                <ProtectedRoute>
+                  <KanbanBoard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/createProject"
+              element={
+                <ProtectedRoute>
+                  <CreateProject />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/projects/:id"
+              element={
+                <ProtectedRoute>
+                  <ProjectDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/projects/:id/poker"
+              element={
+                <ProtectedRoute>
+                  <PlanningSession />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/projects"
+              element={
+                <ProtectedRoute>
+                  <Projects />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Catch-all route - Redirect to home if logged in, otherwise to main menu */}
+            <Route
+              path="*"
+              element={
+                isLoggedIn ? (
+                  <Navigate to="/home" replace />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
           </Routes>
         </div>
 

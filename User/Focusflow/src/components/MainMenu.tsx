@@ -1,27 +1,36 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import {
-
   Layout,
- 
   Spade,
   Briefcase,
   ArrowRight,
   MessageSquare,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const MainMenu = () => {
   const navigate = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Check if user is logged in
+  useEffect(() => {
+    const user = localStorage.getItem("user");
+    const token = localStorage.getItem("token");
+    setIsLoggedIn(!!(user && token));
+  }, []);
 
   const features = [
     {
       icon: <Layout className="w-12 h-12 text-[#ff4e50]" />,
       title: "Smart Workspace",
-      description: "Customizable workspace with Pomodoro, music, and ambient sounds",
+      description:
+        "Customizable workspace with Pomodoro, music, and ambient sounds",
     },
     {
       icon: <Briefcase className="w-12 h-12 text-[#fc913a]" />,
       title: "Project Management",
-      description: "Organize tasks with Kanban boards and track progress efficiently",
+      description:
+        "Organize tasks with Kanban boards and track progress efficiently",
     },
     {
       icon: <Spade className="w-12 h-12 text-[#ff4e50]" />,
@@ -34,6 +43,11 @@ const MainMenu = () => {
       description: "Real-time chat and team planning features",
     },
   ];
+
+  // Redirect to home if user is logged in
+  if (isLoggedIn) {
+    return <Navigate to="/home" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-[#121212] text-white">
@@ -50,8 +64,8 @@ const MainMenu = () => {
           </h1>
 
           <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mt-8 leading-relaxed">
-            Your complete productivity ecosystem. Combine focus tools, project management,
-            and team collaboration in one seamless platform.
+            Your complete productivity ecosystem. Combine focus tools, project
+            management, and team collaboration in one seamless platform.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12">
             <button
@@ -77,7 +91,9 @@ const MainMenu = () => {
               >
                 <div className="flex flex-col items-center text-center">
                   {feature.icon}
-                  <h3 className="text-xl font-bold mt-4 mb-2">{feature.title}</h3>
+                  <h3 className="text-xl font-bold mt-4 mb-2">
+                    {feature.title}
+                  </h3>
                   <p className="text-gray-400">{feature.description}</p>
                 </div>
               </div>
@@ -89,16 +105,27 @@ const MainMenu = () => {
             <h2 className="text-4xl font-bold mb-8">Why Choose FocusFlow?</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="p-6 rounded-lg bg-white/5">
-                <h3 className="text-xl font-bold mb-3">Enhanced Productivity</h3>
-                <p className="text-gray-400">Boost your focus with our integrated Pomodoro timer and ambient soundscapes</p>
+                <h3 className="text-xl font-bold mb-3">
+                  Enhanced Productivity
+                </h3>
+                <p className="text-gray-400">
+                  Boost your focus with our integrated Pomodoro timer and
+                  ambient soundscapes
+                </p>
               </div>
               <div className="p-6 rounded-lg bg-white/5">
                 <h3 className="text-xl font-bold mb-3">Team Synergy</h3>
-                <p className="text-gray-400">Real-time collaboration tools including Planning Poker for agile estimation</p>
+                <p className="text-gray-400">
+                  Real-time collaboration tools including Planning Poker for
+                  agile estimation
+                </p>
               </div>
               <div className="p-6 rounded-lg bg-white/5">
                 <h3 className="text-xl font-bold mb-3">Project Success</h3>
-                <p className="text-gray-400">Track and manage projects efficiently with our intuitive Kanban system</p>
+                <p className="text-gray-400">
+                  Track and manage projects efficiently with our intuitive
+                  Kanban system
+                </p>
               </div>
             </div>
           </div>
@@ -109,27 +136,39 @@ const MainMenu = () => {
             <div className="space-y-8">
               <div className="flex flex-col md:flex-row items-center gap-6 p-6 rounded-lg bg-white/5">
                 <div className="text-left">
-                  <h3 className="text-2xl font-bold mb-3">1. Smart Workspace</h3>
-                  <p className="text-gray-400">Create your ideal work environment with customizable layouts, background music, and productivity tools</p>
+                  <h3 className="text-2xl font-bold mb-3">
+                    1. Smart Workspace
+                  </h3>
+                  <p className="text-gray-400">
+                    Create your ideal work environment with customizable
+                    layouts, background music, and productivity tools
+                  </p>
                 </div>
               </div>
               <div className="flex flex-col md:flex-row items-center gap-6 p-6 rounded-lg bg-white/5">
                 <div className="text-left">
                   <h3 className="text-2xl font-bold mb-3">2. Team Planning</h3>
-                  <p className="text-gray-400">Collaborate with your team using Planning Poker for accurate story point estimation</p>
+                  <p className="text-gray-400">
+                    Collaborate with your team using Planning Poker for accurate
+                    story point estimation
+                  </p>
                 </div>
               </div>
               <div className="flex flex-col md:flex-row items-center gap-6 p-6 rounded-lg bg-white/5">
                 <div className="text-left">
-                  <h3 className="text-2xl font-bold mb-3">3. Project Tracking</h3>
-                  <p className="text-gray-400">Monitor progress and manage tasks with our visual project management tools</p>
+                  <h3 className="text-2xl font-bold mb-3">
+                    3. Project Tracking
+                  </h3>
+                  <p className="text-gray-400">
+                    Monitor progress and manage tasks with our visual project
+                    management tools
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* CTA Buttons */}
-         
         </div>
       </section>
     </div>

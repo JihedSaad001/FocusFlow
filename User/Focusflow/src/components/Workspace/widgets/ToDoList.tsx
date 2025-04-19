@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"; // Add useRef
 import { Plus, X, Check, Trash2, Loader2 } from "lucide-react";
 import Draggable from "react-draggable"; // Import react-draggable
-import { logCompletedTask } from "../../../Api";
+import { userDataAPI } from "../../../services/api";
 
 interface ToDoListProps {
   onClose: () => void;
@@ -172,7 +172,7 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
       try {
         const token = localStorage.getItem("token");
         if (token) {
-          await logCompletedTask(token, id);
+          await userDataAPI.logCompletedTask(id);
           console.log("Task completion logged:", task.text);
         }
       } catch (error) {

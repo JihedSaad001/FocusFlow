@@ -2,9 +2,9 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Mail, Lock, AlertCircle } from "lucide-react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, Navigate } from "react-router-dom";
 
 const SignIn = () => {
   const navigate = useNavigate();
@@ -14,6 +14,16 @@ const SignIn = () => {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const user = localStorage.getItem("user");
+    const token = localStorage.getItem("token");
+    if (user && token) {
+      setIsLoggedIn(true);
+    }
+  }, []);
 
   // Handles input changes and updates form state
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,7 +72,7 @@ const SignIn = () => {
       window.dispatchEvent(new Event("storage"));
 
       // Redirect to dashboard
-      navigate("/dashboard");
+      navigate("/home");
     } catch (err: any) {
       setError(err.message);
       console.error("❌ Login Error:", err.message); // Debugging log
@@ -105,6 +115,11 @@ const SignIn = () => {
       setResendingEmail(false);
     }
   };
+
+  // Redirect to home if already logged in
+  if (isLoggedIn) {
+    return <Navigate to="/home" replace />;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center">

@@ -2,9 +2,9 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, Navigate } from "react-router-dom";
 
 function SignUp() {
   const navigate = useNavigate();
@@ -17,6 +17,16 @@ function SignUp() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const user = localStorage.getItem("user");
+    const token = localStorage.getItem("token");
+    if (user && token) {
+      setIsLoggedIn(true);
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -67,6 +77,11 @@ function SignUp() {
       setLoading(false);
     }
   };
+
+  // Redirect to home if already logged in
+  if (isLoggedIn) {
+    return <Navigate to="/home" replace />;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center">

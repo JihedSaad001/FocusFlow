@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { updateUser, uploadProfilePic } from "../Api";
+import { authAPI } from "../services/api";
 import { isTokenExpired } from "../utils/auth";
 import { Camera, Save, User } from "lucide-react";
 
@@ -71,7 +71,7 @@ const Profile = () => {
         updatedData.newPassword = newPassword;
       }
 
-      const response = await updateUser(updatedData, token);
+      const response = await authAPI.updateProfile(updatedData);
 
       if (response.success) {
         const updatedUser = { ...user, username: newUsername };
@@ -118,10 +118,10 @@ const Profile = () => {
     setUploading(true);
 
     try {
-      const uploadedUrl = await uploadProfilePic(file, token);
+      const uploadedUrl = await authAPI.uploadProfilePic(file);
 
       // Update user profile with new image URL
-      await updateUser({ profilePic: uploadedUrl }, token);
+      await authAPI.updateProfile({ profilePic: uploadedUrl });
 
       const updatedUser = { ...user, profilePic: uploadedUrl };
       setUser(updatedUser);

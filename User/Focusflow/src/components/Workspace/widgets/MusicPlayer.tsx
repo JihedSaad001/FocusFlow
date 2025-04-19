@@ -13,7 +13,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import Draggable from "react-draggable";
-import { logFocusSession } from "../../../Api";
+import { userDataAPI } from "../../../services/api";
 
 // Global audio management for music
 const globalMusicInstances: { [key: string]: HTMLAudioElement } = {};
@@ -70,13 +70,11 @@ const setupMusicStateHandler = () => {
           );
 
           if (sessionDuration >= 1) {
-            logFocusSession(token, {
-              duration: sessionDuration,
-              completed: true,
-              ambientSound: activeTrackNames,
-            }).catch((err) =>
-              console.error("Error logging focus session:", err)
-            );
+            userDataAPI
+              .logFocusSession(sessionDuration, true, activeTrackNames)
+              .catch((err) =>
+                console.error("Error logging focus session:", err)
+              );
           }
         }
         globalMusicSessionStartTime = null;

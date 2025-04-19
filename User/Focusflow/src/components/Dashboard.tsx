@@ -25,7 +25,7 @@ import {
   PieChartIcon,
   Trophy,
 } from "lucide-react";
-import { fetchUserStats } from "../Api";
+import { userDataAPI } from "../services/api";
 
 // Types for our stats
 interface FocusSession {
@@ -69,22 +69,31 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
-  const [timeRange, setTimeRange] = useState("week");
+  const [timeRange, setTimeRange] = useState<"week" | "month" | "quarter">(
+    "week"
+  );
 
   useEffect(() => {
     const loadStats = async () => {
       setLoading(true);
+      setError(null); // Clear previous errors
       try {
         const token = localStorage.getItem("token");
         if (!token) {
-          throw new Error("Not authenticated");
+          throw new Error(
+            "Not authenticated. Please log in to view your dashboard."
+          );
         }
 
-        const data = await fetchUserStats(token, timeRange);
+        const data = await userDataAPI.getUserStats(timeRange);
         setStats(data);
       } catch (err: any) {
         console.error("Error loading stats:", err);
-        setError(err.message || "Failed to load productivity stats");
+        setError(
+          err.message ||
+            "Failed to load productivity stats. Please try again later."
+        );
+        // Don't set stats to null to keep any previous data visible
       } finally {
         setLoading(false);
       }
