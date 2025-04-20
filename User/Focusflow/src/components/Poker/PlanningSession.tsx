@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card } from "./Card";
 import { IssueForm } from "./IssueForm";
 import { IssueList } from "./IssueList";
-import { io } from "socket.io-client";
+import io from "socket.io-client";
 import { jwtDecode } from "jwt-decode";
 import {
   Users,
@@ -92,6 +92,13 @@ export function PlanningSession() {
     try {
       const decoded: DecodedToken = jwtDecode(token);
       setCurrentUserId(decoded.id);
+
+      // Make sure username is stored in localStorage
+      if (!localStorage.getItem("username") && decoded.username) {
+        localStorage.setItem("username", decoded.username);
+        console.log(`Stored username in localStorage: ${decoded.username}`);
+      }
+
       return decoded.id;
     } catch (error) {
       console.error("Error decoding token:", error);
@@ -107,12 +114,23 @@ export function PlanningSession() {
 
     if (!socketRef.current) {
       console.log("Creating new Socket.IO connection");
-      socketRef.current = io("https://focusflow-production.up.railway.app", {
-        withCredentials: true,
-        reconnection: true,
+      const socketUrl = "https://focusflow-production.up.railway.app";
+      const token = localStorage.getItem("token");
+
+      // Get the username from localStorage to send with the connection
+      const username = localStorage.getItem("username");
+      console.log(`Connecting with username: ${username}`);
+
+      socketRef.current = io(socketUrl, {
+        autoConnect: true,
+        transports: ["websocket", "polling"],
+        auth: {
+          token: token,
+          username: username, // Send username with the connection
+        },
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
-        transports: ["websocket", "polling"],
+        timeout: 20000,
       });
     }
 
@@ -120,7 +138,6 @@ export function PlanningSession() {
       console.log("Socket.IO connected:", socketRef.current.id);
       setSocketConnected(true);
       socketRef.current.emit("joinRoom", id);
-      console.log(`Emitted joinRoom event for project ${id}`);
     });
 
     socketRef.current.on("connect_error", (err: any) => {
@@ -158,70 +175,16 @@ export function PlanningSession() {
   useEffect(() => {
     if (!socketRef.current || !id) return;
 
-    socketRef.current.off("voteUpdate");
-    socketRef.current.off("votesRevealed");
+    // Remove existing listeners to prevent duplicates
+    socketRef.current.off("voteRecorded");
+    socketRef.current.off("voteRevealed");
     socketRef.current.off("issueAdded");
     socketRef.current.off("issueDeleted");
-    socketRef.current.off("votesReset");
+    socketRef.current.off("voteReset");
 
+    // Listen for voteRecorded event
     socketRef.current.on(
-      "voteUpdate",
-      ({
-        issueId,
-        vote,
-        userId,
-        username,
-      }: {
-        issueId: string;
-        vote: string;
-        userId: string;
-        username: string;
-      }) => {
-        console.log("Received voteUpdate event:", {
-          issueId,
-          vote,
-          userId,
-          username,
-        });
-
-        setIssues((prevIssues) => {
-          return prevIssues.map((issue) => {
-            if (issue._id === issueId) {
-              const existingVoteIndex = issue.votes?.findIndex((v) => {
-                const user = v.user;
-                return typeof user === "string"
-                  ? user === userId
-                  : user._id === userId;
-              });
-
-              let updatedVotes;
-              if (
-                existingVoteIndex !== -1 &&
-                existingVoteIndex !== undefined &&
-                issue.votes
-              ) {
-                updatedVotes = [...issue.votes];
-                updatedVotes[existingVoteIndex] = {
-                  ...updatedVotes[existingVoteIndex],
-                  vote,
-                };
-              } else {
-                updatedVotes = [
-                  ...(issue.votes || []),
-                  { user: { _id: userId, username }, vote },
-                ];
-              }
-
-              return { ...issue, votes: updatedVotes };
-            }
-            return issue;
-          });
-        });
-      }
-    );
-
-    socketRef.current.on(
-      "votesRevealed",
+      "voteRecorded",
       ({
         issueId,
         votes,
@@ -231,50 +194,190 @@ export function PlanningSession() {
         votes: Vote[];
         status: string;
       }) => {
-        console.log("Received votesRevealed event:", {
-          issueId,
-          votes,
-          status,
+        console.log("Received vote update for issue:", issueId);
+
+        // Process votes to ensure proper user objects
+        const processedVotes = votes.map((vote) => {
+          let user;
+          if (typeof vote.user === "string") {
+            // Try to find the user in the project members
+            const userId = vote.user;
+            const member = project?.members?.find((m) => m._id === userId);
+            if (member) {
+              user = { _id: userId, username: member.username };
+            } else if (userId === currentUserId) {
+              user = {
+                _id: userId,
+                username: localStorage.getItem("username") || "You",
+              };
+            } else {
+              user = { _id: userId, username: "Unknown" };
+            }
+          } else {
+            user = vote.user;
+          }
+
+          return {
+            ...vote,
+            user,
+          };
         });
 
-        setIssues((prevIssues) =>
-          prevIssues.map((issue) =>
+        // Update the issues state
+        setIssues((prevIssues) => {
+          return prevIssues.map((issue) => {
+            if (issue._id === issueId) {
+              return {
+                ...issue,
+                votes: processedVotes,
+                status: status as Issue["status"],
+              };
+            }
+            return issue;
+          });
+        });
+
+        // Update current issue if it's the one that received votes
+        if (currentIssue && currentIssue._id === issueId) {
+          // Create a list of voting users from the processed votes
+          const votingUsersList = processedVotes.map((vote) => {
+            const userId =
+              typeof vote.user === "string" ? vote.user : vote.user._id;
+            let username;
+
+            // If this is the current user, use the username from localStorage
+            if (userId === currentUserId) {
+              username = localStorage.getItem("username") || "You";
+            } else {
+              // For other users, use the username from the vote object
+              username =
+                typeof vote.user === "string" ? "Unknown" : vote.user.username;
+            }
+
+            return {
+              userId,
+              username,
+            };
+          });
+
+          setVotingUsers(votingUsersList);
+
+          setCurrentIssue((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              votes: processedVotes,
+              status: status as Issue["status"],
+            };
+          });
+        }
+      }
+    );
+
+    // Listen for voteRevealed event
+    socketRef.current.on(
+      "voteRevealed",
+      ({
+        issueId,
+        votes,
+        status,
+      }: {
+        issueId: string;
+        votes: Vote[];
+        status: string;
+      }) => {
+        console.log("Votes revealed for issue:", issueId);
+
+        // Process votes to ensure proper user objects
+        const processedVotes = votes.map((vote) => {
+          let user;
+          if (typeof vote.user === "string") {
+            const userId = vote.user;
+            const member = project?.members?.find((m) => m._id === userId);
+            if (member) {
+              user = { _id: userId, username: member.username };
+            } else if (userId === currentUserId) {
+              user = {
+                _id: userId,
+                username: localStorage.getItem("username") || "You",
+              };
+            } else {
+              user = { _id: userId, username: "Unknown" };
+            }
+          } else {
+            user = vote.user;
+          }
+
+          return {
+            ...vote,
+            user,
+          };
+        });
+
+        // Update the issues state
+        setIssues((prevIssues) => {
+          return prevIssues.map((issue) =>
             issue._id === issueId
-              ? { ...issue, votes, status: status as Issue["status"] }
+              ? {
+                  ...issue,
+                  votes: processedVotes,
+                  status: status as Issue["status"],
+                }
               : issue
-          )
-        );
+          );
+        });
 
         if (currentIssue && currentIssue._id === issueId) {
           setVotesRevealed(true);
-          updateVoteStats(votes);
-          setVotingUsers(
-            votes.map((vote) => ({
-              userId: typeof vote.user === "string" ? vote.user : vote.user._id,
-              username:
-                typeof vote.user === "string" ? "Unknown" : vote.user.username,
-            }))
-          );
+          updateVoteStats(processedVotes);
+
+          // Create a list of voting users from the processed votes
+          const votingUsersList = processedVotes.map((vote) => {
+            const userId =
+              typeof vote.user === "string" ? vote.user : vote.user._id;
+            let username;
+
+            // If this is the current user, use the username from localStorage
+            if (userId === currentUserId) {
+              username = localStorage.getItem("username") || "You";
+            } else {
+              // For other users, use the username from the vote object
+              username =
+                typeof vote.user === "string" ? "Unknown" : vote.user.username;
+            }
+
+            return {
+              userId,
+              username,
+            };
+          });
+
+          setVotingUsers(votingUsersList);
+
           setCurrentIssue((prev) =>
-            prev ? { ...prev, votes, status: status as Issue["status"] } : prev
+            prev
+              ? {
+                  ...prev,
+                  votes: processedVotes,
+                  status: status as Issue["status"],
+                }
+              : prev
           );
         }
       }
     );
 
     socketRef.current.on("issueAdded", ({ issue }: { issue: Issue }) => {
-      console.log("Received issueAdded event:", issue);
+      console.log("New issue added:", issue.title);
       setIssues((prevIssues) => {
         const exists = prevIssues.some((i) => i._id === issue._id);
-        if (exists) {
-          return prevIssues;
-        }
+        if (exists) return prevIssues;
         return [...prevIssues, issue];
       });
     });
 
     socketRef.current.on("issueDeleted", ({ issueId }: { issueId: string }) => {
-      console.log("Received issueDeleted event:", issueId);
+      console.log("Issue deleted:", issueId);
       setIssues((prevIssues) =>
         prevIssues.filter((issue) => issue._id !== issueId)
       );
@@ -294,15 +397,15 @@ export function PlanningSession() {
       }
     });
 
-    socketRef.current.on("votesReset", ({ issueId }: { issueId: string }) => {
-      console.log("Received votesReset event:", issueId);
-      setIssues((prevIssues) =>
-        prevIssues.map((issue) =>
+    socketRef.current.on("voteReset", ({ issueId }: { issueId: string }) => {
+      console.log("Votes reset for issue:", issueId);
+      setIssues((prevIssues) => {
+        return prevIssues.map((issue) =>
           issue._id === issueId
             ? { ...issue, votes: [], status: "Not Started" }
             : issue
-        )
-      );
+        );
+      });
 
       if (currentIssue && currentIssue._id === issueId) {
         setVotesRevealed(false);
@@ -327,7 +430,11 @@ export function PlanningSession() {
         console.log(`Successfully joined room for project ${projectId}`);
       }
     );
-  }, [id, currentIssue]);
+
+    return () => {
+      // Cleanup function
+    };
+  }, [id, currentIssue, currentUserId, project]);
 
   // Fetch poker session data
   useEffect(() => {
@@ -342,6 +449,11 @@ export function PlanningSession() {
     }
     fetchPokerSession();
     fetchProject();
+
+    // No periodic refresh - rely on socket events for real-time updates
+    return () => {
+      // Cleanup function
+    };
   }, [id]);
 
   // Update current issue when issues change
@@ -350,13 +462,30 @@ export function PlanningSession() {
       const updatedIssue = issues.find((i) => i._id === currentIssue._id);
       if (updatedIssue) {
         setCurrentIssue(updatedIssue);
+
+        // Create the voting users list with special handling for the current user
         setVotingUsers(
-          (updatedIssue.votes || []).map((vote) => ({
-            userId: typeof vote.user === "string" ? vote.user : vote.user._id,
-            username:
-              typeof vote.user === "string" ? "Unknown" : vote.user.username,
-          }))
+          (updatedIssue.votes || []).map((vote) => {
+            const userId =
+              typeof vote.user === "string" ? vote.user : vote.user._id;
+            let username;
+
+            // If this is the current user, use the username from localStorage
+            if (userId === currentUserId) {
+              username = localStorage.getItem("username") || "You";
+            } else {
+              // For other users, use the username from the vote object
+              username =
+                typeof vote.user === "string" ? "Unknown" : vote.user.username;
+            }
+
+            return {
+              userId,
+              username,
+            };
+          })
         );
+
         if (votesRevealed) {
           updateVoteStats(updatedIssue.votes || []);
         }
@@ -364,17 +493,21 @@ export function PlanningSession() {
     } else {
       setVotingUsers([]);
     }
-  }, [issues, currentIssue, votesRevealed]);
+  }, [issues, currentIssue, votesRevealed, currentUserId]);
 
   const fetchPokerSession = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
-      console.warn("❌ No token found, redirecting to login.");
+      console.warn("No token found, redirecting to login.");
       navigate("/signin");
       return;
     }
 
     try {
+      if (!id) {
+        throw new Error("Project ID is missing");
+      }
+
       const response = await fetch(
         `https://focusflow-production.up.railway.app/api/projects/${id}/poker`,
         {
@@ -389,7 +522,6 @@ export function PlanningSession() {
         return;
       }
       const data = await response.json();
-      console.log("Fetched poker session data:", data);
 
       const issuesWithStatus = (data.issues || []).map((issue: Issue) => ({
         ...issue,
@@ -397,6 +529,12 @@ export function PlanningSession() {
       }));
 
       setIssues(issuesWithStatus);
+
+      // Initial setup of current issue if none is selected
+      if (!currentIssue && issuesWithStatus.length > 0) {
+        const firstIssue = issuesWithStatus[0];
+        setCurrentIssue(firstIssue);
+      }
     } catch (error: any) {
       setError(`Error fetching poker session: ${error.message}`);
     }
@@ -405,7 +543,7 @@ export function PlanningSession() {
   const fetchProject = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
-      console.warn("❌ No token found, redirecting to login.");
+      console.warn("No token found, redirecting to login.");
       navigate("/signin");
       return;
     }
@@ -430,7 +568,7 @@ export function PlanningSession() {
         setSelectedSprintId(data.sprints[0]._id);
       }
     } catch (error: any) {
-      console.error("❌ Error fetching project:", error);
+      console.error("Error fetching project:", error);
       setError(error.message);
     }
   };
@@ -440,9 +578,9 @@ export function PlanningSession() {
       return;
     }
 
-    console.log("Vote cast:", value);
     setSelectedCard(value);
-    if (currentIssue) {
+
+    if (currentIssue && id) {
       const userId = getUserId();
       if (!userId) {
         setError("User ID not found. Please log in again.");
@@ -450,8 +588,81 @@ export function PlanningSession() {
         return;
       }
 
+      // Optimistically update the UI immediately for instant feedback
+      const username = localStorage.getItem("username") || "You";
+
+      // Find the current vote or add a new one
+      const updatedVotes = [...(currentIssue.votes || [])];
+      const existingVoteIndex = updatedVotes.findIndex((v) =>
+        typeof v.user === "string" ? v.user === userId : v.user._id === userId
+      );
+
+      if (existingVoteIndex !== -1) {
+        updatedVotes[existingVoteIndex].vote = value;
+
+        // Make sure the username is set correctly
+        if (typeof updatedVotes[existingVoteIndex].user === "object") {
+          updatedVotes[existingVoteIndex].user.username = username;
+        }
+      } else {
+        // Create a user object with both ID and username to match the populated format
+        const userObj = {
+          _id: userId,
+          username: username,
+        };
+
+        updatedVotes.push({
+          user: userObj, // Use the user object instead of just the ID
+          vote: value,
+        });
+      }
+
+      // Update the current issue immediately
+      setCurrentIssue((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          votes: updatedVotes,
+          status: "Voting",
+        };
+      });
+
+      // Update the voting users list with all current voters
+      const newVotingUsers = updatedVotes.map((vote) => {
+        const voteUserId =
+          typeof vote.user === "string" ? vote.user : vote.user._id;
+        const voteUsername =
+          typeof vote.user === "string"
+            ? voteUserId === userId
+              ? username
+              : "Unknown"
+            : vote.user.username;
+
+        return {
+          userId: voteUserId,
+          username: voteUsername,
+        };
+      });
+
+      setVotingUsers(newVotingUsers);
+
+      // Also update the issues list to keep everything in sync
+      setIssues((prevIssues) => {
+        return prevIssues.map((issue) => {
+          if (issue._id === currentIssue._id) {
+            return {
+              ...issue,
+              votes: updatedVotes,
+              status: "Voting",
+            };
+          }
+          return issue;
+        });
+      });
+
       try {
-        const response = await fetch(
+        // Send the vote to the server (this will trigger socket events for other users)
+        await fetch(
           `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/vote`,
           {
             method: "POST",
@@ -462,14 +673,6 @@ export function PlanningSession() {
             },
           }
         );
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Failed to record vote:", errorText);
-          setError(`Failed to record vote: ${errorText}`);
-          return;
-        }
-
-        console.log("Vote recorded successfully");
       } catch (error: any) {
         console.error("Error recording vote:", error);
         setError(`Error recording vote: ${error.message}`);
@@ -478,10 +681,38 @@ export function PlanningSession() {
   };
 
   const handleRevealVotes = async () => {
-    if (currentIssue) {
+    if (currentIssue && id) {
       setIsUpdating(true);
+
+      // Optimistically update the UI immediately for instant feedback
+      setCurrentIssue((prev) => {
+        if (!prev) return prev;
+        return { ...prev, status: "Revealed" };
+      });
+
+      setVotesRevealed(true);
+
+      // If we have votes, update the vote stats immediately
+      if (currentIssue.votes && currentIssue.votes.length > 0) {
+        updateVoteStats(currentIssue.votes);
+      }
+
+      // Also update the issues list to keep everything in sync
+      setIssues((prevIssues) => {
+        return prevIssues.map((issue) => {
+          if (issue._id === currentIssue._id) {
+            return {
+              ...issue,
+              status: "Revealed",
+            };
+          }
+          return issue;
+        });
+      });
+
       try {
-        const response = await fetch(
+        // Send the reveal request to the server (this will trigger socket events for other users)
+        await fetch(
           `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/reveal`,
           {
             method: "POST",
@@ -490,17 +721,29 @@ export function PlanningSession() {
             },
           }
         );
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to reveal votes: ${errorText}`);
-        }
-
-        setCurrentIssue((prev) =>
-          prev ? { ...prev, status: "Revealed" } : null
-        );
-        setVotesRevealed(true);
       } catch (error: any) {
+        console.error("Error revealing votes:", error);
         setError(`Error revealing votes: ${error.message}`);
+
+        // Revert the optimistic updates if the API call fails
+        setCurrentIssue((prev) => {
+          if (!prev) return prev;
+          return { ...prev, status: "Voting" };
+        });
+        setVotesRevealed(false);
+
+        // Revert the issues list update
+        setIssues((prevIssues) => {
+          return prevIssues.map((issue) => {
+            if (issue._id === currentIssue._id) {
+              return {
+                ...issue,
+                status: "Voting",
+              };
+            }
+            return issue;
+          });
+        });
       } finally {
         setIsUpdating(false);
       }
@@ -508,10 +751,44 @@ export function PlanningSession() {
   };
 
   const handleRevote = async () => {
-    if (currentIssue) {
+    if (currentIssue && id) {
       setIsUpdating(true);
+
+      // Optimistically update the UI immediately for instant feedback
+      setCurrentIssue((prev) => {
+        if (!prev) return prev;
+        return { ...prev, votes: [], status: "Not Started" };
+      });
+
+      setVotesRevealed(false);
+      setVoteStats({
+        average: 0,
+        mostCommon: 0,
+        range: {
+          min: Number.POSITIVE_INFINITY,
+          max: Number.NEGATIVE_INFINITY,
+        },
+      });
+      setVotingUsers([]);
+      setSelectedCard(null);
+
+      // Also update the issues list to keep everything in sync
+      setIssues((prevIssues) => {
+        return prevIssues.map((issue) => {
+          if (issue._id === currentIssue._id) {
+            return {
+              ...issue,
+              votes: [],
+              status: "Not Started",
+            };
+          }
+          return issue;
+        });
+      });
+
       try {
-        const response = await fetch(
+        // Send the revote request to the server (this will trigger socket events for other users)
+        await fetch(
           `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/revote`,
           {
             method: "POST",
@@ -520,14 +797,30 @@ export function PlanningSession() {
             },
           }
         );
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to reset votes: ${errorText}`);
-        }
-
-        console.log("Votes reset successfully");
       } catch (error: any) {
+        console.error("Error resetting votes:", error);
         setError(`Error resetting votes: ${error.message}`);
+
+        // If the API call fails, revert to previous state
+        setCurrentIssue((prev) => {
+          if (!prev) return prev;
+          return { ...prev, status: "Revealed" };
+        });
+
+        setVotesRevealed(true);
+
+        // Revert the issues list update (status only, since we've lost the votes)
+        setIssues((prevIssues) => {
+          return prevIssues.map((issue) => {
+            if (issue._id === currentIssue._id) {
+              return {
+                ...issue,
+                status: "Revealed",
+              };
+            }
+            return issue;
+          });
+        });
       } finally {
         setIsUpdating(false);
       }
@@ -659,36 +952,8 @@ export function PlanningSession() {
         throw new Error(`Failed to validate issues: ${errorText}`);
       }
 
-      // Add tasks to users' Kanban boards
-      for (const valIssue of validationIssues) {
-        if (valIssue.selectedMemberId === currentUserId) {
-          try {
-            const kanbanResponse = await fetch(
-              `https://focusflow-production.up.railway.app/api/user/kanban/project-task`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${localStorage.getItem("token")}`,
-                },
-                body: JSON.stringify({
-                  projectId: id,
-                  sprintId: selectedSprintId,
-                  taskId: valIssue.issue._id,
-                }),
-              }
-            );
-
-            if (!kanbanResponse.ok) {
-              console.warn("Failed to add task to user's kanban board");
-            } else {
-              console.log("Task added to user's kanban board successfully");
-            }
-          } catch (error) {
-            console.error("Error adding task to kanban board:", error);
-          }
-        }
-      }
+      // We've removed the code that adds tasks to users' Kanban boards
+      // Tasks will only be added to the project sprint Kanban
 
       // Close the validation popup and reset the form
       setShowValidationPopup(false);
@@ -799,15 +1064,66 @@ export function PlanningSession() {
                     {issues.length} issues
                   </p>
                   {socketConnected ? (
-                    <span className="text-green-400 text-sm flex items-center gap-1">
-                      <span className="w-2 h-2 bg-green-400 rounded-full inline-block"></span>
+                    <span
+                      className="text-green-400 text-sm flex items-center gap-1 cursor-pointer"
+                      title="Socket.IO is connected and real-time updates are working"
+                      onClick={() => {
+                        console.log("[SOCKET-DEBUG] Connection status clicked");
+                        console.log(
+                          "[SOCKET-DEBUG] Socket ID:",
+                          socketRef.current?.id
+                        );
+                        console.log(
+                          "[SOCKET-DEBUG] Socket connected:",
+                          socketRef.current?.connected
+                        );
+                        console.log(
+                          "[SOCKET-DEBUG] Socket transport:",
+                          socketRef.current?.io?.engine?.transport?.name
+                        );
+                        console.log(
+                          "[SOCKET-DEBUG] Socket namespace:",
+                          socketRef.current?.nsp
+                        );
+                        console.log(
+                          "[SOCKET-DEBUG] Socket event names:",
+                          socketRef.current?.eventNames()
+                        );
+                      }}
+                    >
+                      <span className="w-2 h-2 bg-green-400 rounded-full inline-block animate-pulse"></span>
                       Real-time connected
                     </span>
                   ) : (
-                    <span className="text-red-400 text-sm flex items-center gap-1">
-                      <span className="w-2 h-2 bg-red-400 rounded-full inline-block"></span>
-                      Disconnected
-                    </span>
+                    <div className="flex flex-col">
+                      <span
+                        className="text-red-400 text-sm flex items-center gap-1 cursor-pointer"
+                        title="Socket.IO is disconnected. Real-time updates are not working."
+                        onClick={() => {
+                          console.log(
+                            "[SOCKET-DEBUG] Disconnected status clicked"
+                          );
+                          console.log(
+                            "[SOCKET-DEBUG] Attempting to reconnect socket"
+                          );
+                          if (
+                            socketRef.current &&
+                            !socketRef.current.connected
+                          ) {
+                            socketRef.current.connect();
+                            console.log(
+                              "[SOCKET-DEBUG] Manual reconnect attempt initiated"
+                            );
+                          }
+                        }}
+                      >
+                        <span className="w-2 h-2 bg-red-400 rounded-full inline-block animate-ping"></span>
+                        Disconnected (click to reconnect)
+                      </span>
+                      <span className="text-gray-400 text-xs ml-3 mt-1">
+                        Updates may be delayed. Votes will still be saved.
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -937,7 +1253,11 @@ export function PlanningSession() {
                               key={user.userId}
                               className="flex items-center gap-1 bg-gray-700/50 rounded-full px-3 py-1 text-sm text-gray-300"
                             >
-                              <span>{user.username}</span>
+                              <span>
+                                {user.userId === currentUserId
+                                  ? localStorage.getItem("username") || "You"
+                                  : user.username}
+                              </span>
                               <CheckCircle2
                                 size={14}
                                 className="text-green-500"
@@ -995,7 +1315,13 @@ export function PlanningSession() {
                                   key={user.userId}
                                   className="flex items-center gap-1 bg-gray-700/50 rounded-full px-3 py-1 text-sm text-gray-300"
                                 >
-                                  <span>{user.username}:</span>
+                                  <span>
+                                    {user.userId === currentUserId
+                                      ? localStorage.getItem("username") ||
+                                        "You"
+                                      : user.username}
+                                    :
+                                  </span>
                                   <span className="text-red-400 font-semibold">
                                     {userVote || "N/A"}
                                   </span>
@@ -1134,7 +1460,12 @@ export function PlanningSession() {
                                   className="bg-gray-700/50 rounded-full px-2 py-1 text-xs"
                                 >
                                   {typeof vote.user === "string"
-                                    ? "Unknown"
+                                    ? vote.user === currentUserId
+                                      ? localStorage.getItem("username") ||
+                                        "You"
+                                      : "Unknown"
+                                    : vote.user._id === currentUserId
+                                    ? localStorage.getItem("username") || "You"
                                     : vote.user.username}{" "}
                                   :{" "}
                                   <span className="text-red-400">

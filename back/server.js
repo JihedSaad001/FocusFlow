@@ -86,16 +86,48 @@ app.use("/api/user", userDataRoutes);
 
 // WebSocket connection handling
 io.on("connection", (socket) => {
-  console.log("A user connected:", socket.id);
+  console.log("[SOCKET] A user connected:", socket.id);
+  console.log("[SOCKET] Auth token:", socket.handshake.auth.token ? "Present" : "Missing");
+  console.log("[SOCKET] Transport:", socket.conn.transport.name);
+
+  // Log all rooms the socket is currently in
+  console.log("[SOCKET] Current rooms:", Array.from(socket.rooms));
+
+  // Debug middleware to log all events
+  socket.onAny((event, ...args) => {
+    console.log(`[SOCKET] Event received: ${event}`, args);
+  });
 
   // Join a room based on projectId
   socket.on("joinRoom", (projectId) => {
+    console.log(`[SOCKET] User ${socket.id} joining room ${projectId}`);
     socket.join(projectId);
-    console.log(`User ${socket.id} joined room ${projectId}`);
+
+    // Log all rooms after joining
+    console.log(`[SOCKET] User ${socket.id} rooms after joining:`, Array.from(socket.rooms));
+
+    // Log all clients in the room
+    const clients = io.sockets.adapter.rooms.get(projectId);
+    console.log(`[SOCKET] Clients in room ${projectId}:`, clients ? Array.from(clients) : "None");
+    console.log(`[SOCKET] Number of clients in room ${projectId}:`, clients ? clients.size : 0);
+
+    // Emit a confirmation back to the client
+    socket.emit("roomJoined", { projectId, success: true });
   });
 
-  socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+  socket.on("disconnect", (reason) => {
+    console.log(`[SOCKET] User disconnected: ${socket.id}, Reason: ${reason}`);
+  });
+
+  socket.on("error", (error) => {
+    console.error(`[SOCKET] Socket error for ${socket.id}:`, error);
+  });
+
+  // Log when a client pings the server
+  socket.conn.on("packet", (packet) => {
+    if (packet.type === "ping") {
+      console.log(`[SOCKET] Ping received from ${socket.id}`);
+    }
   });
 });
 

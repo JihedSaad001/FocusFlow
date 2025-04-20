@@ -44,23 +44,38 @@ const setupTimerCompletionHandler = () => {
                 );
             }
           }
-        }
 
-        // Clean up
-        localStorage.removeItem("pomodoroRunning");
-        localStorage.removeItem("pomodoroEndTime");
-        localStorage.removeItem("pomodoroMode");
-        localStorage.removeItem("pomodoroInitialDuration");
-        localStorage.setItem(
-          "pomodoroTime",
-          (
-            (storedMode === "focus"
-              ? 25
-              : storedMode === "shortBreak"
-              ? 5
-              : 15) * 60
-          ).toString()
-        );
+          // Automatically start short break after focus session
+          localStorage.setItem("pomodoroMode", "shortBreak");
+          localStorage.setItem("pomodoroTime", (5 * 60).toString()); // 5 minutes for short break
+          localStorage.setItem("pomodoroMinutes", "5");
+          localStorage.setItem("pomodoroRunning", "true");
+          localStorage.setItem(
+            "pomodoroEndTime",
+            (Date.now() + 5 * 60 * 1000).toString()
+          );
+          localStorage.setItem("pomodoroInitialDuration", (5 * 60).toString());
+
+          // Force reload the component to show the new mode
+          window.dispatchEvent(new Event("storage"));
+          return;
+        } else {
+          // For breaks, just clean up
+          localStorage.removeItem("pomodoroRunning");
+          localStorage.removeItem("pomodoroEndTime");
+          localStorage.removeItem("pomodoroMode");
+          localStorage.removeItem("pomodoroInitialDuration");
+          localStorage.setItem(
+            "pomodoroTime",
+            (
+              (storedMode === "focus"
+                ? 25
+                : storedMode === "shortBreak"
+                ? 5
+                : 15) * 60
+            ).toString()
+          );
+        }
       }
     }
   };
@@ -137,9 +152,39 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
       setCurrentAmbientSound(activeSound);
     };
 
+    // Listen for storage events (for cross-tab synchronization)
+    const handleStorageChange = () => {
+      const storedMode = localStorage.getItem("pomodoroMode");
+      const storedTime = localStorage.getItem("pomodoroTime");
+      const running = localStorage.getItem("pomodoroRunning");
+
+      if (storedMode) {
+        Object.values(MODES).forEach((m) => {
+          if (m.type === storedMode) setMode(m);
+        });
+      }
+
+      if (storedTime) {
+        setTime(Number(storedTime));
+      }
+
+      if (running === "true") {
+        setIsRunning(true);
+      } else if (running === null) {
+        setIsRunning(false);
+      }
+    };
+
     checkAmbientSound();
     const interval = setInterval(checkAmbientSound, 5000);
-    return () => clearInterval(interval);
+
+    // Add event listener for storage events
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -174,6 +219,31 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
             clearInterval(interval!);
             setIsRunning(false);
             setSessionStartTime(null);
+
+            // If focus mode just ended, automatically switch to short break
+            if (mode.type === "focus") {
+              // Log the completed focus session
+              logSessionToServer(true);
+
+              // Play notification sound
+              try {
+                const audio = new Audio("/Notification.mp3");
+                audio
+                  .play()
+                  .catch((error) => console.log("Error playing sound:", error));
+              } catch (error) {
+                console.error("Error playing audio:", error);
+              }
+
+              // Switch to short break mode
+              setTimeout(() => {
+                setMode(MODES.SHORT_BREAK);
+                setTime(MODES.SHORT_BREAK.defaultTime * 60);
+                setCustomMinutes(MODES.SHORT_BREAK.defaultTime);
+                setIsRunning(true); // Auto-start the short break
+              }, 500); // Small delay to ensure state updates properly
+            }
+
             return 0;
           }
           return prevTime - 1;
@@ -184,7 +254,7 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRunning, sessionStartTime]);
+  }, [isRunning, sessionStartTime, mode.type]);
 
   useEffect(() => {
     const resumeTimer = () => {

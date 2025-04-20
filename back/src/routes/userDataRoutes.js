@@ -12,7 +12,7 @@ module.exports = (User) => {
   router.put("/kanban", authenticateJWT, (req, res) => userDataController.updateKanbanBoard(req, res, User));
   router.get("/kanban", authenticateJWT, (req, res) => userDataController.getKanbanBoard(req, res, User));
 
-  // User data route
+  //User data route
   router.get("/data", authenticateJWT, (req, res) => userDataController.getUserData(req, res, User));
 
   // Project task to kanban route
