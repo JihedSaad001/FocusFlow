@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base URL for API calls
-const API_URL = 'http://localhost:5002/api'; // Updated to match the new backend port
+const API_URL = 'https://focusflow-production.up.railway.app/api'; // Updated to match the new backend port
 
 // Create axios instance with default config
 const api = axios.create({
