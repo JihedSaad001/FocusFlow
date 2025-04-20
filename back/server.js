@@ -9,7 +9,7 @@ const { createClient } = require("redis");
 
 dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 5002; // Changed to 5002 to avoid port conflict
+const PORT = process.env.PORT || 5000; // Using port 5000 as default
 
 // Define allowed origins for both Express and Socket.IO
 const allowedOrigins = [
