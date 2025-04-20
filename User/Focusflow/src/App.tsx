@@ -27,7 +27,7 @@ import Workspace from "./components/Workspace/Workspace";
 import KanbanBoard from "./components/KanbanBoard";
 import Projects from "./components/Projects";
 import CreateProject from "./components/CreateProject";
-import ProjectDetails from "./components/ProjectDetails";
+import ProjectDetails from "./components/ProjectDetails/ProjectDetails";
 import PlanningSession from "./components/Poker/PlanningSession";
 import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
