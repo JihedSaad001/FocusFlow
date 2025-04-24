@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { io } from "socket.io-client";
+import io from "socket.io-client";
 //to fix later
 import { jwtDecode } from "jwt-decode";
 import type { ChatMessage, DecodedToken } from "../types";
@@ -9,9 +9,7 @@ import type { ChatMessage, DecodedToken } from "../types";
 export function Chat({ projectId }: { projectId: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const socketRef = useRef(
-    io("https://focusflow-production.up.railway.app", { withCredentials: true })
-  );
+  const socketRef = useRef(io("https://focusflow-production.up.railway.app"));
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
