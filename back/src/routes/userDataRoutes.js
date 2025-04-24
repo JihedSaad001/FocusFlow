@@ -28,7 +28,10 @@ module.exports = (User) => {
   router.get("/stats", authenticateJWT, (req, res) => userDataController.getUserStats(req, res, User));
   router.post("/log-focus-session", authenticateJWT, (req, res) => userDataController.logFocusSession(req, res, User));
   router.post("/log-completed-task", authenticateJWT, (req, res) => userDataController.logCompletedTask(req, res, User));
-  // AI insights endpoint removed
+
+  // Wallpaper routes
+  router.put("/wallpaper", authenticateJWT, (req, res) => userDataController.updateWallpaper(req, res, User));
+  router.get("/wallpaper", authenticateJWT, (req, res) => userDataController.getWallpaper(req, res, User));
 
   return router;
 };

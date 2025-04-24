@@ -50,14 +50,17 @@ const WallpaperSelector = ({
       const token = localStorage.getItem("token"); // Get the user's token from localStorage
       if (!token) throw new Error("User not authenticated");
 
-      const response = await fetch("/api/user/wallpaper", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ wallpaperUrl: url }),
-      });
+      const response = await fetch(
+        "https://focusflow-production.up.railway.app/api/user/wallpaper",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ wallpaperUrl: url }),
+        }
+      );
 
       if (!response.ok) throw new Error("Failed to save wallpaper");
 

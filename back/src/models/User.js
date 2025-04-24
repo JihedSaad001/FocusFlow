@@ -16,7 +16,8 @@ const UserSchema = new mongoose.Schema({
   verificationTokenExpires: { type: Date },
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },
-  googleId: { type: String },
+  wallpaper: { type: String, default: "" },
+
   kanbanBoard: {
     type: {
       columns: [
@@ -57,7 +58,7 @@ const UserSchema = new mongoose.Schema({
       createdAt: { type: Date, default: Date.now }
     }
   ],
-  // New fields for AI Focus Insights
+
   focusSessions: [
     {
       duration: { type: Number }, // in minutes
@@ -88,7 +89,6 @@ const UserSchema = new mongoose.Schema({
   lastStreakUpdate: { type: Date },
 })
 
-// Hash password before saving the user
 UserSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next()
   try {

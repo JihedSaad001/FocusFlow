@@ -16,6 +16,14 @@ const ForgotPassword = () => {
     e.preventDefault();
     setError("");
     setSuccess(false);
+
+    // Validate email format with a simple regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
     setLoading(true);
 
     try {

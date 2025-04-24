@@ -88,6 +88,24 @@ exports.uploadWallpaper = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
+    // Validate image format
+    const validFormats = ["jpg", "jpeg", "png", "gif", "webp"];
+    const fileExtension = req.file.originalname.split(".").pop()?.toLowerCase();
+
+    if (!fileExtension || !validFormats.includes(fileExtension)) {
+      return res.status(400).json({
+        message: `Invalid image format. Must be one of: ${validFormats.join(", ")}`
+      });
+    }
+
+    // Validate MIME type
+    const validMimeTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!validMimeTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({
+        message: `Invalid file type. File appears to be ${req.file.mimetype} but must be an image.`
+      });
+    }
+
     // Validate category
     const validCategories = ["nature", "abstract", "dark", "minimal"];
     const category = req.body.category || "abstract";
@@ -128,6 +146,7 @@ exports.uploadWallpaper = async (req, res) => {
       url: publicUrl,
       uploadedBy: req.user.id,
       category,
+      format: fileExtension,
       tags: req.body.tags ? req.body.tags.split(",").map((tag) => tag.trim()) : [],
     });
 

@@ -34,9 +34,23 @@ const SignIn = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
     setNeedsVerification(false);
     setResendSuccess(false);
+
+    // Validate email format with a simple regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    // Validate password length
+    if (formData.password.length < 5) {
+      setError("Password must be at least 5 characters long");
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const response = await fetch(
@@ -85,6 +99,13 @@ const SignIn = () => {
   const handleResendVerification = async () => {
     if (!formData.email) {
       setError("Please enter your email address");
+      return;
+    }
+
+    // Validate email format with a simple regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address");
       return;
     }
 

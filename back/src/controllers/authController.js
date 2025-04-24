@@ -264,6 +264,24 @@ exports.uploadProfilePic = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
+    // Validate image format
+    const validFormats = ["jpg", "jpeg", "png", "gif", "webp"];
+    const fileExtension = req.file.originalname.split(".").pop()?.toLowerCase();
+
+    if (!fileExtension || !validFormats.includes(fileExtension)) {
+      return res.status(400).json({
+        message: `Invalid image format. Must be one of: ${validFormats.join(", ")}`
+      });
+    }
+
+    // Validate MIME type
+    const validMimeTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!validMimeTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({
+        message: `Invalid file type. File appears to be ${req.file.mimetype} but must be an image.`
+      });
+    }
+
     const fileName = `${req.user.id}-${Date.now()}-${req.file.originalname}`;
 
     const { data, error } = await supabase.storage.from(process.env.SUPABASE_BUCKET).upload(fileName, req.file.buffer, {
@@ -299,59 +317,7 @@ exports.uploadProfilePic = async (req, res) => {
   }
 };
 
-/**
- * Google login
- */
-exports.googleLogin = async (req, res) => {
-  const { access_token } = req.body;
 
-  console.log("🔍 Received Google Token:", access_token);
-
-  try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(access_token);
-
-    if (error || !user) {
-      console.log("❌ Supabase User Error:", error);
-      return res.status(401).json({ message: "Google authentication failed" });
-    }
-
-    console.log("✅ Google User from Supabase:", user);
-
-    let existingUser = await User.findOne({ email: user.email });
-
-    if (!existingUser) {
-      existingUser = new User({
-        username: user.user_metadata.full_name || "Google User",
-        email: user.email,
-        profilePic: user.user_metadata.avatar_url || "",
-        googleId: user.id,
-        isVerified: true, // Google users are automatically verified
-      });
-
-      await existingUser.save();
-      console.log("✅ New Google User Saved in MongoDB:", existingUser);
-    }
-
-    const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECRET, {
-      expiresIn: "24h",
-    });
-
-    res.json({
-      token,
-      user: {
-        username: existingUser.username,
-        email: existingUser.email,
-        profilePic: existingUser.profilePic,
-      },
-    });
-  } catch (error) {
-    console.error("❌ Google Login Backend Error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
 
 /**
  * Refresh token

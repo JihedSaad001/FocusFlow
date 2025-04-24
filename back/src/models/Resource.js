@@ -10,7 +10,7 @@ const ResourceSchema = new mongoose.Schema(
     category: { type: String, enum: ["nature", "abstract", "dark", "minimal"], default: "abstract" },
     tags: [{ type: String }],
     duration: { type: Number, default: 0 },
-    format: { type: String, enum: ["mp3", "wav", "ogg"], default: "mp3" },
+    format: { type: String, enum: ["mp3", "wav", "ogg", "jpg", "jpeg", "png", "gif", "webp"], default: "mp3" },
   },
   { timestamps: true }
 );

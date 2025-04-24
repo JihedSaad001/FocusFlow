@@ -131,16 +131,7 @@ export const authAPI = {
     }
   },
 
-  // Google login
-  googleLogin: async (accessToken: string) => {
-    try {
-      const response = await api.post('/auth/google-login', { access_token: accessToken });
-      localStorage.setItem('token', response.data.token);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
+
 };
 
 // User data API
@@ -259,7 +250,6 @@ export const userDataAPI = {
     }
   },
 
-  // AI insights functionality removed
 };
 
 // Project API

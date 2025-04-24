@@ -1,15 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Folder,
-  Plus,
-  Search,
-  Clock,
-  Calendar,
-  LayoutGrid,
-  List,
-  Trash2,
-} from "lucide-react";
+import { Folder, Plus, Search, LayoutGrid, List, Trash2 } from "lucide-react";
 
 function Projects() {
   const navigate = useNavigate();
@@ -226,18 +217,6 @@ function Projects() {
                         <p className="text-gray-400 mt-2 line-clamp-2">
                           {project.description || "No description provided"}
                         </p>
-                        <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
-                          <div className="flex items-center">
-                            <Clock size={14} className="mr-1" />
-                            <span>Updated 2h ago</span>
-                          </div>
-                          <div className="flex items-center">
-                            <Calendar size={14} className="mr-1" />
-                            <span>
-                              Created {new Date().toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
                       </div>
                     </div>
                   </div>

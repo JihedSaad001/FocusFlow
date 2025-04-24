@@ -486,4 +486,61 @@ exports.logCompletedTask = async (req, res, User) => {
   }
 };
 
-// AI insights functionality removed
+/**
+ * Update user's wallpaper preference
+ */
+exports.updateWallpaper = async (req, res, User) => {
+  try {
+    const { wallpaperUrl } = req.body;
+    const userId = req.user.id;
+
+    if (!wallpaperUrl) {
+      return res.status(400).json({ message: "Wallpaper URL is required" });
+    }
+
+    console.log("Updating wallpaper for user:", userId, "URL:", wallpaperUrl);
+
+    // Find and update the user
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { wallpaper: wallpaperUrl },
+      { new: true, runValidators: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "Wallpaper updated successfully",
+      wallpaper: user.wallpaper
+    });
+  } catch (error) {
+    console.error("Error updating wallpaper:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+/**
+ * Get user's wallpaper preference
+ */
+exports.getWallpaper = async (req, res, User) => {
+  try {
+    const userId = req.user.id;
+
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      wallpaper: user.wallpaper || ""
+    });
+  } catch (error) {
+    console.error("Error fetching wallpaper:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+

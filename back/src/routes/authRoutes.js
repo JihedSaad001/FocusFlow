@@ -53,7 +53,6 @@ router.put("/update-user", authenticateJWT, authController.updateUser)
 
 router.post("/upload-profile-pic", authenticateJWT, upload.single("file"), authController.uploadProfilePic)
 
-router.post("/google-login", authController.googleLogin)
 
 router.post("/refresh-token", authController.refreshToken)
 

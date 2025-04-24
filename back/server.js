@@ -9,7 +9,7 @@ const { createClient } = require("redis");
 
 dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 5000; // Using port 5000 as default
+const PORT = process.env.PORT || 5000;
 
 // Define allowed origins for both Express and Socket.IO
 const allowedOrigins = [
@@ -53,11 +53,11 @@ const subClient = pubClient.duplicate();
 Promise.all([pubClient.connect(), subClient.connect()])
   .then(() => {
     io.adapter(createAdapter(pubClient, subClient));
-    console.log("Redis adapter connected for Socket.IO");
+    console.log("Redis adapter connected");
   })
-  .catch((err) => {
-    console.error("Failed to connect to Redis:", err);
+  .catch(() => {
     // Fallback to default in-memory adapter if Redis fails
+    console.log("Using default in-memory adapter");
   });
 
 app.use(express.json());
@@ -86,48 +86,20 @@ app.use("/api/user", userDataRoutes);
 
 // WebSocket connection handling
 io.on("connection", (socket) => {
-  console.log("[SOCKET] A user connected:", socket.id);
-  console.log("[SOCKET] Auth token:", socket.handshake.auth.token ? "Present" : "Missing");
-  console.log("[SOCKET] Transport:", socket.conn.transport.name);
-
-  // Log all rooms the socket is currently in
-  console.log("[SOCKET] Current rooms:", Array.from(socket.rooms));
-
-  // Debug middleware to log all events
-  socket.onAny((event, ...args) => {
-    console.log(`[SOCKET] Event received: ${event}`, args);
-  });
-
   // Join a room based on projectId
   socket.on("joinRoom", (projectId) => {
-    console.log(`[SOCKET] User ${socket.id} joining room ${projectId}`);
     socket.join(projectId);
-
-    // Log all rooms after joining
-    console.log(`[SOCKET] User ${socket.id} rooms after joining:`, Array.from(socket.rooms));
-
-    // Log all clients in the room
-    const clients = io.sockets.adapter.rooms.get(projectId);
-    console.log(`[SOCKET] Clients in room ${projectId}:`, clients ? Array.from(clients) : "None");
-    console.log(`[SOCKET] Number of clients in room ${projectId}:`, clients ? clients.size : 0);
 
     // Emit a confirmation back to the client
     socket.emit("roomJoined", { projectId, success: true });
   });
 
-  socket.on("disconnect", (reason) => {
-    console.log(`[SOCKET] User disconnected: ${socket.id}, Reason: ${reason}`);
+  socket.on("disconnect", () => {
+    // Handle disconnect if needed
   });
 
   socket.on("error", (error) => {
-    console.error(`[SOCKET] Socket error for ${socket.id}:`, error);
-  });
-
-  // Log when a client pings the server
-  socket.conn.on("packet", (packet) => {
-    if (packet.type === "ping") {
-      console.log(`[SOCKET] Ping received from ${socket.id}`);
-    }
+    console.error(`Socket error:`, error);
   });
 });
 

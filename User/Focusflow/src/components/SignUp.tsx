@@ -37,6 +37,26 @@ function SignUp() {
     setError("");
     setSignupSuccess(false);
 
+    // Validate username length
+    if (formData.username.length < 3) {
+      setError("Name must be at least 3 characters long");
+      return;
+    }
+
+    // Validate email format with a simple regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    // Validate password length
+    if (formData.password.length < 5) {
+      setError("Password must be at least 5 characters long");
+      return;
+    }
+
+    // Check if passwords match
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match!");
       return;

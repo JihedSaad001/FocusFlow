@@ -26,10 +26,42 @@ const Workspace = () => {
   });
 
   useEffect(() => {
+    // First try to get from localStorage for immediate display
     const storedWallpaper = localStorage.getItem("workspaceWallpaper");
     if (storedWallpaper) {
       setBackground(storedWallpaper);
     }
+
+    // Then fetch from the backend to ensure we have the latest preference
+    const fetchWallpaperFromBackend = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return; // Not logged in
+
+        const response = await fetch(
+          "https://focusflow-production.up.railway.app/api/user/wallpaper",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) throw new Error("Failed to fetch wallpaper");
+
+        const data = await response.json();
+        if (data.wallpaper) {
+          // Update both state and localStorage
+          setBackground(data.wallpaper);
+          localStorage.setItem("workspaceWallpaper", data.wallpaper);
+        }
+      } catch (err) {
+        console.error("Error fetching wallpaper from backend:", err);
+        // Fall back to localStorage (already handled above)
+      }
+    };
+
+    fetchWallpaperFromBackend();
   }, []);
 
   const handleWidgetOpen = (widget: string) => {

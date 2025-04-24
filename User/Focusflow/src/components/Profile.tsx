@@ -44,6 +44,22 @@ const Profile = () => {
       return;
     }
 
+    // Validate username length if it's being changed
+    if (
+      newUsername.trim() &&
+      newUsername !== user.username &&
+      newUsername.length < 3
+    ) {
+      alert("Name must be at least 3 characters long");
+      return;
+    }
+
+    // Validate password length if it's being changed
+    if (newPassword && newPassword.length < 5) {
+      alert("Password must be at least 5 characters long");
+      return;
+    }
+
     if (newPassword && newPassword !== confirmPassword) {
       alert("New passwords do not match!");
       return;
@@ -104,8 +120,31 @@ const Profile = () => {
     }
 
     // Validate file type
-    if (!file.type.startsWith("image/")) {
-      alert("Please upload an image file");
+    const validImageTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
+    if (!validImageTypes.includes(file.type)) {
+      alert(`Invalid file format. Please upload a valid image (JPEG, PNG, GIF, or WebP).
+Uploaded file type: ${file.type}`);
+      return;
+    }
+
+    // Validate file extension
+    const fileName = file.name.toLowerCase();
+    const validExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+    const hasValidExtension = validExtensions.some((ext) =>
+      fileName.endsWith(ext)
+    );
+
+    if (!hasValidExtension) {
+      alert(
+        `Invalid file extension. Please upload a file with one of these extensions: ${validExtensions.join(
+          ", "
+        )}`
+      );
       return;
     }
 
