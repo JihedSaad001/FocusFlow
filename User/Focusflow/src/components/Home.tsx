@@ -41,7 +41,7 @@ const Home = () => {
       setDayProgress(Math.floor((elapsedMs / totalDayMs) * 100));
     }, 60000);
 
-    // Initial calculation
+ 
     const now = new Date();
     const startOfDay = new Date(now);
     startOfDay.setHours(0, 0, 0, 0);
