@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 import type { Project, Task, Sprint, DecodedToken } from "../../types";
@@ -758,7 +758,9 @@ function ProjectDetails() {
       </div>
     );
 
-  const isProjectOwner = currentUserId && project?.owner._id === currentUserId;
+  const isProjectOwner = Boolean(
+    currentUserId && project?.owner._id === currentUserId
+  );
 
   // Find member by ID
   const getMemberName = (memberId: string | undefined) => {
