@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   X,
   Volume2,
@@ -106,7 +106,9 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const previousMasterVolumeRef = useRef(masterVolume);
-  const nodeRef = useRef<HTMLDivElement>(null);
+  const nodeRef = useRef<HTMLDivElement>(
+    null
+  ) as React.RefObject<HTMLDivElement>;
 
   // Restore state from localStorage on mount and sync with actual audio state
   useEffect(() => {

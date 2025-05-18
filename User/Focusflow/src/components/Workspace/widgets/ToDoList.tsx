@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react"; // Add useRef
+import React, { useState, useEffect, useRef } from "react"; // Add useRef
 import { Plus, X, Check, Trash2, Loader2 } from "lucide-react";
 import Draggable from "react-draggable"; // Import react-draggable
 import axios from "axios";
@@ -28,7 +28,9 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
   const [useLocalStorage, setUseLocalStorage] = useState(false);
 
   // Create a ref for the draggable node
-  const nodeRef = useRef<HTMLDivElement>(null);
+  const nodeRef = useRef<HTMLDivElement>(
+    null
+  ) as React.RefObject<HTMLDivElement>;
 
   // Load tasks when component mounts
   useEffect(() => {

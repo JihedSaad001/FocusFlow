@@ -14,7 +14,9 @@ const YouTubePlayer = () => {
   const lastMousePosition = useRef({ x: 0, y: 0 });
   const animationFrame = useRef<number | null>(null);
   const dragEndTimer = useRef<NodeJS.Timeout | null>(null);
-  const nodeRef = useRef<HTMLDivElement>(null);
+  const nodeRef = useRef<HTMLDivElement>(
+    null
+  ) as React.RefObject<HTMLDivElement>;
 
   // Replace with your YouTube Data API key (secure in production)
   const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
