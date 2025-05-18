@@ -27,7 +27,7 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
   const [useLocalStorage, setUseLocalStorage] = useState(false);
 
   // Create a ref for the draggable node
-  const nodeRef = useRef<HTMLDivElement>(null);
+  const nodeRef = useRef(null);
 
   // Load tasks when component mounts
   useEffect(() => {
