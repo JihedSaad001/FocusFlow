@@ -106,7 +106,7 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const previousMasterVolumeRef = useRef(masterVolume);
-  const nodeRef = useRef(null);
+  const nodeRef = useRef<HTMLDivElement>(null);
 
   // Restore state from localStorage on mount and sync with actual audio state
   useEffect(() => {

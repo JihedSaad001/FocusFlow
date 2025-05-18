@@ -103,7 +103,7 @@ const MusicPlayer = ({ onClose }: { onClose: () => void }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const previousMasterVolumeRef = useRef(masterVolume);
-  const nodeRef = useRef(null);
+  const nodeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     console.log("MusicPlayer component mounted");
