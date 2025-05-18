@@ -52,7 +52,7 @@ function ProjectDetails() {
     type: "success" | "error";
   } | null>(null);
   const socket = useRef(
-    io("http://localhost:5000", {
+    io("https://focusflow-production.up.railway.app", {
       autoConnect: true,
     })
   );
@@ -86,7 +86,7 @@ function ProjectDetails() {
       try {
         // Create axios instance with default config
         const api = axios.create({
-          baseURL: "http://localhost:5000/api",
+          baseURL: "https://focusflow-production.up.railway.app/api",
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -120,7 +120,7 @@ function ProjectDetails() {
       const token = localStorage.getItem("token");
       try {
         const response = await fetch(
-          `http://localhost:5000/api/projects/${id}/chat`,
+          `https://focusflow-production.up.railway.app/api/projects/${id}/chat`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -196,7 +196,7 @@ function ProjectDetails() {
       };
 
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/backlog`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/backlog`,
         {
           method: "POST",
           headers: {
@@ -247,7 +247,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/backlog/${taskId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/backlog/${taskId}`,
         {
           method: "DELETE",
           headers: {
@@ -345,7 +345,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints`,
         {
           method: "POST",
           headers: {
@@ -362,7 +362,7 @@ function ProjectDetails() {
 
       // Fetch the updated project to get the complete data structure
       const fetchProjectResponse = await fetch(
-        `http://localhost:5000/api/projects/${id}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -412,7 +412,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints/${sprintId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${sprintId}`,
         {
           method: "DELETE",
           headers: {
@@ -452,7 +452,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
         {
           method: "DELETE",
           headers: {
@@ -528,7 +528,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
         {
           method: "PUT",
           headers: {
@@ -560,7 +560,7 @@ function ProjectDetails() {
       // If there's an error, fetch the project again to get the correct state
       try {
         const fetchResponse = await fetch(
-          `http://localhost:5000/api/projects/${id}`,
+          `https://focusflow-production.up.railway.app/api/projects/${id}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -602,7 +602,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/members`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/members`,
         {
           method: "POST",
           headers: {
@@ -619,7 +619,7 @@ function ProjectDetails() {
       }
 
       const fetchProjectResponse = await fetch(
-        `http://localhost:5000/api/projects/${id}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -660,7 +660,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/members/${memberId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/members/${memberId}`,
         {
           method: "DELETE",
           headers: {
@@ -676,7 +676,7 @@ function ProjectDetails() {
       }
 
       const fetchProjectResponse = await fetch(
-        `http://localhost:5000/api/projects/${id}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -715,7 +715,7 @@ function ProjectDetails() {
     if (!project.activePokerSession) {
       try {
         const response = await fetch(
-          `http://localhost:5000/api/projects/${id}/poker/start`,
+          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/start`,
           {
             method: "POST",
             headers: {
@@ -747,7 +747,7 @@ function ProjectDetails() {
     try {
       // First update the task assignment in the sprint
       const updateResponse = await fetch(
-        `http://localhost:5000/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
+        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
         {
           method: "PUT",
           headers: {

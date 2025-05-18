@@ -170,18 +170,19 @@ function SignUp() {
     try {
       // Create axios instance with default config
       const api = axios.create({
-        baseURL: "http://localhost:5000/api",
+        baseURL: "https://focusflow-production.up.railway.app/api",
         headers: {
           "Content-Type": "application/json",
         },
       });
 
-      await api.post("/auth/signup", {
+      const response = await api.post("/auth/signup", {
         username: formData.username,
         email: formData.email,
         password: formData.password,
       });
 
+      console.log("Signup successful:", response.data);
       setSignupSuccess(true);
       // Clear the form
       setFormData({

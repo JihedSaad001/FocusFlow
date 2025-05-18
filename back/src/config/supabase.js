@@ -4,6 +4,15 @@ const dotenv = require("dotenv");
 // Ensure environment variables are loaded
 dotenv.config();
 
+// Check for camelCase variables (used in Railway) and map them to snake_case
+if (!process.env.SUPABASE_URL && process.env.supabaseUrl) {
+  process.env.SUPABASE_URL = process.env.supabaseUrl;
+}
+
+if (!process.env.SUPABASE_SERVICE_ROLE && process.env.supabaseAnonKey) {
+  process.env.SUPABASE_SERVICE_ROLE = process.env.supabaseAnonKey;
+}
+
 // Supabase configuration from environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE;

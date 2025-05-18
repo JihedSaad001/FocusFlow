@@ -116,7 +116,7 @@ export function PlanningSession() {
 
     if (!socketRef.current) {
       console.log("Creating new Socket.IO connection");
-      const socketUrl = "http://localhost:5000";
+      const socketUrl = "https://focusflow-production.up.railway.app";
       const token = localStorage.getItem("token");
 
       // Get the username from localStorage to send with the connection
@@ -512,7 +512,7 @@ export function PlanningSession() {
 
       // Create axios instance with default config
       const api = axios.create({
-        baseURL: "http://localhost:5000/api",
+        baseURL: "https://focusflow-production.up.railway.app/api",
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -553,7 +553,7 @@ export function PlanningSession() {
     try {
       // Create axios instance with default config
       const api = axios.create({
-        baseURL: "http://localhost:5000/api",
+        baseURL: "https://focusflow-production.up.railway.app/api",
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -667,7 +667,7 @@ export function PlanningSession() {
       try {
         // Create axios instance with default config
         const api = axios.create({
-          baseURL: "http://localhost:5000/api",
+          baseURL: "https://focusflow-production.up.railway.app/api",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -722,7 +722,7 @@ export function PlanningSession() {
       try {
         // Create axios instance with default config
         const api = axios.create({
-          baseURL: "http://localhost:5000/api",
+          baseURL: "https://focusflow-production.up.railway.app/api",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -805,7 +805,7 @@ export function PlanningSession() {
       try {
         // Create axios instance with default config
         const api = axios.create({
-          baseURL: "http://localhost:5000/api",
+          baseURL: "https://focusflow-production.up.railway.app/api",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -952,7 +952,7 @@ export function PlanningSession() {
       if (id) {
         // Create axios instance with default config
         const api = axios.create({
-          baseURL: "http://localhost:5000/api",
+          baseURL: "https://focusflow-production.up.railway.app/api",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -1207,7 +1207,8 @@ export function PlanningSession() {
                     if (id) {
                       // Create axios instance with default config
                       const api = axios.create({
-                        baseURL: "http://localhost:5000/api",
+                        baseURL:
+                          "https://focusflow-production.up.railway.app/api",
                         headers: {
                           "Content-Type": "application/json",
                           Authorization: `Bearer ${localStorage.getItem(

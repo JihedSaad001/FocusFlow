@@ -103,7 +103,7 @@ const MusicPlayer = ({ onClose }: { onClose: () => void }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const previousMasterVolumeRef = useRef(masterVolume);
-  const nodeRef = useRef<HTMLDivElement>(null);
+  const nodeRef = useRef(null);
 
   useEffect(() => {
     console.log("MusicPlayer component mounted");
@@ -205,7 +205,7 @@ const MusicPlayer = ({ onClose }: { onClose: () => void }) => {
 
       // Create axios instance with default config
       const api = axios.create({
-        baseURL: "http://localhost:5000/api",
+        baseURL: "https://focusflow-production.up.railway.app/api",
       });
 
       // Get music tracks

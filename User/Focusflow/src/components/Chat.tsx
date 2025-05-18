@@ -10,7 +10,10 @@ export function Chat({ projectId }: { projectId: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const socketRef = useRef(
-    io(import.meta.env.VITE_API_BASE_URL || "http://localhost:5000")
+    io(
+      import.meta.env.VITE_API_BASE_URL ||
+        "https://focusflow-production.up.railway.app"
+    )
   );
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -32,7 +35,7 @@ export function Chat({ projectId }: { projectId: string }) {
     const fetchMessages = async () => {
       try {
         const response = await fetch(
-          `http://localhost:5000/api/projects/${projectId}/chat`,
+          `https://focusflow-production.up.railway.app/api/projects/${projectId}/chat`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,

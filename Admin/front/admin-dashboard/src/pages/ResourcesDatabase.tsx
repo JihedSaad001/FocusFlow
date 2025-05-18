@@ -10,7 +10,7 @@ import {
 } from "../api";
 
 // API base URL
-const API_BASE_URL = "http://localhost:5000";
+const API_BASE_URL = "https://focusflow-production.up.railway.app";
 import {
   FaUpload,
   FaTrash,

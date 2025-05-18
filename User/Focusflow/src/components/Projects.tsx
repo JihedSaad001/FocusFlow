@@ -22,7 +22,7 @@ function Projects() {
 
         // Create axios instance with default config
         const api = axios.create({
-          baseURL: "http://localhost:5000/api",
+          baseURL: "https://focusflow-production.up.railway.app/api",
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -58,7 +58,7 @@ function Projects() {
     try {
       // Create axios instance with default config
       const api = axios.create({
-        baseURL: "http://localhost:5000/api",
+        baseURL: "https://focusflow-production.up.railway.app/api",
         headers: {
           Authorization: `Bearer ${token}`,
         },
