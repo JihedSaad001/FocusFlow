@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import axios from "axios";
 
 const VerifyEmail = () => {
   const navigate = useNavigate();
@@ -23,25 +24,21 @@ const VerifyEmail = () => {
           return;
         }
 
-        const response = await fetch(
-          `https://focusflow-production.up.railway.app/api/auth/verify-email/${token}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        // Create axios instance with default config
+        const api = axios.create({
+          baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || "Verification failed");
-        }
+        await api.get(`/auth/verify-email/${token}`);
 
         setSuccess(true);
       } catch (err: any) {
-        setError(err.message);
+        setError(
+          err.response?.data?.message || err.message || "Verification failed"
+        );
       } finally {
         setVerifying(false);
       }

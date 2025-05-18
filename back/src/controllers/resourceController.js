@@ -1,5 +1,11 @@
 const Resource = require("../models/Resource");
 const { supabase } = require("../config/supabase");
+const {
+  validateFileFormat,
+  validateMimeType,
+  uploadFileToSupabase,
+  saveResourceToDatabase
+} = require("../utils/fileUpload");
 
 /**
  * Manually add a new resource (Admin Only)
@@ -11,19 +17,29 @@ exports.addResource = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const newResource = new Resource({
+    // Prepare resource data for database
+    const resourceData = {
       type,
       name,
       url,
       category,
       tags,
       uploadedBy: req.user.id,
+    };
+
+    // Save to database using our utility function
+    const saveResult = await saveResourceToDatabase(resourceData);
+
+    if (!saveResult.success) {
+      return res.status(500).json({ message: saveResult.message });
+    }
+
+    res.status(201).json({
+      message: "Resource added successfully",
+      resource: saveResult.resource
     });
-
-    await newResource.save();
-
-    res.status(201).json({ message: "Resource added successfully", resource: newResource });
   } catch (error) {
+    console.error("Error adding resource:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
@@ -31,7 +47,7 @@ exports.addResource = async (req, res) => {
 /**
  * Fetch all active wallpapers
  */
-exports.getWallpapers = async (req, res) => {
+exports.getWallpapers = async (_, res) => {
   try {
     const wallpapers = await Resource.find({ type: "wallpaper", isActive: true });
     res.json(wallpapers);
@@ -41,9 +57,21 @@ exports.getWallpapers = async (req, res) => {
 };
 
 /**
+ * Fetch all wallpapers (both active and inactive) - Admin Only
+ */
+exports.getAllWallpapers = async (_, res) => {
+  try {
+    const wallpapers = await Resource.find({ type: "wallpaper" });
+    res.json(wallpapers);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+/**
  * Fetch all active ambient sounds
  */
-exports.getAmbientSounds = async (req, res) => {
+exports.getAmbientSounds = async (_, res) => {
   try {
     const sounds = await Resource.find({ type: "audio", isActive: true });
     res.json(sounds);
@@ -53,11 +81,35 @@ exports.getAmbientSounds = async (req, res) => {
 };
 
 /**
+ * Fetch all ambient sounds (both active and inactive) - Admin Only
+ */
+exports.getAllAmbientSounds = async (_, res) => {
+  try {
+    const sounds = await Resource.find({ type: "audio" });
+    res.json(sounds);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+/**
  * Fetch all active music tracks
  */
-exports.getMusic = async (req, res) => {
+exports.getMusic = async (_, res) => {
   try {
     const music = await Resource.find({ type: "music", isActive: true });
+    res.json(music);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+/**
+ * Fetch all music tracks (both active and inactive) - Admin Only
+ */
+exports.getAllMusic = async (_, res) => {
+  try {
+    const music = await Resource.find({ type: "music" });
     res.json(music);
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -90,20 +142,18 @@ exports.uploadWallpaper = async (req, res) => {
 
     // Validate image format
     const validFormats = ["jpg", "jpeg", "png", "gif", "webp"];
-    const fileExtension = req.file.originalname.split(".").pop()?.toLowerCase();
+    const formatValidation = validateFileFormat(req.file.originalname, validFormats);
 
-    if (!fileExtension || !validFormats.includes(fileExtension)) {
-      return res.status(400).json({
-        message: `Invalid image format. Must be one of: ${validFormats.join(", ")}`
-      });
+    if (!formatValidation.valid) {
+      return res.status(400).json({ message: formatValidation.message });
     }
 
     // Validate MIME type
     const validMimeTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-    if (!validMimeTypes.includes(req.file.mimetype)) {
-      return res.status(400).json({
-        message: `Invalid file type. File appears to be ${req.file.mimetype} but must be an image.`
-      });
+    const mimeValidation = validateMimeType(req.file.mimetype, validMimeTypes);
+
+    if (!mimeValidation.valid) {
+      return res.status(400).json({ message: mimeValidation.message });
     }
 
     // Validate category
@@ -113,51 +163,36 @@ exports.uploadWallpaper = async (req, res) => {
       return res.status(400).json({ message: `Invalid category. Must be one of: ${validCategories.join(", ")}` });
     }
 
-    const fileName = `wallpapers/${Date.now()}-${req.file.originalname}`;
+    // Upload file to Supabase
+    const uploadResult = await uploadFileToSupabase(req.file, "wallpapers", "wallpapers");
 
-    // Upload image to Supabase Storage
-    const { data, error } = await supabase.storage.from("wallpapers").upload(fileName, req.file.buffer, {
-      contentType: req.file.mimetype,
-      cacheControl: "3600",
-      upsert: true, // Overwrite if file already exists
-    });
-
-    if (error) {
-      console.error("Supabase upload error:", error);
-      throw new Error(`Failed to upload to Supabase: ${error.message}`);
+    if (!uploadResult.success) {
+      return res.status(500).json({ message: uploadResult.message });
     }
 
-    console.log("Supabase upload successful:", data);
-
-    // Retrieve the public URL
-    const { data: publicUrlData } = supabase.storage.from("wallpapers").getPublicUrl(fileName);
-
-    const publicUrl = publicUrlData?.publicUrl;
-    if (!publicUrl || typeof publicUrl !== "string") {
-      return res.status(500).json({ message: "Failed to retrieve a valid public URL from Supabase" });
-    }
-
-    console.log("Public URL:", publicUrl);
-
-    // Save the wallpaper in MongoDB
-    const newWallpaper = new Resource({
+    // Prepare resource data for database
+    const resourceData = {
       type: "wallpaper",
       name: req.file.originalname,
-      url: publicUrl,
+      url: uploadResult.url,
       uploadedBy: req.user.id,
       category,
-      format: fileExtension,
+      format: formatValidation.extension,
       tags: req.body.tags ? req.body.tags.split(",").map((tag) => tag.trim()) : [],
-    });
+    };
 
-    await newWallpaper.save();
+    // Save to database
+    const saveResult = await saveResourceToDatabase(resourceData);
 
-    console.log("Wallpaper saved to MongoDB:", newWallpaper);
+    if (!saveResult.success) {
+      return res.status(500).json({ message: saveResult.message });
+    }
 
+    // Return success response
     res.status(200).json({
       message: "Wallpaper uploaded successfully",
-      url: publicUrl,
-      wallpaper: newWallpaper,
+      url: uploadResult.url,
+      wallpaper: saveResult.resource,
     });
   } catch (error) {
     console.error("Upload error:", error);
@@ -170,69 +205,69 @@ exports.uploadWallpaper = async (req, res) => {
  */
 exports.uploadAudio = async (req, res) => {
   try {
+    console.log("Starting audio upload process...");
+
     if (!req.file) {
+      console.log("No file uploaded");
       return res.status(400).json({ message: "No file uploaded" });
     }
 
+    console.log("File received:", {
+      filename: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    });
+
     // Validate audio format
     const validFormats = ["mp3", "wav", "ogg"];
-    const fileExtension = req.file.originalname.split(".").pop()?.toLowerCase();
+    const formatValidation = validateFileFormat(req.file.originalname, validFormats);
 
-    if (!fileExtension || !validFormats.includes(fileExtension)) {
-      return res.status(400).json({
-        message: `Invalid audio format. Must be one of: ${validFormats.join(", ")}`,
-      });
+    if (!formatValidation.valid) {
+      console.log("Invalid file format:", formatValidation.message);
+      return res.status(400).json({ message: formatValidation.message });
     }
 
-    const fileName = `audio/${Date.now()}-${req.file.originalname}`;
+    // Note: We're assuming the audio bucket already exists in Supabase
 
-    // Upload audio to Supabase Storage
-    const { data, error } = await supabase.storage.from("audio").upload(fileName, req.file.buffer, {
-      contentType: req.file.mimetype,
-      cacheControl: "3600",
-      upsert: true, // Overwrite if file already exists
-    });
+    // Upload file to Supabase
+    const uploadResult = await uploadFileToSupabase(req.file, "audio", "audio");
 
-    if (error) {
-      console.error("Supabase upload error:", error);
-      throw new Error(`Failed to upload to Supabase: ${error.message}`);
+    if (!uploadResult.success) {
+      return res.status(500).json({ message: uploadResult.message });
     }
 
-    console.log("Supabase audio upload successful:", data);
+    console.log("Audio upload successful, URL:", uploadResult.url);
 
-    // Retrieve the public URL
-    const { data: publicUrlData } = supabase.storage.from("audio").getPublicUrl(fileName);
-
-    const publicUrl = publicUrlData?.publicUrl;
-    if (!publicUrl || typeof publicUrl !== "string") {
-      return res.status(500).json({ message: "Failed to retrieve a valid public URL from Supabase" });
-    }
-
-    console.log("Audio Public URL:", publicUrl);
-
-    // Save the audio in MongoDB
-    const newAudio = new Resource({
+    // Prepare resource data for database
+    const resourceData = {
       type: "audio",
       name: req.body.name || req.file.originalname,
-      url: publicUrl,
+      url: uploadResult.url,
       uploadedBy: req.user.id,
-      format: fileExtension,
+      format: formatValidation.extension,
       tags: req.body.tags ? req.body.tags.split(",").map((tag) => tag.trim()) : [],
-      duration: req.body.duration || 0,
-    });
+    };
 
-    await newAudio.save();
+    // Save to database
+    const saveResult = await saveResourceToDatabase(resourceData);
 
-    console.log("Audio saved to MongoDB:", newAudio);
+    if (!saveResult.success) {
+      return res.status(500).json({ message: saveResult.message });
+    }
 
+    // Return success response
     res.status(200).json({
       message: "Audio uploaded successfully",
-      url: publicUrl,
-      audio: newAudio,
+      url: uploadResult.url,
+      audio: saveResult.resource,
     });
   } catch (error) {
     console.error("Upload error:", error);
-    res.status(500).json({ message: "Upload error", error: error.message });
+    res.status(500).json({
+      message: "Upload error",
+      error: error.message,
+      stack: error.stack
+    });
   }
 };
 
@@ -241,69 +276,69 @@ exports.uploadAudio = async (req, res) => {
  */
 exports.uploadMusic = async (req, res) => {
   try {
+    console.log("Starting music upload process...");
+
     if (!req.file) {
+      console.log("No file uploaded");
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // Validate audio format
-    const validFormats = ["mp3", "wav", "ogg"];
-    const fileExtension = req.file.originalname.split(".").pop()?.toLowerCase();
-
-    if (!fileExtension || !validFormats.includes(fileExtension)) {
-      return res.status(400).json({
-        message: `Invalid music format. Must be one of: ${validFormats.join(", ")}`,
-      });
-    }
-
-    const fileName = `music/${Date.now()}-${req.file.originalname}`;
-
-    // Upload music to Supabase Storage
-    const { data, error } = await supabase.storage.from("music").upload(fileName, req.file.buffer, {
-      contentType: req.file.mimetype,
-      cacheControl: "3600",
-      upsert: true,
+    console.log("File received:", {
+      filename: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
     });
 
-    if (error) {
-      console.error("Supabase upload error:", error);
-      throw new Error(`Failed to upload to Supabase: ${error.message}`);
+    // Validate music format
+    const validFormats = ["mp3", "wav", "ogg"];
+    const formatValidation = validateFileFormat(req.file.originalname, validFormats);
+
+    if (!formatValidation.valid) {
+      console.log("Invalid file format:", formatValidation.message);
+      return res.status(400).json({ message: formatValidation.message });
     }
 
-    console.log("Supabase music upload successful:", data);
+    // Note: We're assuming the music bucket already exists in Supabase
 
-    // Retrieve the public URL
-    const { data: publicUrlData } = supabase.storage.from("music").getPublicUrl(fileName);
+    // Upload file to Supabase
+    const uploadResult = await uploadFileToSupabase(req.file, "music", "music");
 
-    const publicUrl = publicUrlData?.publicUrl;
-    if (!publicUrl || typeof publicUrl !== "string") {
-      return res.status(500).json({ message: "Failed to retrieve a valid public URL from Supabase" });
+    if (!uploadResult.success) {
+      return res.status(500).json({ message: uploadResult.message });
     }
 
-    console.log("Music Public URL:", publicUrl);
+    console.log("Music upload successful, URL:", uploadResult.url);
 
-    // Save the music in MongoDB
-    const newMusic = new Resource({
+    // Prepare resource data for database
+    const resourceData = {
       type: "music",
       name: req.body.name || req.file.originalname,
-      url: publicUrl,
+      url: uploadResult.url,
       uploadedBy: req.user.id,
-      format: fileExtension,
+      format: formatValidation.extension,
       tags: req.body.tags ? req.body.tags.split(",").map((tag) => tag.trim()) : [],
-      duration: req.body.duration || 0,
-    });
+    };
 
-    await newMusic.save();
+    // Save to database
+    const saveResult = await saveResourceToDatabase(resourceData);
 
-    console.log("Music saved to MongoDB:", newMusic);
+    if (!saveResult.success) {
+      return res.status(500).json({ message: saveResult.message });
+    }
 
+    // Return success response
     res.status(200).json({
       message: "Music uploaded successfully",
-      url: publicUrl,
-      music: newMusic,
+      url: uploadResult.url,
+      music: saveResult.resource,
     });
   } catch (error) {
     console.error("Upload error:", error);
-    res.status(500).json({ message: "Upload error", error: error.message });
+    res.status(500).json({
+      message: "Upload error",
+      error: error.message,
+      stack: error.stack
+    });
   }
 };
 
@@ -318,6 +353,29 @@ exports.deleteResource = async (req, res) => {
     }
 
     res.json({ message: "Resource deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+/**
+ * Toggle resource active status (Admin Only)
+ */
+exports.toggleResourceStatus = async (req, res) => {
+  try {
+    const resource = await Resource.findById(req.params.id);
+    if (!resource) {
+      return res.status(404).json({ message: "Resource not found" });
+    }
+
+    // Toggle the isActive status
+    resource.isActive = !resource.isActive;
+    await resource.save();
+
+    res.json({
+      message: `Resource ${resource.isActive ? 'activated' : 'deactivated'} successfully`,
+      resource
+    });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }

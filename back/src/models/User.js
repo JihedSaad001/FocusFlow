@@ -29,12 +29,8 @@ const UserSchema = new mongoose.Schema({
               _id: { type: String, required: true },
               title: { type: String, required: true },
               priority: { type: String, enum: ["Low", "Medium", "High"], default: "Medium" },
-              deadline: { type: String },
               icon: { type: String },
-              description: { type: String },
-              projectId: { type: String }, // Reference to the project
-              sprintId: { type: String }, // Reference to the sprint
-              originalTaskId: { type: String }, // Reference to the original task in the project
+             
             },
           ],
         },
@@ -69,7 +65,7 @@ const UserSchema = new mongoose.Schema({
   ],
   tasksCompleted: { type: Number, default: 0 },
 
-  // New fields for BI Dashboard and Gamification
+  
   xp: { type: Number, default: 0 },
   level: { type: Number, default: 1 },
   focusTime: [

@@ -1,16 +1,21 @@
-"use client"
+"use client";
 
-import type { Issue } from "../../types"
-import { CheckCircle, Eye, Clock } from "lucide-react"
+import type { Issue } from "../../types";
+import { CheckCircle, Eye, Clock } from "lucide-react";
 
 interface IssueListProps {
-  issues: Issue[]
-  onIssueSelect: (issue: Issue) => void
-  currentIssueId?: string
-  onDeleteIssue: (issueId: string) => void
+  issues: Issue[];
+  onIssueSelect: (issue: Issue) => void;
+  currentIssueId?: string;
+  onDeleteIssue: (issueId: string) => void;
 }
 
-export function IssueList({ issues, onIssueSelect, currentIssueId, onDeleteIssue }: IssueListProps) {
+export function IssueList({
+  issues,
+  onIssueSelect,
+  currentIssueId,
+  onDeleteIssue,
+}: IssueListProps) {
   // Function to get status indicator
   const getStatusIndicator = (status: string) => {
     switch (status) {
@@ -19,22 +24,26 @@ export function IssueList({ issues, onIssueSelect, currentIssueId, onDeleteIssue
           <span title="Votes Revealed">
             <Eye size={16} className="text-yellow-400" aria-hidden="true" />
           </span>
-        )
+        );
       case "Finished":
         return (
           <span title="Validated">
-            <CheckCircle size={16} className="text-green-400" aria-hidden="true" />
+            <CheckCircle
+              size={16}
+              className="text-green-400"
+              aria-hidden="true"
+            />
           </span>
-        )
+        );
       case "Not Started":
       default:
         return (
           <span title="Not Started">
             <Clock size={16} className="text-gray-400" aria-hidden="true" />
           </span>
-        )
+        );
     }
-  }
+  };
 
   return (
     <div className="space-y-2">
@@ -55,8 +64,8 @@ export function IssueList({ issues, onIssueSelect, currentIssueId, onDeleteIssue
             </div>
             <button
               onClick={(e) => {
-                e.stopPropagation()
-                onDeleteIssue(issue._id)
+                e.stopPropagation();
+                onDeleteIssue(issue._id);
               }}
               className="text-gray-400 hover:text-red-500 transition"
             >
@@ -80,7 +89,7 @@ export function IssueList({ issues, onIssueSelect, currentIssueId, onDeleteIssue
         </div>
       ))}
     </div>
-  )
+  );
 }
 
-export default IssueList
+export default IssueList;

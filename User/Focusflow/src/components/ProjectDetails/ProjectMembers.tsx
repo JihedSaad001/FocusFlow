@@ -26,13 +26,12 @@ const ProjectMembers: React.FC<ProjectMembersProps> = ({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {project?.members.map(
-            (member: {
-              _id: string;
-              username: string;
-              email: string;
-            }) => (
+            (
+              member: { _id: string; username: string; email: string },
+              index: number
+            ) => (
               <div
-                key={member._id}
+                key={`${member._id}-${index}`}
                 className="bg-black/30 rounded-lg p-3 border border-gray-700/50 flex items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">

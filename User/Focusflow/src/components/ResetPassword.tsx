@@ -12,6 +12,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
+import axios from "axios";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -53,26 +54,23 @@ const ResetPassword = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/auth/reset-password/${token}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password }),
-        }
-      );
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: "http://localhost:5000/api",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to reset password");
-      }
+      await api.post(`/auth/reset-password/${token}`, { password });
 
       setSuccess(true);
       setPassword("");
       setConfirmPassword("");
     } catch (err: any) {
-      setError(err.message);
+      setError(
+        err.response?.data?.message || err.message || "Failed to reset password"
+      );
     } finally {
       setLoading(false);
     }

@@ -1,23 +1,103 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FaExclamationCircle } from "react-icons/fa";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {}
+  );
+  const [touched, setTouched] = useState<{ email: boolean; password: boolean }>(
+    { email: false, password: false }
+  );
   const navigate = useNavigate();
+
+  // Validates a single field
+  const validateField = (name: string, value: string) => {
+    if (name === "email") {
+      if (!value.trim()) {
+        return "Email is required";
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        return "Please enter a valid email address";
+      }
+    }
+
+    if (name === "password") {
+      if (!value.trim()) {
+        return "Password is required";
+      }
+      if (value.length < 5) {
+        return "Password must be at least 5 characters long";
+      }
+    }
+
+    return undefined;
+  };
+
+  // Handle input change with validation
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+
+    if (name === "email") {
+      setEmail(value);
+    } else if (name === "password") {
+      setPassword(value);
+    }
+
+    // Mark field as touched
+    setTouched({ ...touched, [name]: true });
+
+    // Validate the field
+    const fieldError = validateField(name, value);
+    setErrors({ ...errors, [name]: fieldError });
+
+    // Clear the main error message when user starts typing
+    setError("");
+  };
+
+  // Handle input blur for validation
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setTouched({ ...touched, [name]: true });
+    const fieldError = validateField(name, value);
+    setErrors({ ...errors, [name]: fieldError });
+  };
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
-    try {
-      const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/auth/admin-login",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        }
+    setError("");
+
+    // Mark all fields as touched for validation
+    setTouched({ email: true, password: true });
+
+    // Validate all fields
+    const emailError = validateField("email", email);
+    const passwordError = validateField("password", password);
+
+    // Update errors state
+    const newErrors = { email: emailError, password: passwordError };
+    setErrors(newErrors);
+
+    // Check if there are any errors
+    if (emailError || passwordError) {
+      setError(
+        emailError || passwordError || "Please fix the errors in the form"
       );
+      return;
+    }
+
+    try {
+      const API_BASE_URL =
+        import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+      const response = await fetch(`${API_BASE_URL}/api/auth/admin-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
       const data = await response.json();
       console.log("✅ Login Success:", data);
@@ -59,15 +139,29 @@ export default function AdminLogin() {
             >
               Email
             </label>
-            <input
-              id="email"
-              type="email"
-              placeholder="m@example.com"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 rounded bg-[#1C1C1C] text-gray-300 border border-[#333] focus:ring-2 focus:ring-red-500 outline-none"
-            />
+            <div className="relative">
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="m@example.com"
+                required
+                value={email}
+                onChange={handleInputChange}
+                onBlur={handleBlur}
+                className={`w-full px-3 py-2 rounded bg-[#1C1C1C] text-gray-300 border focus:ring-2 outline-none ${
+                  touched.email && errors.email
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-[#333] focus:ring-red-500"
+                }`}
+              />
+              {touched.email && errors.email && (
+                <div className="flex items-center mt-1 text-xs text-red-400">
+                  <FaExclamationCircle className="mr-1" />
+                  <span>{errors.email}</span>
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <div className="flex justify-between items-center">
@@ -77,18 +171,29 @@ export default function AdminLogin() {
               >
                 Password
               </label>
-              <a href="#" className="text-xs text-gray-500 hover:text-gray-300">
-                Forgot your password?
-              </a>
             </div>
-            <input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 rounded bg-[#1C1C1C] text-gray-300 border border-[#333] focus:ring-2 focus:ring-red-500 outline-none"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                value={password}
+                onChange={handleInputChange}
+                onBlur={handleBlur}
+                className={`w-full px-3 py-2 rounded bg-[#1C1C1C] text-gray-300 border focus:ring-2 outline-none ${
+                  touched.password && errors.password
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-[#333] focus:ring-red-500"
+                }`}
+              />
+              {touched.password && errors.password && (
+                <div className="flex items-center mt-1 text-xs text-red-400">
+                  <FaExclamationCircle className="mr-1" />
+                  <span>{errors.password}</span>
+                </div>
+              )}
+            </div>
           </div>
           <button
             type="submit"

@@ -1,5 +1,13 @@
-import React from "react";
-import { ListTodo, Plus, ChevronDown, ChevronUp, Calendar, Trash2, CheckCircle } from "lucide-react";
+import React, { useState } from "react";
+import {
+  ListTodo,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  Trash2,
+  CheckCircle,
+} from "lucide-react";
 import { Project, Task } from "../../types";
 
 interface BacklogSectionProps {
@@ -13,13 +21,15 @@ interface BacklogSectionProps {
     assignedTo: string;
     deadline: string;
   };
-  setNewTask: React.Dispatch<React.SetStateAction<{
-    title: string;
-    description: string;
-    priority: "Low" | "Medium" | "High";
-    assignedTo: string;
-    deadline: string;
-  }>>;
+  setNewTask: React.Dispatch<
+    React.SetStateAction<{
+      title: string;
+      description: string;
+      priority: "Low" | "Medium" | "High";
+      assignedTo: string;
+      deadline: string;
+    }>
+  >;
   addTaskToBacklog: () => void;
   deleteTaskFromBacklog: (taskId: string) => void;
 }
@@ -33,6 +43,42 @@ const BacklogSection: React.FC<BacklogSectionProps> = ({
   addTaskToBacklog,
   deleteTaskFromBacklog,
 }) => {
+  const [dateError, setDateError] = useState<string | null>(null);
+
+  // Calculate date limits
+  const today = new Date().toISOString().split("T")[0]; // Today's date in YYYY-MM-DD format
+
+  // Calculate max date (5 years from now)
+  const maxDate = new Date();
+  maxDate.setFullYear(maxDate.getFullYear() + 5);
+  const maxDateStr = maxDate.toISOString().split("T")[0];
+
+  // Handle date change with validation
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedDate = e.target.value;
+
+    // Clear previous error
+    setDateError(null);
+
+    // Validate the date
+    const selectedDateObj = new Date(selectedDate);
+    const todayObj = new Date(today);
+
+    // Check if date is in the past
+    if (selectedDateObj < todayObj) {
+      setDateError("Cannot select a date in the past");
+      return;
+    }
+
+    // Check if date is too far in the future
+    if (selectedDateObj > maxDate) {
+      setDateError("Date is too far in the future (max 5 years)");
+      return;
+    }
+
+    // If valid, update the task
+    setNewTask({ ...newTask, deadline: selectedDate });
+  };
   return (
     <div className="mb-8">
       <div
@@ -51,8 +97,8 @@ const BacklogSection: React.FC<BacklogSectionProps> = ({
           <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
             <p className="text-red-400 flex items-center gap-2">
               <CheckCircle className="w-5 h-5" />
-              Items added to the backlog are automatically available in
-              poker planning for estimation.
+              Items added to the backlog are automatically available in poker
+              planning for estimation.
             </p>
           </div>
 
@@ -87,15 +133,22 @@ const BacklogSection: React.FC<BacklogSectionProps> = ({
               <option value="Medium">Medium Priority</option>
               <option value="High">High Priority</option>
             </select>
-            <input
-              type="date"
-              value={newTask.deadline}
-              onChange={(e) =>
-                setNewTask({ ...newTask, deadline: e.target.value })
-              }
-              placeholder="Due Date"
-              className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200"
-            />
+            <div>
+              <input
+                type="date"
+                value={newTask.deadline}
+                onChange={handleDateChange}
+                min={today}
+                max={maxDateStr}
+                placeholder="Due Date"
+                className={`w-full bg-black/50 text-white p-3 rounded-lg border ${
+                  dateError ? "border-red-500" : "border-gray-700"
+                } focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all duration-200`}
+              />
+              {dateError && (
+                <p className="text-red-500 text-sm mt-1">{dateError}</p>
+              )}
+            </div>
             <button
               onClick={addTaskToBacklog}
               className="md:col-span-2 bg-gradient-to-r from-red-500 to-red-700 text-white px-6 py-3 rounded-lg font-semibold shadow-lg transition-all duration-200 flex items-center justify-center gap-2 hover:from-red-600 hover:to-red-800"

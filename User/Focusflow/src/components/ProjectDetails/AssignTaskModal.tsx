@@ -25,9 +25,7 @@ const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-[#1E1E1E] rounded-xl border border-gray-700 p-6 max-w-md w-full">
-        <h3 className="text-xl font-semibold text-white mb-4">
-          Assign Task
-        </h3>
+        <h3 className="text-xl font-semibold text-white mb-4">Assign Task</h3>
         <p className="text-gray-300 mb-2">
           Task:{" "}
           <span className="font-semibold">

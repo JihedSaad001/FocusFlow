@@ -7,6 +7,7 @@ import { IssueForm } from "./IssueForm";
 import { IssueList } from "./IssueList";
 import io from "socket.io-client";
 import { jwtDecode } from "jwt-decode";
+import axios from "axios";
 import {
   Users,
   Eye,
@@ -17,6 +18,7 @@ import {
   Check,
   X,
   Clock,
+  ArrowLeft,
 } from "lucide-react";
 import type { Issue, Vote } from "../../types";
 
@@ -114,7 +116,7 @@ export function PlanningSession() {
 
     if (!socketRef.current) {
       console.log("Creating new Socket.IO connection");
-      const socketUrl = "https://focusflow-production.up.railway.app";
+      const socketUrl = "http://localhost:5000";
       const token = localStorage.getItem("token");
 
       // Get the username from localStorage to send with the connection
@@ -508,20 +510,17 @@ export function PlanningSession() {
         throw new Error("Project ID is missing");
       }
 
-      const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/poker`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (!response.ok) {
-        const errorText = await response.text();
-        setError(
-          `Error fetching poker session: ${response.status} - ${errorText}`
-        );
-        return;
-      }
-      const data = await response.json();
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: "http://localhost:5000/api",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Get poker session
+      const response = await api.get(`/projects/${id}/poker`);
+      const data = response.data;
 
       const issuesWithStatus = (data.issues || []).map((issue: Issue) => ({
         ...issue,
@@ -536,7 +535,11 @@ export function PlanningSession() {
         setCurrentIssue(firstIssue);
       }
     } catch (error: any) {
-      setError(`Error fetching poker session: ${error.message}`);
+      setError(
+        `Error fetching poker session: ${
+          error.response?.data?.message || error.message
+        }`
+      );
     }
   };
 
@@ -548,17 +551,18 @@ export function PlanningSession() {
       return;
     }
     try {
-      const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-      const data = await response.json();
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: "http://localhost:5000/api",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Get project by ID
+      const response = await api.get(`/projects/${id}`);
+      const data = response.data;
+
       setProject(data);
 
       const activeSprint = data.sprints?.find((s: Sprint) => s.active);
@@ -569,7 +573,7 @@ export function PlanningSession() {
       }
     } catch (error: any) {
       console.error("Error fetching project:", error);
-      setError(error.message);
+      setError(error.response?.data?.message || error.message);
     }
   };
 
@@ -661,21 +665,26 @@ export function PlanningSession() {
       });
 
       try {
+        // Create axios instance with default config
+        const api = axios.create({
+          baseURL: "http://localhost:5000/api",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
         // Send the vote to the server (this will trigger socket events for other users)
-        await fetch(
-          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/vote`,
-          {
-            method: "POST",
-            body: JSON.stringify({ vote: value }),
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
-        );
+        await api.post(`/projects/${id}/poker/issue/${currentIssue._id}/vote`, {
+          vote: value,
+        });
       } catch (error: any) {
         console.error("Error recording vote:", error);
-        setError(`Error recording vote: ${error.message}`);
+        setError(
+          `Error recording vote: ${
+            error.response?.data?.message || error.message
+          }`
+        );
       }
     }
   };
@@ -711,19 +720,26 @@ export function PlanningSession() {
       });
 
       try {
+        // Create axios instance with default config
+        const api = axios.create({
+          baseURL: "http://localhost:5000/api",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
         // Send the reveal request to the server (this will trigger socket events for other users)
-        await fetch(
-          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/reveal`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
+        await api.post(
+          `/projects/${id}/poker/issue/${currentIssue._id}/reveal`
         );
       } catch (error: any) {
         console.error("Error revealing votes:", error);
-        setError(`Error revealing votes: ${error.message}`);
+        setError(
+          `Error revealing votes: ${
+            error.response?.data?.message || error.message
+          }`
+        );
 
         // Revert the optimistic updates if the API call fails
         setCurrentIssue((prev) => {
@@ -787,19 +803,26 @@ export function PlanningSession() {
       });
 
       try {
+        // Create axios instance with default config
+        const api = axios.create({
+          baseURL: "http://localhost:5000/api",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
         // Send the revote request to the server (this will trigger socket events for other users)
-        await fetch(
-          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${currentIssue._id}/revote`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
+        await api.post(
+          `/projects/${id}/poker/issue/${currentIssue._id}/revote`
         );
       } catch (error: any) {
         console.error("Error resetting votes:", error);
-        setError(`Error resetting votes: ${error.message}`);
+        setError(
+          `Error resetting votes: ${
+            error.response?.data?.message || error.message
+          }`
+        );
 
         // If the API call fails, revert to previous state
         setCurrentIssue((prev) => {
@@ -908,48 +931,40 @@ export function PlanningSession() {
 
     setIsUpdating(true);
     try {
-      // Calculate the delay (in days) for each issue based on the selected deadline
-      const currentDate = new Date();
-      currentDate.setHours(0, 0, 0, 0); // Normalize to start of day for comparison
+      // Format the issues for the API
+      const formattedIssues = validationIssues.map((valIssue) => {
+        // Format the deadline as a string in ISO format
+        const deadlineStr = valIssue.deadline.toISOString();
 
-      const issuesWithDelay = validationIssues.map((valIssue) => {
-        const deadline = new Date(valIssue.deadline);
-        deadline.setHours(0, 0, 0, 0); // Normalize to start of day
-
-        // Calculate the difference in days between the deadline and current date
-        const timeDifference = deadline.getTime() - currentDate.getTime();
-        const delayInDays = Math.max(
-          0,
-          Math.floor(timeDifference / (1000 * 60 * 60 * 24))
-        ); // Ensure delay is non-negative
+        // Convert finalEstimate to number
+        const finalEstimate = parseInt(valIssue.issue.finalEstimate || "0", 10);
 
         return {
           issueId: valIssue.issue._id,
-          finalEstimate: valIssue.issue.finalEstimate,
+          finalEstimate: finalEstimate,
           sprintId: selectedSprintId,
           assignedTo: valIssue.selectedMemberId,
-          delay: delayInDays,
+          deadline: deadlineStr,
         };
       });
 
       // Batch validate all issues
-      const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/poker/batch-validate`,
-        {
-          method: "POST",
+      if (id) {
+        // Create axios instance with default config
+        const api = axios.create({
+          baseURL: "http://localhost:5000/api",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-          body: JSON.stringify({
-            issues: issuesWithDelay,
-          }),
-        }
-      );
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to validate issues: ${errorText}`);
+        // Batch validate poker issues
+        await api.post(`/projects/${id}/poker/batch-validate`, {
+          issues: formattedIssues,
+        });
+      } else {
+        throw new Error("Project ID is missing");
       }
 
       // We've removed the code that adds tasks to users' Kanban boards
@@ -1053,6 +1068,15 @@ export function PlanningSession() {
       <div className="max-w-7xl mx-auto p-6">
         <div className="bg-[#1E1E1E] rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
           <div className="border-b border-gray-700/50 p-8">
+            <div className="mb-4">
+              <button
+                onClick={() => navigate(`/projects/${id}`)}
+                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+              >
+                <ArrowLeft size={18} />
+                <span>Back to Project</span>
+              </button>
+            </div>
             <div className="flex justify-between items-center">
               <div>
                 <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-700">
@@ -1180,17 +1204,31 @@ export function PlanningSession() {
                   onIssueSelect={handleIssueSelect}
                   currentIssueId={currentIssue?._id}
                   onDeleteIssue={(issueId) => {
-                    fetch(
-                      `https://focusflow-production.up.railway.app/api/projects/${id}/poker/issue/${issueId}`,
-                      {
-                        method: "DELETE",
+                    if (id) {
+                      // Create axios instance with default config
+                      const api = axios.create({
+                        baseURL: "http://localhost:5000/api",
                         headers: {
+                          "Content-Type": "application/json",
                           Authorization: `Bearer ${localStorage.getItem(
                             "token"
                           )}`,
                         },
-                      }
-                    ).then(() => fetchPokerSession());
+                      });
+
+                      // Delete poker issue
+                      api
+                        .delete(`/projects/${id}/poker/issue/${issueId}`)
+                        .then(() => fetchPokerSession())
+                        .catch((error: any) => {
+                          console.error("Error deleting issue:", error);
+                          setError(
+                            `Error deleting issue: ${
+                              error.response?.data?.message || error.message
+                            }`
+                          );
+                        });
+                    }
                   }}
                 />
               </div>

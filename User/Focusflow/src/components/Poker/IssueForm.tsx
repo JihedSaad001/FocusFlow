@@ -14,7 +14,16 @@ export function IssueForm({ sessionId, onIssueAdded }: IssueFormProps) {
   const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [dateError, setDateError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Calculate date limits
+  const today = new Date().toISOString().split("T")[0]; // Today's date in YYYY-MM-DD format
+
+  // Calculate max date (3 years from now)
+  const maxDate = new Date();
+  maxDate.setFullYear(maxDate.getFullYear() + 3);
+  const maxDateStr = maxDate.toISOString().split("T")[0];
 
   console.log(
     "Session ID in IssueForm (full):",
@@ -23,9 +32,42 @@ export function IssueForm({ sessionId, onIssueAdded }: IssueFormProps) {
     sessionId.length
   );
 
+  // Handle date change with validation
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedDate = e.target.value;
+
+    // Clear previous error
+    setDateError(null);
+
+    // Validate the date
+    const selectedDateObj = new Date(selectedDate);
+    const todayObj = new Date(today);
+
+    // Check if date is in the past
+    if (selectedDateObj < todayObj) {
+      setDateError("Cannot set a deadline in the past");
+      return;
+    }
+
+    // Check if date is too far in the future
+    if (selectedDateObj > maxDate) {
+      setDateError("Deadline is too far in the future (max 3 years)");
+      return;
+    }
+
+    // If valid, update the deadline
+    setDeadline(selectedDate);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting || !title.trim()) return;
+
+    // Validate date before submission
+    if (dateError) {
+      setError("Please fix the date error before submitting");
+      return;
+    }
 
     setIsSubmitting(true);
     console.log("Submitting with sessionId:", JSON.stringify(sessionId));
@@ -33,7 +75,7 @@ export function IssueForm({ sessionId, onIssueAdded }: IssueFormProps) {
 
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${sessionId}/poker/issue`,
+        `http://localhost:5000/api/projects/${sessionId}/poker/issue`,
         {
           method: "POST",
           headers: {
@@ -89,10 +131,15 @@ export function IssueForm({ sessionId, onIssueAdded }: IssueFormProps) {
         <input
           type="date"
           value={deadline}
-          onChange={(e) => setDeadline(e.target.value)}
-          className="w-full p-2 bg-black/30 border border-gray-700 rounded"
+          onChange={handleDateChange}
+          min={today}
+          max={maxDateStr}
+          className={`w-full p-2 bg-black/30 border ${
+            dateError ? "border-red-500" : "border-gray-700"
+          } rounded`}
           disabled={isSubmitting}
         />
+        {dateError && <p className="text-red-500 text-sm mt-1">{dateError}</p>}
       </div>
       <button
         type="submit"

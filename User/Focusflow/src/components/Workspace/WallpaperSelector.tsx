@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { X, Loader2 } from "lucide-react";
+import axios from "axios";
 
 interface WallpaperSelectorProps {
   onWallpaperChange: (url: string) => void;
@@ -24,15 +25,16 @@ const WallpaperSelector = ({
     try {
       console.log("Fetching wallpapers from MongoDB...");
 
-      const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/resources/wallpapers"
-      );
-      if (!response.ok) throw new Error("Failed to fetch wallpapers");
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: "http://localhost:5000/api",
+      });
 
-      const data = await response.json();
-      console.log("Fetched Wallpapers:", data);
+      // Get wallpapers
+      const response = await api.get("/resources/wallpapers");
+      console.log("Fetched Wallpapers:", response.data);
 
-      const wallpaperUrls = data.map(
+      const wallpaperUrls = response.data.map(
         (wallpaper: { url: string }) => wallpaper.url
       );
       setWallpapers(wallpaperUrls);
@@ -50,19 +52,17 @@ const WallpaperSelector = ({
       const token = localStorage.getItem("token"); // Get the user's token from localStorage
       if (!token) throw new Error("User not authenticated");
 
-      const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/user/wallpaper",
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ wallpaperUrl: url }),
-        }
-      );
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: "http://localhost:5000/api",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      if (!response.ok) throw new Error("Failed to save wallpaper");
+      // Save wallpaper preference
+      await api.put("/user/wallpaper", { wallpaperUrl: url });
 
       console.log("Wallpaper saved successfully:", url);
     } catch (err) {

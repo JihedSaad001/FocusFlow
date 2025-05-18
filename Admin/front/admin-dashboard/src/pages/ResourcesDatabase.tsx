@@ -3,17 +3,22 @@
 import { useEffect, useState, useRef } from "react";
 import {
   uploadFile,
-  uploadAudio,
   fetchResources,
   fetchAudioResources,
   deleteResource,
+  toggleResourceStatus,
 } from "../api";
+
+// API base URL
+const API_BASE_URL = "http://localhost:5000";
 import {
   FaUpload,
   FaTrash,
   FaDownload,
   FaMusic,
   FaImage,
+  FaToggleOn,
+  FaToggleOff,
 } from "react-icons/fa";
 
 const ResourcesDatabase = () => {
@@ -32,7 +37,7 @@ const ResourcesDatabase = () => {
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState<{
     text: string;
-    type: "success" | "error";
+    type: "success" | "error" | "warning";
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null); // Wallpaper input ref
   const audioInputRef = useRef<HTMLInputElement>(null); // Ambient sound input ref
@@ -53,9 +58,15 @@ const ResourcesDatabase = () => {
         const data = await fetchAudioResources();
         setAudioFiles(data);
       } else if (activeTab === "music") {
-        const response = await fetch(
-          "https://focusflow-production.up.railway.app/api/resources/music"
-        );
+        const token = localStorage.getItem("adminToken");
+        const url = token
+          ? `${API_BASE_URL}/api/resources/admin/music`
+          : `${API_BASE_URL}/api/resources/music`;
+
+        const response = await fetch(url, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+
         if (!response.ok) throw new Error("Failed to fetch music tracks");
         const data = await response.json();
         setMusicFiles(data);
@@ -116,19 +127,84 @@ const ResourcesDatabase = () => {
       return;
     }
 
+    // Validate audio format
+    const validFormats = ["mp3", "wav", "ogg"];
+    const fileExtension = audioFile.name.split(".").pop()?.toLowerCase();
+    if (!fileExtension || !validFormats.includes(fileExtension)) {
+      setMessage({
+        text: `Invalid audio format. Must be one of: ${validFormats.join(
+          ", "
+        )}`,
+        type: "error",
+      });
+      return;
+    }
+
+    // Check for special characters in filename
+    if (/[^\w\s.-]/g.test(audioFile.name)) {
+      console.warn(
+        "Filename contains special characters that may cause upload issues:",
+        audioFile.name
+      );
+      setMessage({
+        text: "Warning: Filename contains special characters. The server will sanitize it before upload.",
+        type: "warning",
+      });
+      // We'll continue with the upload and let the server sanitize the filename
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (audioFile.size > maxSize) {
+      setMessage({
+        text: `File size exceeds 10MB limit. Please choose a smaller file.`,
+        type: "error",
+      });
+      return;
+    }
+
     console.log(
       "🎵 Uploading audio:",
       audioFile.name,
       "Name:",
       audioName,
       "Tags:",
-      tags
+      tags,
+      "Size:",
+      Math.round(audioFile.size / 1024) + "KB"
     );
 
     setLoading(true);
     setMessage(null);
     try {
-      await uploadAudio(audioFile, audioName, tags, token);
+      // Create a FormData object
+      const formData = new FormData();
+      formData.append("file", audioFile);
+      formData.append("name", audioName);
+      if (tags) formData.append("tags", tags);
+
+      // Use fetch directly
+      const response = await fetch(
+        `${API_BASE_URL}/api/resources/upload-audio`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Server error response:", errorData);
+        throw new Error(
+          errorData.message ||
+            errorData.error ||
+            `Server error: ${response.status}`
+        );
+      }
+
       console.log("✅ Audio Upload Successful!");
       setMessage({ text: "Audio uploaded successfully!", type: "success" });
       loadResources();
@@ -140,7 +216,10 @@ const ResourcesDatabase = () => {
       }
     } catch (error: any) {
       console.error("🔥 Audio upload failed", error);
-      setMessage({ text: `Upload failed: ${error.message}`, type: "error" });
+      setMessage({
+        text: `Upload failed: ${error.message || "Unknown error occurred"}`,
+        type: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -159,25 +238,65 @@ const ResourcesDatabase = () => {
       return;
     }
 
+    // Validate music format
+    const validFormats = ["mp3", "wav", "ogg"];
+    const fileExtension = musicFile.name.split(".").pop()?.toLowerCase();
+    if (!fileExtension || !validFormats.includes(fileExtension)) {
+      setMessage({
+        text: `Invalid music format. Must be one of: ${validFormats.join(
+          ", "
+        )}`,
+        type: "error",
+      });
+      return;
+    }
+
+    // Check for special characters in filename
+    if (/[^\w\s.-]/g.test(musicFile.name)) {
+      console.warn(
+        "Filename contains special characters that may cause upload issues:",
+        musicFile.name
+      );
+      setMessage({
+        text: "Warning: Filename contains special characters. The server will sanitize it before upload.",
+        type: "warning",
+      });
+      // We'll continue with the upload and let the server sanitize the filename
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (musicFile.size > maxSize) {
+      setMessage({
+        text: `File size exceeds 10MB limit. Please choose a smaller file.`,
+        type: "error",
+      });
+      return;
+    }
+
     console.log(
       "🎶 Uploading music:",
       musicFile.name,
       "Name:",
       musicName,
       "Tags:",
-      tags
+      tags,
+      "Size:",
+      Math.round(musicFile.size / 1024) + "KB"
     );
 
     setLoading(true);
     setMessage(null);
     try {
+      // Create a FormData object
       const formData = new FormData();
       formData.append("file", musicFile);
       formData.append("name", musicName);
       if (tags) formData.append("tags", tags);
 
+      // Use fetch directly
       const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/resources/upload-music",
+        `${API_BASE_URL}/api/resources/upload-music`,
         {
           method: "POST",
           headers: {
@@ -189,7 +308,12 @@ const ResourcesDatabase = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to upload music");
+        console.error("Server error response:", errorData);
+        throw new Error(
+          errorData.message ||
+            errorData.error ||
+            `Server error: ${response.status}`
+        );
       }
 
       console.log("✅ Music Upload Successful!");
@@ -203,7 +327,10 @@ const ResourcesDatabase = () => {
       }
     } catch (error: any) {
       console.error("🔥 Music upload failed", error);
-      setMessage({ text: `Upload failed: ${error.message}`, type: "error" });
+      setMessage({
+        text: `Upload failed: ${error.message || "Unknown error occurred"}`,
+        type: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -220,6 +347,28 @@ const ResourcesDatabase = () => {
     } catch (error: any) {
       console.error("Delete failed", error);
       setMessage({ text: `Delete failed: ${error.message}`, type: "error" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleStatus = async (id: string) => {
+    if (!token) return;
+    setLoading(true);
+    setMessage(null);
+    try {
+      const response = await toggleResourceStatus(id, token);
+      setMessage({
+        text: response.message,
+        type: "success",
+      });
+      loadResources();
+    } catch (error: any) {
+      console.error("Toggle status failed", error);
+      setMessage({
+        text: `Toggle status failed: ${error.message}`,
+        type: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -281,6 +430,8 @@ const ResourcesDatabase = () => {
                 className={`mb-4 p-2 rounded-lg ${
                   message.type === "success"
                     ? "bg-green-500/20 text-green-400"
+                    : message.type === "warning"
+                    ? "bg-yellow-500/20 text-yellow-400"
                     : "bg-red-500/20 text-red-400"
                 }`}
               >
@@ -355,6 +506,13 @@ const ResourcesDatabase = () => {
                         <p className="text-gray-400 text-sm">
                           Tags: {file.tags.join(", ")}
                         </p>
+                        <p
+                          className={`text-sm ${
+                            file.isActive ? "text-green-400" : "text-red-400"
+                          }`}
+                        >
+                          Status: {file.isActive ? "Active" : "Inactive"}
+                        </p>
                       </div>
                       <div className="flex space-x-2">
                         <a
@@ -365,12 +523,23 @@ const ResourcesDatabase = () => {
                           <FaDownload />
                         </a>
                         {token && (
-                          <button
-                            onClick={() => handleDelete(file._id)}
-                            className="bg-red-500 p-2 rounded-lg shadow-lg hover:opacity-90"
-                          >
-                            <FaTrash />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleToggleStatus(file._id)}
+                              className={`p-2 rounded-lg shadow-lg hover:opacity-90 ${
+                                file.isActive ? "bg-blue-500" : "bg-gray-500"
+                              }`}
+                              title={file.isActive ? "Deactivate" : "Activate"}
+                            >
+                              {file.isActive ? <FaToggleOn /> : <FaToggleOff />}
+                            </button>
+                            <button
+                              onClick={() => handleDelete(file._id)}
+                              className="bg-red-500 p-2 rounded-lg shadow-lg hover:opacity-90"
+                            >
+                              <FaTrash />
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -391,6 +560,8 @@ const ResourcesDatabase = () => {
                 className={`mb-4 p-2 rounded-lg ${
                   message.type === "success"
                     ? "bg-green-500/20 text-green-400"
+                    : message.type === "warning"
+                    ? "bg-yellow-500/20 text-yellow-400"
                     : "bg-red-500/20 text-red-400"
                 }`}
               >
@@ -462,6 +633,13 @@ const ResourcesDatabase = () => {
                         <p className="text-gray-400 text-sm">
                           Tags: {file.tags.join(", ")}
                         </p>
+                        <p
+                          className={`text-sm ${
+                            file.isActive ? "text-green-400" : "text-red-400"
+                          }`}
+                        >
+                          Status: {file.isActive ? "Active" : "Inactive"}
+                        </p>
                       </div>
                       <div className="flex space-x-2">
                         <a
@@ -472,12 +650,23 @@ const ResourcesDatabase = () => {
                           <FaDownload />
                         </a>
                         {token && (
-                          <button
-                            onClick={() => handleDelete(file._id)}
-                            className="bg-red-500 p-2 rounded-lg shadow-lg hover:opacity-90"
-                          >
-                            <FaTrash />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleToggleStatus(file._id)}
+                              className={`p-2 rounded-lg shadow-lg hover:opacity-90 ${
+                                file.isActive ? "bg-blue-500" : "bg-gray-500"
+                              }`}
+                              title={file.isActive ? "Deactivate" : "Activate"}
+                            >
+                              {file.isActive ? <FaToggleOn /> : <FaToggleOff />}
+                            </button>
+                            <button
+                              onClick={() => handleDelete(file._id)}
+                              className="bg-red-500 p-2 rounded-lg shadow-lg hover:opacity-90"
+                            >
+                              <FaTrash />
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -496,6 +685,8 @@ const ResourcesDatabase = () => {
                 className={`mb-4 p-2 rounded-lg ${
                   message.type === "success"
                     ? "bg-green-500/20 text-green-400"
+                    : message.type === "warning"
+                    ? "bg-yellow-500/20 text-yellow-400"
                     : "bg-red-500/20 text-red-400"
                 }`}
               >
@@ -567,6 +758,13 @@ const ResourcesDatabase = () => {
                         <p className="text-gray-400 text-sm">
                           Tags: {file.tags.join(", ")}
                         </p>
+                        <p
+                          className={`text-sm ${
+                            file.isActive ? "text-green-400" : "text-red-400"
+                          }`}
+                        >
+                          Status: {file.isActive ? "Active" : "Inactive"}
+                        </p>
                       </div>
                       <div className="flex space-x-2">
                         <a
@@ -577,12 +775,23 @@ const ResourcesDatabase = () => {
                           <FaDownload />
                         </a>
                         {token && (
-                          <button
-                            onClick={() => handleDelete(file._id)}
-                            className="bg-red-500 p-2 rounded-lg shadow-lg hover:opacity-90"
-                          >
-                            <FaTrash />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleToggleStatus(file._id)}
+                              className={`p-2 rounded-lg shadow-lg hover:opacity-90 ${
+                                file.isActive ? "bg-blue-500" : "bg-gray-500"
+                              }`}
+                              title={file.isActive ? "Deactivate" : "Activate"}
+                            >
+                              {file.isActive ? <FaToggleOn /> : <FaToggleOff />}
+                            </button>
+                            <button
+                              onClick={() => handleDelete(file._id)}
+                              className="bg-red-500 p-2 rounded-lg shadow-lg hover:opacity-90"
+                            >
+                              <FaTrash />
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>

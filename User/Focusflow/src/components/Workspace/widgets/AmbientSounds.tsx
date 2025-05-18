@@ -13,11 +13,10 @@ import {
   ChevronUp,
 } from "lucide-react";
 import Draggable from "react-draggable";
-import { userDataAPI } from "../../../services/api";
+import axios from "axios";
 
 // Global audio management - move this outside the component to persist across unmounts
 const globalAudioInstances: { [key: string]: HTMLAudioElement } = {};
-let globalSessionStartTime: Date | null = null;
 
 // Setup a global handler that runs even when the component is not mounted
 const setupAudioStateHandler = () => {
@@ -44,7 +43,7 @@ const setupAudioStateHandler = () => {
         JSON.stringify(updatedSounds)
       );
 
-      // Update the activeAmbientSound item for other components to use
+      // Update the activeAmbientSound item for Pomodoro to use
       const activeSoundNames = Object.entries(globalAudioInstances)
         .filter(([_, audio]) => !audio.paused)
         .map(([id]) => {
@@ -53,47 +52,28 @@ const setupAudioStateHandler = () => {
         })
         .join(", ");
 
+      console.log("Active ambient sounds:", activeSoundNames || "None");
+
       if (activeSoundNames) {
         localStorage.setItem("activeAmbientSound", activeSoundNames);
+        console.log(
+          "Updated localStorage with activeAmbientSound:",
+          activeSoundNames
+        );
       } else {
         localStorage.removeItem("activeAmbientSound");
-      }
-
-      // Handle session tracking
-      if (
-        Object.values(globalAudioInstances).some((audio) => !audio.paused) &&
-        !globalSessionStartTime
-      ) {
-        globalSessionStartTime = new Date();
-      } else if (
-        !Object.values(globalAudioInstances).some((audio) => !audio.paused) &&
-        globalSessionStartTime
-      ) {
-        // Log session when all sounds are stopped
-        const token = localStorage.getItem("token");
-        if (token) {
-          const now = new Date();
-          const sessionDuration = Math.floor(
-            (now.getTime() - globalSessionStartTime.getTime()) / 60000
-          );
-
-          if (sessionDuration >= 1) {
-            userDataAPI
-              .logFocusSession(sessionDuration, true, activeSoundNames)
-              .catch((err) =>
-                console.error("Error logging focus session:", err)
-              );
-          }
-        }
-        globalSessionStartTime = null;
+        console.log("Removed activeAmbientSound from localStorage");
       }
     } catch (error) {
       console.error("Error in audio state handler:", error);
     }
   };
 
-  // Run this check every 5 seconds
-  setInterval(syncAudioState, 5000);
+  // Run this check every 3 seconds (more frequent updates)
+  setInterval(syncAudioState, 3000);
+
+  // Also run it immediately
+  syncAudioState();
 };
 
 // Initialize the handler when the app loads
@@ -240,12 +220,15 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
   const fetchAmbientSounds = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/resources/ambient-sounds"
-      );
-      if (!response.ok) throw new Error("Failed to fetch ambient sounds");
-      const data = await response.json();
-      setSounds(data);
+
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: "http://localhost:5000/api",
+      });
+
+      // Get ambient sounds
+      const response = await api.get("/resources/ambient-sounds");
+      setSounds(response.data);
     } catch (err) {
       console.error("Error fetching ambient sounds:", err);
       setError("Failed to load ambient sounds. Using default sounds instead.");

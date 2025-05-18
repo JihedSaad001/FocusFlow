@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"; // Add useRef
 import { Plus, X, Check, Trash2, Loader2 } from "lucide-react";
 import Draggable from "react-draggable"; // Import react-draggable
-import { userDataAPI } from "../../../services/api";
+import axios from "axios";
 
 interface ToDoListProps {
   onClose: () => void;
@@ -15,7 +15,8 @@ interface Task {
   completed: boolean;
 }
 
-const API_BASE_URL = "https://focusflow-production.up.railway.app";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 const ToDoList = ({ onClose }: ToDoListProps) => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -172,7 +173,18 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
       try {
         const token = localStorage.getItem("token");
         if (token) {
-          await userDataAPI.logCompletedTask(id);
+          // Create axios instance with default config
+          const api = axios.create({
+            baseURL:
+              import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          // Log completed task
+          await api.post("/user/log-completed-task", { taskId: id });
           console.log("Task completion logged:", task.text);
         }
       } catch (error) {

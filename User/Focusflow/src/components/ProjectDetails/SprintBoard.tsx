@@ -1,5 +1,14 @@
 import React from "react";
-import { ListTodo, Loader2, Bug, XCircle, CheckSquare, ChevronDown, ChevronUp, ClipboardList } from "lucide-react";
+import {
+  ListTodo,
+  Loader2,
+  Bug,
+  XCircle,
+  CheckSquare,
+  ChevronDown,
+  ChevronUp,
+  ClipboardList,
+} from "lucide-react";
 import { Sprint, Task } from "../../types";
 import TaskCard from "./TaskCard";
 

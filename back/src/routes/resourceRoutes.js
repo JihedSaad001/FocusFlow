@@ -22,11 +22,25 @@ router.post("/add", authenticateJWT, isAdmin, resourceController.addResource)
 router.get("/wallpapers", resourceController.getWallpapers)
 
 /**
+ * @route   GET /api/resources/admin/wallpapers
+ * @desc    Fetch all wallpapers (both active and inactive)
+ * @access  Private (Admin)
+ */
+router.get("/admin/wallpapers", authenticateJWT, isAdmin, resourceController.getAllWallpapers)
+
+/**
  * @route   GET /api/resources/ambient-sounds
  * @desc    Fetch all active ambient sounds
  * @access  Public
  */
 router.get("/ambient-sounds", resourceController.getAmbientSounds)
+
+/**
+ * @route   GET /api/resources/admin/ambient-sounds
+ * @desc    Fetch all ambient sounds (both active and inactive)
+ * @access  Private (Admin)
+ */
+router.get("/admin/ambient-sounds", authenticateJWT, isAdmin, resourceController.getAllAmbientSounds)
 
 /**
  * @route   GET /api/resources/wallpapers/:id
@@ -55,12 +69,27 @@ router.post("/upload-audio", authenticateJWT, isAdmin, upload.single("file"), re
  * @access  Private (Admin)
  */
 router.delete("/:id", authenticateJWT, isAdmin, resourceController.deleteResource)
+
+/**
+ * @route   PATCH /api/resources/:id/toggle-status
+ * @desc    Toggle resource active status (Admin Only)
+ * @access  Private (Admin)
+ */
+router.patch("/:id/toggle-status", authenticateJWT, isAdmin, resourceController.toggleResourceStatus)
+
 /**
  * @route   GET /api/resources/music
  * @desc    Fetch all active music tracks
  * @access  Public
  */
 router.get("/music", resourceController.getMusic);
+
+/**
+ * @route   GET /api/resources/admin/music
+ * @desc    Fetch all music tracks (both active and inactive)
+ * @access  Private (Admin)
+ */
+router.get("/admin/music", authenticateJWT, isAdmin, resourceController.getAllMusic);
 /**
  * @route   POST /api/resources/upload-music
  * @desc    Admin uploads a music file to Supabase

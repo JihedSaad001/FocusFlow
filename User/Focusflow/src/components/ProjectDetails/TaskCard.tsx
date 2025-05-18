@@ -129,9 +129,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </h4>
         {renderStatusButtons()}
       </div>
-      <p className="text-gray-400 text-sm mb-3 flex-grow">
-        {task.description}
-      </p>
+      <p className="text-gray-400 text-sm mb-3 flex-grow">{task.description}</p>
       {task.finalEstimate && (
         <div className="flex items-center text-gray-500 text-sm mb-3">
           <span className="text-red-400 font-semibold">

@@ -1,26 +1,58 @@
 import axios from "axios";
 
-const API_BASE_URL = "https://focusflow-production.up.railway.app"; // Update to your production URL
+// Get API base URL from environment variables
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 export const fetchResources = async () => {
   try {
-    const response = await axios.get(
-      `${API_BASE_URL}/api/resources/wallpapers`
-    ); // Update to fetch wallpapers specifically
-    return response.data;
+    const token = localStorage.getItem("adminToken");
+    if (token) {
+      // If admin token exists, fetch all wallpapers (active and inactive)
+      const response = await axios.get(
+        `${API_BASE_URL}/api/resources/admin/wallpapers`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      return response.data;
+    } else {
+      // Fallback to public endpoint (active only)
+      const response = await axios.get(
+        `${API_BASE_URL}/api/resources/wallpapers`
+      );
+      return response.data;
+    }
   } catch (error) {
     console.error("🔥 Error fetching resources:", error);
     throw error;
   }
 };
 
-// New function to fetch ambient sounds
+// Function to fetch ambient sounds
 export const fetchAudioResources = async () => {
   try {
-    const response = await axios.get(
-      `${API_BASE_URL}/api/resources/ambient-sounds`
-    );
-    return response.data;
+    const token = localStorage.getItem("adminToken");
+    if (token) {
+      // If admin token exists, fetch all ambient sounds (active and inactive)
+      const response = await axios.get(
+        `${API_BASE_URL}/api/resources/admin/ambient-sounds`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      return response.data;
+    } else {
+      // Fallback to public endpoint (active only)
+      const response = await axios.get(
+        `${API_BASE_URL}/api/resources/ambient-sounds`
+      );
+      return response.data;
+    }
   } catch (error) {
     console.error("🔥 Error fetching ambient sounds:", error);
     throw error;
@@ -51,6 +83,31 @@ export const deleteResource = async (id: string, token: string) => {
     return await response.json();
   } catch (error) {
     console.error("🔥 Error deleting resource:", error);
+    throw error;
+  }
+};
+
+export const toggleResourceStatus = async (id: string, token: string) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/resources/${id}/toggle-status`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to toggle resource status: ${response.statusText}`
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("🔥 Error toggling resource status:", error);
     throw error;
   }
 };
@@ -155,23 +212,6 @@ export const fetchUsers = async (token: string) => {
   }
 };
 
-export const deleteUser = async (token: string, userId: string) => {
-  const response = await fetch(
-    `${API_BASE_URL}/api/admin/delete-user/${userId}`,
-    {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to delete user");
-  }
-};
-
 // New function to update a user's role
 export const updateUserRole = async (
   token: string,
@@ -211,28 +251,30 @@ export const uploadMusic = async (
   tags: string,
   token: string | null
 ) => {
+  if (!token) throw new Error("Unauthorized: No token provided!");
+
   const formData = new FormData();
   formData.append("file", file);
   formData.append("name", name);
   if (tags) formData.append("tags", tags);
 
-  const response = await fetch(
-    "https://focusflow-production.up.railway.app/api/resources/upload-music",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    }
-  );
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/resources/upload-music`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "Failed to upload music");
+    return response.data;
+  } catch (error) {
+    console.error("🔥 Error uploading music:", error);
+    throw error;
   }
-
-  return response.json();
 };
 // New function to fetch user statistics
 export const fetchUserStats = async (token: string) => {

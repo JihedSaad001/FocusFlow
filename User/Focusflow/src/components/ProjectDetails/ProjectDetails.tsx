@@ -6,6 +6,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
 import type { Project, Task, Sprint, DecodedToken } from "../../types";
+import axios from "axios";
 
 // Import all the components
 import ProjectHeader from "./ProjectHeader";
@@ -15,6 +16,7 @@ import ChatSection from "./ChatSection";
 import ProjectMembers from "./ProjectMembers";
 import AssignTaskModal from "./AssignTaskModal";
 import Notification from "./Notification";
+import { ArrowLeft } from "lucide-react";
 
 function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
@@ -50,7 +52,7 @@ function ProjectDetails() {
     type: "success" | "error";
   } | null>(null);
   const socket = useRef(
-    io("https://focusflow-production.up.railway.app", {
+    io("http://localhost:5000", {
       autoConnect: true,
     })
   );
@@ -82,23 +84,28 @@ function ProjectDetails() {
         return;
       }
       try {
-        const response = await fetch(
-          `https://focusflow-production.up.railway.app/api/projects/${id}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-        const data = await response.json();
+        // Create axios instance with default config
+        const api = axios.create({
+          baseURL: "http://localhost:5000/api",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        // Get project by ID
+        const response = await api.get(`/projects/${id}`);
+        const data = response.data;
+
         setProject(data);
         const active = data.sprints?.find((s: Sprint) => s.active);
         setActiveSprint(active || null);
       } catch (error: any) {
         console.error("❌ Error fetching project:", error);
-        setError(error.message);
+        setError(
+          error.response?.data?.message ||
+            error.message ||
+            "Failed to fetch project"
+        );
       } finally {
         setLoading(false);
       }
@@ -113,7 +120,7 @@ function ProjectDetails() {
       const token = localStorage.getItem("token");
       try {
         const response = await fetch(
-          `https://focusflow-production.up.railway.app/api/projects/${id}/chat`,
+          `http://localhost:5000/api/projects/${id}/chat`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -150,6 +157,34 @@ function ProjectDetails() {
       return;
     }
 
+    // Validate deadline date if provided
+    if (newTask.deadline) {
+      const deadlineDate = new Date(newTask.deadline);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time part for accurate date comparison
+
+      // Check if date is in the past
+      if (deadlineDate < today) {
+        setNotification({
+          message: "Deadline cannot be in the past",
+          type: "error",
+        });
+        return;
+      }
+
+      // Check if date is too far in the future (5 years)
+      const maxDate = new Date();
+      maxDate.setFullYear(maxDate.getFullYear() + 5);
+
+      if (deadlineDate > maxDate) {
+        setNotification({
+          message: "Deadline is too far in the future (max 5 years)",
+          type: "error",
+        });
+        return;
+      }
+    }
+
     const token = localStorage.getItem("token");
     try {
       // Simplify the request body to only include the required fields
@@ -161,7 +196,7 @@ function ProjectDetails() {
       };
 
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/backlog`,
+        `http://localhost:5000/api/projects/${id}/backlog`,
         {
           method: "POST",
           headers: {
@@ -212,7 +247,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/backlog/${taskId}`,
+        `http://localhost:5000/api/projects/${id}/backlog/${taskId}`,
         {
           method: "DELETE",
           headers: {
@@ -256,10 +291,61 @@ function ProjectDetails() {
       return;
     }
 
+    // Validate sprint dates
+    if (!newSprint.startDate) {
+      setNotification({
+        message: "Sprint start date is required",
+        type: "error",
+      });
+      return;
+    }
+
+    if (!newSprint.endDate) {
+      setNotification({
+        message: "Sprint end date is required",
+        type: "error",
+      });
+      return;
+    }
+
+    const startDate = new Date(newSprint.startDate);
+    const endDate = new Date(newSprint.endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time part for accurate date comparison
+
+    // Check if dates are valid
+    if (startDate < today) {
+      setNotification({
+        message: "Sprint cannot start in the past",
+        type: "error",
+      });
+      return;
+    }
+
+    if (endDate <= startDate) {
+      setNotification({
+        message: "End date must be after start date",
+        type: "error",
+      });
+      return;
+    }
+
+    // Check if sprint duration is reasonable
+    const maxDate = new Date(startDate);
+    maxDate.setMonth(maxDate.getMonth() + 6); // Max 6 months sprint
+
+    if (endDate > maxDate) {
+      setNotification({
+        message: "Sprint duration cannot exceed 6 months",
+        type: "error",
+      });
+      return;
+    }
+
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints`,
+        `http://localhost:5000/api/projects/${id}/sprints`,
         {
           method: "POST",
           headers: {
@@ -276,7 +362,7 @@ function ProjectDetails() {
 
       // Fetch the updated project to get the complete data structure
       const fetchProjectResponse = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}`,
+        `http://localhost:5000/api/projects/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -326,7 +412,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${sprintId}`,
+        `http://localhost:5000/api/projects/${id}/sprints/${sprintId}`,
         {
           method: "DELETE",
           headers: {
@@ -366,7 +452,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
+        `http://localhost:5000/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
         {
           method: "DELETE",
           headers: {
@@ -442,7 +528,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
+        `http://localhost:5000/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
         {
           method: "PUT",
           headers: {
@@ -474,7 +560,7 @@ function ProjectDetails() {
       // If there's an error, fetch the project again to get the correct state
       try {
         const fetchResponse = await fetch(
-          `https://focusflow-production.up.railway.app/api/projects/${id}`,
+          `http://localhost:5000/api/projects/${id}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -516,7 +602,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/members`,
+        `http://localhost:5000/api/projects/${id}/members`,
         {
           method: "POST",
           headers: {
@@ -533,7 +619,7 @@ function ProjectDetails() {
       }
 
       const fetchProjectResponse = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}`,
+        `http://localhost:5000/api/projects/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -574,7 +660,7 @@ function ProjectDetails() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/members/${memberId}`,
+        `http://localhost:5000/api/projects/${id}/members/${memberId}`,
         {
           method: "DELETE",
           headers: {
@@ -590,7 +676,7 @@ function ProjectDetails() {
       }
 
       const fetchProjectResponse = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}`,
+        `http://localhost:5000/api/projects/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -629,7 +715,7 @@ function ProjectDetails() {
     if (!project.activePokerSession) {
       try {
         const response = await fetch(
-          `https://focusflow-production.up.railway.app/api/projects/${id}/poker/start`,
+          `http://localhost:5000/api/projects/${id}/poker/start`,
           {
             method: "POST",
             headers: {
@@ -661,7 +747,7 @@ function ProjectDetails() {
     try {
       // First update the task assignment in the sprint
       const updateResponse = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
+        `http://localhost:5000/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
         {
           method: "PUT",
           headers: {
@@ -684,39 +770,6 @@ function ProjectDetails() {
           (s: Sprint) => s._id === activeSprint._id
         ) || null
       );
-
-      // Then add the task to the user's kanban board
-      // This would typically be done by the assigned user, but for demo purposes we'll do it here
-      if (memberId === currentUserId) {
-        console.log("Adding task to kanban board:", {
-          projectId: id,
-          sprintId: activeSprint._id,
-          taskId,
-        });
-
-        const kanbanResponse = await fetch(
-          `https://focusflow-production.up.railway.app/api/user/kanban/project-task`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              projectId: id,
-              sprintId: activeSprint._id,
-              taskId: taskId,
-            }),
-          }
-        );
-
-        if (!kanbanResponse.ok) {
-          const errorText = await kanbanResponse.text();
-          console.warn("Failed to add task to user's kanban board:", errorText);
-        } else {
-          console.log("Task added to kanban board successfully");
-        }
-      }
 
       setNotification({
         message: `Task assigned to ${
@@ -787,6 +840,15 @@ function ProjectDetails() {
       )}
 
       <div className="max-w-7xl mx-auto">
+        <div className="mb-4">
+          <button
+            onClick={() => navigate("/projects")}
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft size={18} />
+            <span>Back to Projects</span>
+          </button>
+        </div>
         <div className="bg-[#1E1E1E] rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
           <ProjectHeader
             project={project}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Play, Pause, RotateCcw, X, Coffee, Brain } from "lucide-react";
 import { useDraggable } from "../hooks/use-draggable";
-import { userDataAPI } from "../../../services/api";
+import axios from "axios";
 
 // Add this utility function at the top of the file
 const setupTimerCompletionHandler = () => {
@@ -33,13 +33,27 @@ const setupTimerCompletionHandler = () => {
           if (token && storedInitialDuration) {
             const durationMinutes = Math.round(storedInitialDuration / 60);
             if (durationMinutes >= 1) {
-              userDataAPI
-                .logFocusSession(
-                  durationMinutes,
-                  true,
-                  localStorage.getItem("activeAmbientSound") || undefined
-                )
-                .catch((error) =>
+              const activeSound = localStorage.getItem("activeAmbientSound");
+              const soundToLog =
+                activeSound && activeSound.trim() !== "" ? activeSound : null;
+
+              // Create axios instance with default config
+              const api = axios.create({
+                baseURL: "http://localhost:5000/api",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+              });
+
+              // Log focus session
+              api
+                .post("/user/log-focus-session", {
+                  duration: durationMinutes,
+                  completed: true,
+                  ambientSound: soundToLog,
+                })
+                .catch((error: any) =>
                   console.error("Error logging session:", error)
                 );
             }
@@ -149,7 +163,12 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
   useEffect(() => {
     const checkAmbientSound = () => {
       const activeSound = localStorage.getItem("activeAmbientSound");
-      setCurrentAmbientSound(activeSound);
+      // Only set if the sound is not empty
+      if (activeSound && activeSound.trim() !== "") {
+        setCurrentAmbientSound(activeSound);
+      } else {
+        setCurrentAmbientSound(null);
+      }
     };
 
     // Listen for storage events (for cross-tab synchronization)
@@ -157,6 +176,7 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
       const storedMode = localStorage.getItem("pomodoroMode");
       const storedTime = localStorage.getItem("pomodoroTime");
       const running = localStorage.getItem("pomodoroRunning");
+      const activeSound = localStorage.getItem("activeAmbientSound");
 
       if (storedMode) {
         Object.values(MODES).forEach((m) => {
@@ -172,6 +192,13 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
         setIsRunning(true);
       } else if (running === null) {
         setIsRunning(false);
+      }
+
+      // Update ambient sound
+      if (activeSound && activeSound.trim() !== "") {
+        setCurrentAmbientSound(activeSound);
+      } else {
+        setCurrentAmbientSound(null);
       }
     };
 
@@ -291,13 +318,33 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
   }, [customMinutes]);
 
   const formatTime = (seconds: number) => {
+    // Handle NaN case
+    if (isNaN(seconds)) {
+      return `${mode.defaultTime}:00`;
+    }
+
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? "0" + secs : secs}`;
   };
 
   const applyCustomTime = () => {
-    setTime(customMinutes * 60);
+    // If the field is empty (NaN) when Set is clicked, use 25 minutes (or current mode default)
+    if (isNaN(customMinutes)) {
+      setCustomMinutes(mode.defaultTime);
+      setTime(mode.defaultTime * 60);
+    } else {
+      // For other values, ensure they're at least 1
+      const validMinutes = customMinutes < 1 ? 1 : customMinutes;
+
+      // Update if needed
+      if (validMinutes !== customMinutes) {
+        setCustomMinutes(validMinutes);
+      }
+
+      setTime(validMinutes * 60);
+    }
+
     setIsRunning(false);
     setSessionStartTime(null);
   };
@@ -319,7 +366,15 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
     if (mode.type === "focus" && isRunning && sessionStartTime) {
       logSessionToServer(false);
     }
-    setTime(customMinutes * 60);
+
+    // If customMinutes is NaN (empty field), use the default time
+    if (isNaN(customMinutes)) {
+      setTime(mode.defaultTime * 60);
+    } else {
+      // Otherwise use the current value (even if it's invalid)
+      setTime(customMinutes * 60);
+    }
+
     setIsRunning(false);
     setSessionStartTime(null);
     localStorage.removeItem("pomodoroRunning");
@@ -338,11 +393,37 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
 
       if (durationMinutes < 1) return;
 
-      await userDataAPI.logFocusSession(
-        durationMinutes,
+      // Get the current ambient sound directly from localStorage
+      // This ensures we get the most up-to-date value
+      const activeSound = localStorage.getItem("activeAmbientSound");
+
+      // Only use the sound if it's not empty
+      const soundToLog =
+        activeSound && activeSound.trim() !== "" ? activeSound : null;
+
+      console.log("Logging focus session with ambient sound:", soundToLog);
+
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Log focus session - explicitly send null if no sound
+      const payload = {
+        duration: durationMinutes,
         completed,
-        currentAmbientSound || undefined
-      );
+        ambientSound: soundToLog,
+      };
+
+      console.log("Sending focus session payload:", payload);
+
+      // Log focus session
+      const response = await api.post("/user/log-focus-session", payload);
+      console.log("Focus session logged successfully:", response.data);
     } catch (error) {
       console.error("Failed to log focus session:", error);
     }
@@ -416,10 +497,18 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
         <input
           type="number"
           min="1"
-          value={customMinutes}
-          onChange={(e) =>
-            setCustomMinutes(Number.parseInt(e.target.value, 10))
-          }
+          // Convert NaN to empty string for the input value
+          value={isNaN(customMinutes) ? "" : customMinutes}
+          onChange={(e) => {
+            // Allow empty field during typing
+            const value = e.target.value;
+            if (value === "") {
+              setCustomMinutes(NaN); // Store NaN internally for empty field
+            } else {
+              const parsedValue = Number.parseInt(value, 10);
+              setCustomMinutes(parsedValue); // Store the parsed value
+            }
+          }}
           className="w-14 text-center bg-[#222] text-white border-none rounded p-1 text-sm"
         />
         <button

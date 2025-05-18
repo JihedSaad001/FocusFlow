@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FolderPlus, FileText } from "lucide-react";
+import { FolderPlus, FileText, ArrowLeft } from "lucide-react";
+import axios from "axios";
 
 function CreateProject() {
   const [formData, setFormData] = useState({ name: "", description: "" });
@@ -28,24 +29,26 @@ function CreateProject() {
     }
 
     try {
-      const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/projects",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(formData),
-        }
-      );
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: "http://localhost:5000/api",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      if (!response.ok) throw new Error("Failed to create project");
+      // Create project
+      await api.post("/projects", formData);
 
       navigate("/projects");
     } catch (error: any) {
       console.error("❌ Error:", error);
-      setError(error.message);
+      setError(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to create project"
+      );
     } finally {
       setLoading(false);
     }
@@ -54,6 +57,16 @@ function CreateProject() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#121212] text-white px-6">
       <div className="bg-[#1E1E1E] p-12 rounded-2xl shadow-2xl w-full max-w-4xl">
+        <div className="flex justify-between items-center mb-6">
+          <button
+            onClick={() => navigate("/projects")}
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft size={18} />
+            <span>Back to Projects</span>
+          </button>
+        </div>
+
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-700">
             Create New Project

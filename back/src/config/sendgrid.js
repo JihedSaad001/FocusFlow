@@ -31,14 +31,39 @@ const sendVerificationEmail = async (email, token, username) => {
   }
 
   try {
-    await sgMail.send(msg)
-    return true
-  } catch (error) {
-    console.error("Error sending verification email:", error)
-    if (error.response) {
-      console.error("SendGrid API error:", error.response.body)
+    console.log("Attempting to send verification email to:", email);
+    console.log("Using FROM_EMAIL:", process.env.FROM_EMAIL);
+
+    // Validate email format
+    if (!email || !email.includes('@')) {
+      console.error("Invalid email format:", email);
+      return false;
     }
-    return false
+
+    // Validate FROM_EMAIL
+    if (!process.env.FROM_EMAIL || !process.env.FROM_EMAIL.includes('@')) {
+      console.error("Invalid FROM_EMAIL format:", process.env.FROM_EMAIL);
+      return false;
+    }
+
+    const result = await sgMail.send(msg);
+    console.log("SendGrid verification email sent successfully:", result);
+    return true;
+  } catch (error) {
+    console.error("Error sending verification email:", error);
+
+    if (error.response) {
+      console.error("SendGrid API error details:", error.response.body);
+
+      // Check for common errors
+      if (error.code === 401) {
+        console.error("Authentication error: Your API key may be invalid or revoked");
+      } else if (error.code === 403) {
+        console.error("Authorization error: You may not have permission to send emails");
+      }
+    }
+
+    return false;
   }
 }
 

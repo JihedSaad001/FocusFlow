@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Folder, Plus, Search, LayoutGrid, List, Trash2 } from "lucide-react";
+import axios from "axios";
 
 function Projects() {
   const navigate = useNavigate();
@@ -13,19 +14,23 @@ function Projects() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch(
-          "https://focusflow-production.up.railway.app/api/projects",
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
-        );
+        const token = localStorage.getItem("token");
+        if (!token) {
+          navigate("/signin");
+          return;
+        }
 
-        if (!response.ok) throw new Error("Failed to fetch projects");
+        // Create axios instance with default config
+        const api = axios.create({
+          baseURL: "http://localhost:5000/api",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-        const data = await response.json();
-        setProjects(data);
+        // Get user projects
+        const response = await api.get("/projects");
+        setProjects(response.data);
       } catch (error: any) {
         console.error("❌ Fetch Error:", error);
         setError("Error loading projects.");
@@ -35,7 +40,7 @@ function Projects() {
     };
 
     fetchProjects();
-  }, []);
+  }, [navigate]);
 
   const deleteProject = async (projectId: string, projectName: string) => {
     // Show confirmation dialog
@@ -45,21 +50,22 @@ function Projects() {
     if (!confirmed) return; // Exit if the user cancels
 
     const token = localStorage.getItem("token");
-    try {
-      const response = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${projectId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+    if (!token) {
+      navigate("/signin");
+      return;
+    }
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to delete project: ${errorText}`);
-      }
+    try {
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: "http://localhost:5000/api",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Delete project
+      await api.delete(`/projects/${projectId}`);
 
       // Remove the deleted project from the state
       setProjects((prevProjects) =>
@@ -67,7 +73,11 @@ function Projects() {
       );
     } catch (error: any) {
       console.error("❌ Delete Error:", error);
-      setError(`Error deleting project: ${error.message}`);
+      setError(
+        `Error deleting project: ${
+          error.response?.data?.message || error.message
+        }`
+      );
     }
   };
 

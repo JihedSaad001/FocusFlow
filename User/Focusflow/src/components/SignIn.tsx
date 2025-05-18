@@ -1,20 +1,23 @@
-"use client";
-
-import type React from "react";
-
 import { useState, useEffect } from "react";
 import { Mail, Lock, AlertCircle } from "lucide-react";
 import { useNavigate, Link, Navigate } from "react-router-dom";
+import axios from "axios";
 
 const SignIn = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: "", password: "" });
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {}
+  );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [touched, setTouched] = useState<{ email: boolean; password: boolean }>(
+    { email: false, password: false }
+  );
 
   // Check if user is already logged in
   useEffect(() => {
@@ -25,9 +28,52 @@ const SignIn = () => {
     }
   }, []);
 
-  // Handles input changes and updates form state
+  // Validates a single field
+  const validateField = (name: string, value: string) => {
+    if (name === "email") {
+      if (!value.trim()) {
+        return "Email is required";
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        return "Please enter a valid email address";
+      }
+    }
+
+    if (name === "password") {
+      if (!value.trim()) {
+        return "Password is required";
+      }
+      if (value.length < 5) {
+        return "Password must be at least 5 characters long";
+      }
+    }
+
+    return undefined;
+  };
+
+  // Handles input changes and updates form state with validation
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+
+    // Mark field as touched
+    setTouched({ ...touched, [name]: true });
+
+    // Validate the field
+    const fieldError = validateField(name, value);
+    setErrors({ ...errors, [name]: fieldError });
+
+    // Clear the main error message when user starts typing
+    setError("");
+  };
+
+  // Handle input blur for validation
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setTouched({ ...touched, [name]: true });
+    const fieldError = validateField(name, value);
+    setErrors({ ...errors, [name]: fieldError });
   };
 
   // Handles form submission
@@ -37,40 +83,42 @@ const SignIn = () => {
     setNeedsVerification(false);
     setResendSuccess(false);
 
-    // Validate email format with a simple regex
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setError("Please enter a valid email address");
-      return;
-    }
+    // Mark all fields as touched for validation
+    setTouched({ email: true, password: true });
 
-    // Validate password length
-    if (formData.password.length < 5) {
-      setError("Password must be at least 5 characters long");
+    // Validate all fields
+    const emailError = validateField("email", formData.email);
+    const passwordError = validateField("password", formData.password);
+
+    // Update errors state
+    const newErrors = { email: emailError, password: passwordError };
+    setErrors(newErrors);
+
+    // Check if there are any errors
+    if (emailError || passwordError) {
+      setError(
+        emailError || passwordError || "Please fix the errors in the form"
+      );
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/auth/login",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        }
-      );
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-      const data = await response.json();
+      const response = await api.post("/auth/login", {
+        email: formData.email,
+        password: formData.password,
+      });
 
-      if (!response.ok) {
-        if (data.needsVerification) {
-          setNeedsVerification(true);
-          throw new Error(data.message);
-        }
-        throw new Error(data.message || "Login failed");
-      }
+      const data = response.data;
 
       if (!data.token) {
         throw new Error("Login failed: No token received.");
@@ -88,7 +136,12 @@ const SignIn = () => {
       // Redirect to dashboard
       navigate("/home");
     } catch (err: any) {
-      setError(err.message);
+      if (err.response?.data?.needsVerification) {
+        setNeedsVerification(true);
+        setError(err.response.data.message || "Email verification required");
+      } else {
+        setError(err.response?.data?.message || err.message || "Login failed");
+      }
       console.error("❌ Login Error:", err.message); // Debugging log
     } finally {
       setLoading(false);
@@ -114,24 +167,23 @@ const SignIn = () => {
     setResendSuccess(false);
 
     try {
-      const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/auth/resend-verification",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: formData.email }),
-        }
-      );
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to resend verification email");
-      }
+      await api.post("/auth/resend-verification", { email: formData.email });
 
       setResendSuccess(true);
     } catch (err: any) {
-      setError(err.message);
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to resend verification email"
+      );
     } finally {
       setResendingEmail(false);
     }
@@ -183,10 +235,18 @@ const SignIn = () => {
               placeholder="Email"
               value={formData.email}
               onChange={handleChange}
+              onBlur={handleBlur}
               required
-              className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-lg outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
+              className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-lg outline-none focus:ring-2 transition pl-10 ${
+                touched.email && errors.email
+                  ? "border border-red-500 focus:ring-red-500"
+                  : "focus:ring-[#830E13]"
+              }`}
             />
             <Mail className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+            {touched.email && errors.email && (
+              <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+            )}
           </div>
 
           {/* Password Input */}
@@ -197,10 +257,18 @@ const SignIn = () => {
               placeholder="Password"
               value={formData.password}
               onChange={handleChange}
+              onBlur={handleBlur}
               required
-              className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-lg outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
+              className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-lg outline-none focus:ring-2 transition pl-10 ${
+                touched.password && errors.password
+                  ? "border border-red-500 focus:ring-red-500"
+                  : "focus:ring-[#830E13]"
+              }`}
             />
             <Lock className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+            {touched.password && errors.password && (
+              <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+            )}
           </div>
 
           {/* Forgot Password Link */}

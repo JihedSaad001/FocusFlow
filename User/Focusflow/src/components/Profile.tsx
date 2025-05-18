@@ -1,8 +1,35 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { authAPI } from "../services/api";
-import { isTokenExpired } from "../utils/auth";
-import { Camera, Save, User } from "lucide-react";
+import { Camera, Save, User, ArrowLeft } from "lucide-react";
+import axios from "axios";
+import { jwtDecode } from "jwt-decode";
+
+// Interface for decoded token
+interface DecodedToken {
+  id: string;
+  exp: number;
+}
+
+// Function to check if token is expired
+const isTokenExpired = (token: string): boolean => {
+  try {
+    const decoded: DecodedToken = jwtDecode(token);
+
+    console.log(
+      `🔍 Token Debug: ID: ${decoded.id}, Exp: ${
+        decoded.exp
+      }, Current Time: ${Math.floor(Date.now() / 1000)}`
+    ); // ✅ Logs token details
+
+    // ✅ Store token expiration info in localStorage for debugging
+    localStorage.setItem("lastCheckedToken", JSON.stringify(decoded));
+
+    return decoded.exp < Date.now() / 1000; // Compare with current time
+  } catch (error) {
+    console.error("⚠️ Token decoding failed, assuming expired:", error);
+    return true; // Assume expired if decoding fails
+  }
+};
 
 const defaultProfilePic =
   "https://qhedchvmvmuflflstcwx.supabase.co/storage/v1/object/public/profile-pictures/default-avatar.png";
@@ -50,7 +77,7 @@ const Profile = () => {
       newUsername !== user.username &&
       newUsername.length < 3
     ) {
-      alert("Name must be at least 3 characters long");
+      alert("Username must be at least 3 characters long");
       return;
     }
 
@@ -87,12 +114,23 @@ const Profile = () => {
         updatedData.newPassword = newPassword;
       }
 
-      const response = await authAPI.updateProfile(updatedData);
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: "http://localhost:5000/api",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      if (response.success) {
+      const response = await api.put("/auth/update-user", updatedData);
+
+      if (response.data.success) {
         const updatedUser = { ...user, username: newUsername };
         localStorage.setItem("user", JSON.stringify(updatedUser));
         setUser(updatedUser);
+
+        // Show a simple alert for success message
         alert("Profile updated successfully!");
 
         // Clear password fields after successful update
@@ -101,7 +139,7 @@ const Profile = () => {
         setConfirmPassword("");
       } else {
         alert(
-          response.message ||
+          response.data.message ||
             "Failed to update profile. Please check your old password."
         );
       }
@@ -157,15 +195,36 @@ Uploaded file type: ${file.type}`);
     setUploading(true);
 
     try {
-      const uploadedUrl = await authAPI.uploadProfilePic(file);
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: "http://localhost:5000/api",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Create form data for file upload
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // Upload profile picture
+      const response = await api.post("/auth/upload-profile-pic", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      // Extract the profile picture URL from the response
+      const profilePicUrl = response.data.profilePic;
 
       // Update user profile with new image URL
-      await authAPI.updateProfile({ profilePic: uploadedUrl });
+      await api.put("/auth/update-user", { profilePic: profilePicUrl });
 
-      const updatedUser = { ...user, profilePic: uploadedUrl };
+      const updatedUser = { ...user, profilePic: profilePicUrl };
       setUser(updatedUser);
       localStorage.setItem("user", JSON.stringify(updatedUser));
 
+      // Show a simple alert for success message
       alert("Profile picture updated successfully!");
     } catch (error) {
       console.error("Upload failed:", error);
@@ -185,6 +244,16 @@ Uploaded file type: ${file.type}`);
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#121212] text-white px-6">
       <div className="bg-[#1E1E1E] p-12 rounded-2xl shadow-2xl w-full max-w-4xl">
+        <div className="flex justify-between items-center mb-6">
+          <button
+            onClick={() => navigate("/home")}
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft size={18} />
+            <span>Back to Home</span>
+          </button>
+        </div>
+
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-700">
             Profile Settings

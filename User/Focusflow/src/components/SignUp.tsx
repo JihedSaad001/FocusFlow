@@ -5,6 +5,7 @@ import type React from "react";
 import { useState, useEffect } from "react";
 import { User, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react";
 import { useNavigate, Link, Navigate } from "react-router-dom";
+import axios from "axios";
 
 function SignUp() {
   const navigate = useNavigate();
@@ -14,10 +15,27 @@ function SignUp() {
     password: "",
     confirmPassword: "",
   });
+  const [errors, setErrors] = useState<{
+    username?: string;
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+  }>({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [touched, setTouched] = useState<{
+    username: boolean;
+    email: boolean;
+    password: boolean;
+    confirmPassword: boolean;
+  }>({
+    username: false,
+    email: false,
+    password: false,
+    confirmPassword: false,
+  });
 
   // Check if user is already logged in
   useEffect(() => {
@@ -28,8 +46,81 @@ function SignUp() {
     }
   }, []);
 
+  // Validates a single field
+  const validateField = (name: string, value: string) => {
+    if (name === "username") {
+      if (!value.trim()) {
+        return "Name is required";
+      }
+      if (value.length < 3) {
+        return "Name must be at least 3 characters long";
+      }
+    }
+
+    if (name === "email") {
+      if (!value.trim()) {
+        return "Email is required";
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        return "Please enter a valid email address";
+      }
+    }
+
+    if (name === "password") {
+      if (!value.trim()) {
+        return "Password is required";
+      }
+      if (value.length < 5) {
+        return "Password must be at least 5 characters long";
+      }
+    }
+
+    if (name === "confirmPassword") {
+      if (!value.trim()) {
+        return "Please confirm your password";
+      }
+      if (value !== formData.password) {
+        return "Passwords do not match";
+      }
+    }
+
+    return undefined;
+  };
+
+  // Handles input changes and updates form state with validation
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+
+    // Mark field as touched
+    setTouched({ ...touched, [name as keyof typeof touched]: true });
+
+    // Validate the field
+    const fieldError = validateField(name, value);
+    setErrors({ ...errors, [name]: fieldError });
+
+    // If this is confirmPassword, also validate password match
+    if (name === "password") {
+      if (formData.confirmPassword) {
+        const confirmError =
+          formData.confirmPassword !== value
+            ? "Passwords do not match"
+            : undefined;
+        setErrors((prev) => ({ ...prev, confirmPassword: confirmError }));
+      }
+    }
+
+    // Clear the main error message when user starts typing
+    setError("");
+  };
+
+  // Handle input blur for validation
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setTouched({ ...touched, [name as keyof typeof touched]: true });
+    const fieldError = validateField(name, value);
+    setErrors({ ...errors, [name]: fieldError });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,51 +128,59 @@ function SignUp() {
     setError("");
     setSignupSuccess(false);
 
-    // Validate username length
-    if (formData.username.length < 3) {
-      setError("Name must be at least 3 characters long");
-      return;
-    }
+    // Mark all fields as touched for validation
+    setTouched({
+      username: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+    });
 
-    // Validate email format with a simple regex
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setError("Please enter a valid email address");
-      return;
-    }
+    // Validate all fields
+    const usernameError = validateField("username", formData.username);
+    const emailError = validateField("email", formData.email);
+    const passwordError = validateField("password", formData.password);
+    const confirmPasswordError = validateField(
+      "confirmPassword",
+      formData.confirmPassword
+    );
 
-    // Validate password length
-    if (formData.password.length < 5) {
-      setError("Password must be at least 5 characters long");
-      return;
-    }
+    // Update errors state
+    const newErrors = {
+      username: usernameError,
+      email: emailError,
+      password: passwordError,
+      confirmPassword: confirmPasswordError,
+    };
+    setErrors(newErrors);
 
-    // Check if passwords match
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match!");
+    // Check if there are any errors
+    if (usernameError || emailError || passwordError || confirmPasswordError) {
+      setError(
+        usernameError ||
+          emailError ||
+          passwordError ||
+          confirmPasswordError ||
+          "Please fix the errors in the form"
+      );
       return;
     }
 
     setLoading(true);
     try {
-      const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/auth/signup",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: formData.username,
-            email: formData.email,
-            password: formData.password,
-          }),
-        }
-      );
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: "http://localhost:5000/api",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-      // ✅ Ensure response is not empty before parsing JSON
-      const text = await response.text();
-      const data = text ? JSON.parse(text) : {};
-
-      if (!response.ok) throw new Error(data.message || "Signup failed");
+      const response = await api.post("/auth/signup", {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+      });
 
       setSignupSuccess(true);
       // Clear the form
@@ -92,7 +191,9 @@ function SignUp() {
         confirmPassword: "",
       });
     } catch (error: any) {
-      setError(error.message);
+      setError(
+        error.response?.data?.message || error.message || "Signup failed"
+      );
     } finally {
       setLoading(false);
     }
@@ -145,10 +246,18 @@ function SignUp() {
                 placeholder="Name"
                 value={formData.username}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 required
-                className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
+                className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 transition pl-10 ${
+                  touched.username && errors.username
+                    ? "border border-red-500 focus:ring-red-500"
+                    : "focus:ring-[#830E13]"
+                }`}
               />
               <User className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+              {touched.username && errors.username && (
+                <p className="text-red-500 text-xs mt-1">{errors.username}</p>
+              )}
             </div>
 
             <div className="relative">
@@ -158,10 +267,18 @@ function SignUp() {
                 placeholder="Email"
                 value={formData.email}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 required
-                className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
+                className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 transition pl-10 ${
+                  touched.email && errors.email
+                    ? "border border-red-500 focus:ring-red-500"
+                    : "focus:ring-[#830E13]"
+                }`}
               />
               <Mail className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+              {touched.email && errors.email && (
+                <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+              )}
             </div>
 
             <div className="relative">
@@ -171,10 +288,18 @@ function SignUp() {
                 placeholder="Password"
                 value={formData.password}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 required
-                className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
+                className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 transition pl-10 ${
+                  touched.password && errors.password
+                    ? "border border-red-500 focus:ring-red-500"
+                    : "focus:ring-[#830E13]"
+                }`}
               />
               <Lock className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+              {touched.password && errors.password && (
+                <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+              )}
             </div>
 
             <div className="relative">
@@ -184,10 +309,20 @@ function SignUp() {
                 placeholder="Confirm Password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 required
-                className="w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 focus:ring-[#830E13] transition pl-10"
+                className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 transition pl-10 ${
+                  touched.confirmPassword && errors.confirmPassword
+                    ? "border border-red-500 focus:ring-red-500"
+                    : "focus:ring-[#830E13]"
+                }`}
               />
               <Lock className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+              {touched.confirmPassword && errors.confirmPassword && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.confirmPassword}
+                </p>
+              )}
             </div>
 
             <button

@@ -50,7 +50,7 @@ const NavBar = () => {
               : "bg-transparent text-white hover:bg-gray-800"
           }`}
         >
-          Resources Database
+          Manage Resources
         </button>
       </div>
 

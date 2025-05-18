@@ -49,6 +49,7 @@ const Navbar = () => {
   // ✅ Logout & clear user from localStorage
   const handleLogout = () => {
     localStorage.removeItem("user");
+    localStorage.removeItem("token");
     setUser(null);
     navigate("/signin");
   };

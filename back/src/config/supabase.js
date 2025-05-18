@@ -1,9 +1,25 @@
 const { createClient } = require("@supabase/supabase-js");
+const dotenv = require("dotenv");
 
+// Ensure environment variables are loaded
+dotenv.config();
 
-const SUPABASE_URL = "https://qhedchvmvmuflflstcwx.supabase.co"; 
-const SUPABASE_SERVICE_ROLE="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoZWRjaHZtdm11ZmxmbHN0Y3d4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczODQ0MzA5MSwiZXhwIjoyMDU0MDE5MDkxfQ.FAPYLJghQ-XrbTLZy9F0vBvDKfmSl1qFVbMS7F048ws"
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE);
+// Supabase configuration from environment variables
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE;
 
+// Validate required environment variables
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE) {
+  console.error("❌ Missing required Supabase environment variables!");
+  console.error("Please ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE are set in your .env file");
+}
+
+// Create Supabase client with additional options
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
 module.exports = { supabase };

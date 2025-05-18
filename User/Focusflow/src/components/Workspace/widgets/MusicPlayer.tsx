@@ -13,7 +13,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import Draggable from "react-draggable";
-import { userDataAPI } from "../../../services/api";
+import axios from "axios";
 
 // Global audio management for music
 const globalMusicInstances: { [key: string]: HTMLAudioElement } = {};
@@ -53,6 +53,7 @@ const setupMusicStateHandler = () => {
         localStorage.removeItem("activeMusicTrack");
       }
 
+      // Track when music is playing (but don't log focus sessions)
       if (
         Object.values(globalMusicInstances).some((audio) => !audio.paused) &&
         !globalMusicSessionStartTime
@@ -62,21 +63,7 @@ const setupMusicStateHandler = () => {
         !Object.values(globalMusicInstances).some((audio) => !audio.paused) &&
         globalMusicSessionStartTime
       ) {
-        const token = localStorage.getItem("token");
-        if (token) {
-          const now = new Date();
-          const sessionDuration = Math.floor(
-            (now.getTime() - globalMusicSessionStartTime.getTime()) / 60000
-          );
-
-          if (sessionDuration >= 1) {
-            userDataAPI
-              .logFocusSession(sessionDuration, true, activeTrackNames)
-              .catch((err) =>
-                console.error("Error logging focus session:", err)
-              );
-          }
-        }
+        // Just reset the session time when music stops
         globalMusicSessionStartTime = null;
       }
     } catch (error) {
@@ -215,12 +202,15 @@ const MusicPlayer = ({ onClose }: { onClose: () => void }) => {
   const fetchMusicTracks = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/resources/music"
-      );
-      if (!response.ok) throw new Error("Failed to fetch music tracks");
-      const data = await response.json();
-      setTracks(data);
+
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: "http://localhost:5000/api",
+      });
+
+      // Get music tracks
+      const response = await api.get("/resources/music");
+      setTracks(response.data);
     } catch (err) {
       console.error("Error fetching music tracks:", err);
       setError("Failed to load music tracks. Using default tracks instead.");

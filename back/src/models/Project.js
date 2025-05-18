@@ -9,7 +9,7 @@ const TaskSchema = new mongoose.Schema({
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   deadline: { type: Date },
   projectStage: { type: String, enum: ["Start", "In Progress", "Done"], default: "Start" },
-  finalEstimate: { type: String }, // Store the final estimate from poker session
+  finalEstimate: { type: String }, 
 });
 
 const ProjectSchema = new mongoose.Schema({
@@ -26,8 +26,8 @@ const ProjectSchema = new mongoose.Schema({
       startDate: { type: Date },
       endDate: { type: Date },
       goals: [String],
-      reviewNotes: [String],
-      retrospectiveNotes: [String],
+      
+     
     },
   ],
   chatMessages: [

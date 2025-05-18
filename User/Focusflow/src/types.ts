@@ -11,10 +11,7 @@ export interface Task {
   status?: "To Do" | "In Progress" |"Testing"|"Blocked"| "Done"
   finalEstimate?: string
   icon?: string
-  // Add these properties for kanban integration
-  projectId?: string
-  sprintId?: string
-  originalTaskId?: string
+
 }
 
 export interface Sprint {
@@ -25,8 +22,8 @@ export interface Sprint {
   startDate?: string
   endDate?: string
   goals: string[]
-  reviewNotes?: string[]
-  retrospectiveNotes?: string[]
+
+  
 }
 
 export interface Project {
@@ -101,7 +98,7 @@ export interface User {
 export interface KanbanColumn {
   id: string;
   title: string;
-  taskIds: string[];
+
 }
 
 export interface KanbanBoard {
@@ -112,10 +109,6 @@ export interface KanbanTask {
   id: string;
   content: string;
   description?: string;
-  projectId?: string;
-  sprintId?: string;
-  taskId?: string;
-  isProjectTask?: boolean;
 }
 
 export interface TodoTask {
@@ -204,10 +197,7 @@ export interface Resource {
   tags?: string[];
   uploadedBy?: string;
   format?: string;
-  duration?: number;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface Wallpaper extends Resource {
@@ -218,11 +208,9 @@ export interface Wallpaper extends Resource {
 export interface AmbientSound extends Resource {
   type: 'audio';
   format: 'mp3' | 'wav' | 'ogg';
-  duration: number;
 }
 
 export interface Music extends Resource {
   type: 'music';
   format: 'mp3' | 'wav' | 'ogg';
-  duration: number;
 }

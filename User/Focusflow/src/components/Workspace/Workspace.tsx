@@ -39,7 +39,7 @@ const Workspace = () => {
         if (!token) return; // Not logged in
 
         const response = await fetch(
-          "https://focusflow-production.up.railway.app/api/user/wallpaper",
+          "http://localhost:5000/api/user/wallpaper",
           {
             headers: {
               Authorization: `Bearer ${token}`,

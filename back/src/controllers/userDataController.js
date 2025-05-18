@@ -55,110 +55,12 @@ exports.getUserData = async (req, res, User) => {
     if (!user) return res.status(404).json({ message: "User not found" });
     res.status(200).json({
       wallpaper: user.wallpaper,
-      pomodoroSettings: user.pomodoroSettings,
       tasks: user.tasks,
       kanbanBoard: user.kanbanBoard,
     });
   } catch (error) {
     console.error("Error in GET /data:", error);
     res.status(500).json({ message: "Error fetching user data", error: error.message });
-  }
-};
-
-/**
- * Add a project task to user's kanban board
- */
-exports.addProjectTaskToKanban = async (req, res, User, Project) => {
-  try {
-    const { projectId, sprintId, taskId } = req.body;
-
-    if (!projectId || !sprintId || !taskId) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
-
-    console.log("Adding project task to kanban:", { projectId, sprintId, taskId, userId: req.user.id });
-
-    // Find the project and task
-    const project = await Project.findById(projectId);
-    if (!project) {
-      return res.status(404).json({ message: "Project not found" });
-    }
-
-    const sprint = project.sprints.id(sprintId);
-    if (!sprint) {
-      return res.status(404).json({ message: "Sprint not found" });
-    }
-
-    const task = sprint.tasks.id(taskId);
-    if (!task) {
-      return res.status(404).json({ message: "Task not found" });
-    }
-
-    // Find the user
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Initialize kanbanBoard if it doesn't exist
-    if (!user.kanbanBoard) {
-      user.kanbanBoard = {
-        columns: [
-          { id: "todo", title: "To Do", taskIds: [] },
-          { id: "in-progress", title: "In Progress", taskIds: [] },
-          { id: "done", title: "Done", taskIds: [] },
-        ],
-      };
-    }
-
-    // Create a unique ID for the task in the kanban board
-    const kanbanTaskId = `project-${projectId}-sprint-${sprintId}-task-${taskId}`;
-
-    // Check if task already exists in any column
-    let taskExists = false;
-    user.kanbanBoard.columns.forEach((column) => {
-      if (column.taskIds.includes(kanbanTaskId)) {
-        taskExists = true;
-      }
-    });
-
-    if (taskExists) {
-      return res.status(400).json({ message: "Task already exists in Kanban board" });
-    }
-
-    // Add task to the "todo" column
-    const todoColumn = user.kanbanBoard.columns.find((column) => column.id === "todo");
-    if (!todoColumn) {
-      return res.status(500).json({ message: "Kanban board structure is invalid" });
-    }
-
-    todoColumn.taskIds.push(kanbanTaskId);
-
-    // Add task to the tasks array if it doesn't exist
-    if (!user.tasks) {
-      user.tasks = [];
-    }
-
-    user.tasks.push({
-      id: kanbanTaskId,
-      content: task.title,
-      description: task.description || "",
-      projectId,
-      sprintId,
-      taskId,
-      isProjectTask: true,
-    });
-
-    await user.save();
-
-    res.status(200).json({
-      message: "Project task added to Kanban board",
-      kanbanBoard: user.kanbanBoard,
-      tasks: user.tasks,
-    });
-  } catch (error) {
-    console.error("Error adding project task to kanban:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -274,6 +176,7 @@ exports.getUserStats = async (req, res, User) => {
       level: user.level || 1,
       focusTime: filteredFocusTime || [],
       dailyTasks: filteredDailyTasks || [],
+      todoTasks: user.todoTasks || [],
       streakDays: user.streakDays || 0,
       lastActive: user.lastActive || new Date(),
       lastStreakUpdate: user.lastStreakUpdate,
@@ -296,7 +199,17 @@ exports.logFocusSession = async (req, res, User) => {
       return res.status(400).json({ message: "Duration is required" });
     }
 
-    console.log("Logging focus session:", { duration, completed, ambientSound, userId });
+    // Ensure ambientSound is properly handled
+    // If ambientSound is undefined, null, or empty string, set it to null
+    const soundToLog = ambientSound && ambientSound.trim() !== "" ? ambientSound : null;
+
+    console.log("Logging focus session:", {
+      duration,
+      completed,
+      ambientSound: soundToLog,
+      userId,
+      originalAmbientSound: ambientSound // Log the original value for debugging
+    });
 
     // Find the user
     const user = await User.findById(userId);
@@ -310,11 +223,19 @@ exports.logFocusSession = async (req, res, User) => {
     if (!user.dailyTasks) user.dailyTasks = [];
 
     // Add focus session
-    user.focusSessions.push({
+    const newSession = {
       duration,
       completed: completed || false,
-      ambientSound,
+      ambientSound: soundToLog,
       timestamp: new Date(),
+    };
+
+    user.focusSessions.push(newSession);
+
+    console.log("Added new focus session to user:", {
+      userId: user._id,
+      username: user.username,
+      sessionData: newSession
     });
 
     // Update focus time for today
@@ -375,13 +296,26 @@ exports.logFocusSession = async (req, res, User) => {
     }
 
     await user.save();
-    console.log("Focus session logged successfully");
+
+    // Get the most recent focus session to verify it was saved correctly
+    const savedSession = user.focusSessions[user.focusSessions.length - 1];
+
+    console.log("Focus session logged successfully:", {
+      savedSession,
+      ambientSoundSaved: savedSession.ambientSound,
+      totalFocusSessions: user.focusSessions.length
+    });
 
     res.json({
       message: "Focus session logged successfully",
       xpGained,
       newLevel: user.level,
       streakDays: user.streakDays,
+      sessionLogged: {
+        duration,
+        completed,
+        ambientSound: soundToLog
+      }
     });
   } catch (error) {
     console.error("Error logging focus session:", error);
@@ -403,56 +337,85 @@ exports.logCompletedTask = async (req, res, User) => {
 
     console.log("Logging completed task:", { taskId, userId });
 
-    // Find the user
-    const user = await User.findById(userId);
-    if (!user) {
+    // First, check if the user exists
+    const userExists = await User.findById(userId);
+    if (!userExists) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Initialize fields if they don't exist
-    if (!user.tasksCompleted) user.tasksCompleted = 0;
-    if (!user.dailyTasks) user.dailyTasks = [];
-    if (!user.xp) user.xp = 0;
-
-    // Increment tasks completed
-    user.tasksCompleted += 1;
-
-    // Update daily tasks for today
+    // Get today's date for dailyTasks
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const dailyTaskIndex = user.dailyTasks.findIndex(
-      (entry) => new Date(entry.date).setHours(0, 0, 0, 0) === today.getTime(),
+    // Use updateOne with $inc to safely increment counters
+    const updateResult = await User.updateOne(
+      { _id: userId },
+      {
+        $inc: {
+          tasksCompleted: 1,
+          xp: 50 // 50 XP per completed task
+        },
+        $set: {
+          lastActive: new Date()
+        }
+      }
     );
 
-    if (dailyTaskIndex >= 0) {
-      user.dailyTasks[dailyTaskIndex].count += 1;
-    } else {
-      user.dailyTasks.push({
-        date: today,
-        count: 1,
-      });
+    if (updateResult.modifiedCount === 0) {
+      return res.status(404).json({ message: "Failed to update user" });
     }
 
-    // Update XP (simple formula: 50 XP per completed task)
-    const xpGained = 50;
-    user.xp += xpGained;
+    // Now handle the daily tasks in a separate query
+    // First check if there's an entry for today
+    const userWithDailyTasks = await User.findOne(
+      {
+        _id: userId,
+        "dailyTasks.date": {
+          $gte: today,
+          $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+        }
+      }
+    );
 
-    // Update level (simple formula: level = 1 + floor(xp / 1000))
-    user.level = 1 + Math.floor(user.xp / 1000);
-
-    // Update last active
-    user.lastActive = new Date();
-
-    // Update streak (same logic as focus session)
-    const lastUpdate = user.lastStreakUpdate ? new Date(user.lastStreakUpdate) : null;
-    if (!lastUpdate) {
-      user.streakDays = 1;
-      user.lastStreakUpdate = new Date();
+    if (userWithDailyTasks) {
+      // There's an entry for today, increment it
+      await User.updateOne(
+        {
+          _id: userId,
+          "dailyTasks.date": {
+            $gte: today,
+            $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+          }
+        },
+        {
+          $inc: { "dailyTasks.$.count": 1 }
+        }
+      );
     } else {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // No entry for today, add one
+      await User.updateOne(
+        { _id: userId },
+        {
+          $push: {
+            dailyTasks: {
+              date: today,
+              count: 1
+            }
+          }
+        }
+      );
+    }
 
+    // Update level based on XP
+    const updatedUser = await User.findById(userId);
+    updatedUser.level = 1 + Math.floor(updatedUser.xp / 1000);
+
+    // Update streak
+    const lastUpdate = updatedUser.lastStreakUpdate ? new Date(updatedUser.lastStreakUpdate) : null;
+    if (!lastUpdate) {
+      updatedUser.streakDays = 1;
+      updatedUser.lastStreakUpdate = new Date();
+    } else {
       const lastUpdateDay = new Date(lastUpdate);
       lastUpdateDay.setHours(0, 0, 0, 0);
 
@@ -461,24 +424,24 @@ exports.logCompletedTask = async (req, res, User) => {
 
       if (lastUpdateDay.getTime() === yesterday.getTime()) {
         // Last update was yesterday, increment streak
-        user.streakDays += 1;
-        user.lastStreakUpdate = new Date();
+        updatedUser.streakDays += 1;
+        updatedUser.lastStreakUpdate = new Date();
       } else if (lastUpdateDay.getTime() < yesterday.getTime()) {
         // Streak broken, reset to 1
-        user.streakDays = 1;
-        user.lastStreakUpdate = new Date();
+        updatedUser.streakDays = 1;
+        updatedUser.lastStreakUpdate = new Date();
       }
       // If last update was today, don't change streak
     }
 
-    await user.save();
+    await updatedUser.save();
     console.log("Task completion logged successfully");
 
     res.json({
       message: "Task completion logged successfully",
-      xpGained,
-      newLevel: user.level,
-      streakDays: user.streakDays,
+      xpGained: 50,
+      newLevel: updatedUser.level,
+      streakDays: updatedUser.streakDays,
     });
   } catch (error) {
     console.error("Error logging completed task:", error);

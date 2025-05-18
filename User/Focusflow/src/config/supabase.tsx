@@ -1,8 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = "https://qhedchvmvmuflflstcwx.supabase.co";
-const supabaseAnonKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFoZWRjaHZtdm11ZmxmbHN0Y3d4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczODQ0MzA5MSwiZXhwIjoyMDU0MDE5MDkxfQ.FAPYLJghQ-XrbTLZy9F0vBvDKfmSl1qFVbMS7F048ws";
+// Get Supabase configuration from environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Validate required environment variables
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("❌ Missing required Supabase environment variables!");
+  console.error(
+    "Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your .env file"
+  );
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export const fetchWallpapers = async () => {
@@ -14,9 +22,15 @@ export const fetchWallpapers = async () => {
     return [];
   }
 
-  // 🔹 Generate public URLs for each wallpaper
-  return data.map((file) => ({
-    name: file.name,
-    url: `${supabaseUrl}/storage/v1/object/public/wallpapers/${file.name}`,
-  }));
+  // 🔹 Generate public URLs for each wallpaper using Supabase's getPublicUrl method
+  return data.map((file) => {
+    const { data: publicUrlData } = supabase.storage
+      .from("wallpapers")
+      .getPublicUrl(file.name);
+
+    return {
+      name: file.name,
+      url: publicUrlData?.publicUrl || "",
+    };
+  });
 };

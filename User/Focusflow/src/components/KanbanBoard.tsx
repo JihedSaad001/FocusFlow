@@ -5,7 +5,8 @@ import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import type { Board, Task, Column as ColumnType } from "../types";
 import TaskCard from "./TaskCard";
-import { Plus, AlertCircle } from "lucide-react";
+import { Plus } from "lucide-react";
+import axios from "axios";
 import {
   DndContext,
   DragOverlay,
@@ -61,14 +62,19 @@ const KanbanBoard: React.FC = () => {
       try {
         const token = localStorage.getItem("token");
         if (!token) return;
-        const response = await fetch(
-          "https://focusflow-production.up.railway.app/api/user/kanban",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        if (!response.ok) throw new Error("Failed to fetch board");
-        const data = await response.json();
+
+        // Create axios instance with default config
+        const api = axios.create({
+          baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        // Get kanban board
+        const response = await api.get("/user/kanban");
+        const data = response.data;
+
         if (data.kanbanBoard && Array.isArray(data.kanbanBoard.columns)) {
           setBoard(data.kanbanBoard);
         } else {
@@ -91,43 +97,19 @@ const KanbanBoard: React.FC = () => {
 
       console.log("Saving board with data:", JSON.stringify(updatedBoard));
 
-      const response = await fetch(
-        "https://focusflow-production.up.railway.app/api/user/kanban",
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updatedBoard),
-        }
-      );
+      // Create axios instance with default config
+      const api = axios.create({
+        baseURL: "http://localhost:5000/api",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Failed to save board:", errorText);
-        throw new Error("Failed to save board");
-      }
+      // Update kanban board
+      await api.put("/user/kanban", updatedBoard);
 
       console.log("Board saved successfully");
-
-      // Show success notification for project task updates
-      const projectTasks = updatedBoard.columns.flatMap((col) =>
-        col.tasks.filter(
-          (task) => task.projectId && task.sprintId && task.originalTaskId
-        )
-      );
-
-      if (projectTasks.length > 0) {
-        setNotification({
-          message: "Project task status updated",
-          type: "success",
-        });
-
-        setTimeout(() => {
-          setNotification(null);
-        }, 3000);
-      }
     } catch (error) {
       console.error("Error saving Kanban board:", error);
       setNotification({
@@ -334,11 +316,7 @@ const KanbanBoard: React.FC = () => {
           _id: Date.now().toString(),
           title: newTask.title,
           priority: newTask.priority as "Low" | "Medium" | "High",
-          deadline: new Date().toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          }),
+
           icon: newTask.icon,
         };
 
@@ -351,10 +329,6 @@ const KanbanBoard: React.FC = () => {
         setShowForm(false);
       }
     };
-
-    const projectTaskCount = column.tasks.filter(
-      (task) => task.projectId
-    ).length;
 
     return (
       <div
@@ -371,12 +345,6 @@ const KanbanBoard: React.FC = () => {
             <span className="ml-3 bg-gray-800 text-white text-xs font-medium px-2 py-1 rounded-full">
               {column.tasks.length}
             </span>
-            {projectTaskCount > 0 && (
-              <span className="ml-2 bg-blue-800 text-white text-xs font-medium px-2 py-1 rounded-full flex items-center">
-                <AlertCircle size={10} className="mr-1" />
-                {projectTaskCount}
-              </span>
-            )}
           </div>
           <div className="flex space-x-2">
             <button
@@ -401,7 +369,6 @@ const KanbanBoard: React.FC = () => {
                   task={task}
                   columnId={column.id}
                   onDelete={onDeleteTask}
-                  isProjectTask={!!task.projectId}
                   data-draggable="true"
                 />
               ))
@@ -509,8 +476,7 @@ const KanbanBoard: React.FC = () => {
           Kanban Board
         </h1>
         <p className="text-gray-400 mt-2">
-          Tasks from your projects will appear here. Moving them will update
-          their status in the project.
+          Organize your tasks using this personal Kanban board.
         </p>
       </div>
 
@@ -544,7 +510,6 @@ const KanbanBoard: React.FC = () => {
                 task={activeTask}
                 columnId={activeColumnId || ""}
                 onDelete={() => {}}
-                isProjectTask={!!activeTask.projectId}
               />
             )}
           </DragOverlay>

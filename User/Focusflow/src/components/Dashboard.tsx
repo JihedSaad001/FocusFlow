@@ -25,7 +25,7 @@ import {
   PieChartIcon,
   Trophy,
 } from "lucide-react";
-import { userDataAPI } from "../services/api";
+import axios from "axios";
 
 // Types for our stats
 interface FocusSession {
@@ -45,6 +45,13 @@ interface DailyTaskEntry {
   count: number;
 }
 
+interface TodoTask {
+  _id: string;
+  title: string;
+  completed: boolean;
+  createdAt: string;
+}
+
 interface UserStats {
   focusSessions: FocusSession[];
   tasksCompleted: number;
@@ -52,6 +59,7 @@ interface UserStats {
   level: number;
   focusTime: FocusTimeEntry[];
   dailyTasks: DailyTaskEntry[];
+  todoTasks?: TodoTask[];
   streakDays: number;
 }
 
@@ -85,8 +93,18 @@ const Dashboard = () => {
           );
         }
 
-        const data = await userDataAPI.getUserStats(timeRange);
-        setStats(data);
+        // Create axios instance with default config
+        const api = axios.create({
+          baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        // Get user stats
+        const response = await api.get(`/user/stats?timeRange=${timeRange}`);
+        setStats(response.data);
       } catch (err: any) {
         console.error("Error loading stats:", err);
         setError(
@@ -168,6 +186,18 @@ const Dashboard = () => {
     );
 
     return score;
+  };
+
+  // Calculate task completion rate (completed tasks / total tasks) * 100
+  const calculateTaskCompletionRate = () => {
+    if (!stats || !stats.todoTasks || stats.todoTasks.length === 0) return 0;
+
+    const totalTasks = stats.todoTasks.length;
+    const completedTasks = stats.todoTasks.filter(
+      (task) => task.completed
+    ).length;
+
+    return Math.round((completedTasks / totalTasks) * 100);
   };
 
   // Calculate XP progress to next level
@@ -885,7 +915,7 @@ const Dashboard = () => {
                         className="text-red-500"
                         strokeWidth="10"
                         strokeDasharray={`${
-                          calculateProductivityScore() * 2.51
+                          calculateTaskCompletionRate() * 2.51
                         } 251`}
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -897,7 +927,7 @@ const Dashboard = () => {
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       <span className="text-3xl font-bold">
-                        {calculateProductivityScore()}%
+                        {calculateTaskCompletionRate()}%
                       </span>
                       <span className="text-sm text-gray-400">Completion</span>
                     </div>

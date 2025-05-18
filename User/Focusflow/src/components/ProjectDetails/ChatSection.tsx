@@ -8,7 +8,11 @@ interface ChatSectionProps {
   setShowChat: (show: boolean) => void;
 }
 
-const ChatSection: React.FC<ChatSectionProps> = ({ id, showChat, setShowChat }) => {
+const ChatSection: React.FC<ChatSectionProps> = ({
+  id,
+  showChat,
+  setShowChat,
+}) => {
   return (
     <div className="mb-8">
       <div

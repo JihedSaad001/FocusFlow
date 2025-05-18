@@ -2,7 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const User = require("../models/User");
-const supabase = require("../config/supabase");
+const { supabase } = require("../config/supabase");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../config/sendgrid");
 
 /**
@@ -205,7 +205,6 @@ exports.login = async (req, res) => {
     // Check if email is verified
     if (!user.isVerified) {
       return res.status(401).json({
-        message: "Email not verified. Please check your inbox or request a new verification email.",
         needsVerification: true,
       });
     }
@@ -284,14 +283,19 @@ exports.uploadProfilePic = async (req, res) => {
 
     const fileName = `${req.user.id}-${Date.now()}-${req.file.originalname}`;
 
-    const { data, error } = await supabase.storage.from(process.env.SUPABASE_BUCKET).upload(fileName, req.file.buffer, {
+    // Use hardcoded bucket name "profile-pictures" instead of environment variable
+    const bucketName = "profile-pictures";
+
+    const { data, error } = await supabase.storage.from(bucketName).upload(fileName, req.file.buffer, {
       contentType: req.file.mimetype,
       upsert: true,
     });
 
     if (error) throw error;
 
-    const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/${process.env.SUPABASE_BUCKET}/${fileName}`;
+    // Get the public URL using Supabase's getPublicUrl method
+    const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
+    const publicUrl = publicUrlData?.publicUrl;
 
     console.log("🖼️ Supabase Uploaded Image URL:", publicUrl);
 
@@ -359,7 +363,7 @@ exports.adminLogin = async (req, res) => {
       return res.status(500).json({ message: "Server error: missing JWT_SECRET" });
     }
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7h" });
 
     res.json({ message: "Admin login successful", token, admin: { username: user.username, role: user.role } });
   } catch (error) {
