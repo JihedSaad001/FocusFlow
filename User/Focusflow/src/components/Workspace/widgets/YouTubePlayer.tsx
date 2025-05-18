@@ -14,7 +14,7 @@ const YouTubePlayer = () => {
   const lastMousePosition = useRef({ x: 0, y: 0 });
   const animationFrame = useRef<number | null>(null);
   const dragEndTimer = useRef<NodeJS.Timeout | null>(null);
-  const nodeRef = useRef<HTMLDivElement | null>(null);
+  const nodeRef = useRef<HTMLDivElement>(null);
 
   // Replace with your YouTube Data API key (secure in production)
   const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
@@ -31,7 +31,6 @@ const YouTubePlayer = () => {
     };
   }, []);
 
-  
   const handleSearch = async () => {
     if (searchQuery.trim() === "") {
       setSearchResults([]);
@@ -221,7 +220,7 @@ const YouTubePlayer = () => {
                 height="100%"
                 src={`https://www.youtube.com/embed/${videoID}`}
                 title="YouTube video player"
-                frameBorder="0"
+                style={{ border: 0 }}
                 allowFullScreen
                 className="rounded-lg"
               ></iframe>

@@ -176,7 +176,7 @@ function SignUp() {
         },
       });
 
-      const response = await api.post("/auth/signup", {
+      await api.post("/auth/signup", {
         username: formData.username,
         email: formData.email,
         password: formData.password,
