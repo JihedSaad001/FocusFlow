@@ -1,3 +1,4 @@
+import React from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -11,7 +12,7 @@ import ResourcesDatabase from "./pages/ResourcesDatabase";
 import Dashboards from "./pages/Dashboards";
 import Navbar from "./components/NavBarAdmin"; // ✅ Import Navbar
 
-function ProtectedRoute({ element }: { element: JSX.Element }) {
+function ProtectedRoute({ element }: { element: React.ReactElement }) {
   const token = localStorage.getItem("adminToken");
   return token ? element : <Navigate to="/admin/login" />;
 }
