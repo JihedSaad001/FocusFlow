@@ -233,39 +233,12 @@ const AmbientSounds = ({ onClose }: { onClose: () => void }) => {
       setSounds(response.data);
     } catch (err) {
       console.error("Error fetching ambient sounds:", err);
-      setError("Failed to load ambient sounds. Using default sounds instead.");
-      setSounds(getDefaultSounds());
+      setError("Failed to load ambient sounds. Please try again later.");
+      setSounds([]);
     } finally {
       setIsLoading(false);
     }
   };
-
-  const getDefaultSounds = (): AmbientSound[] => [
-    {
-      _id: "default-1",
-      name: "Rainforest",
-      url: "https://cdn.freesound.org/previews/18/18765_18799-lq.mp3",
-      tags: ["nature", "rain"],
-    },
-    {
-      _id: "default-2",
-      name: "Ocean Waves",
-      url: "https://cdn.freesound.org/previews/47/47539_35187-lq.mp3",
-      tags: ["nature", "water"],
-    },
-    {
-      _id: "default-3",
-      name: "Thunderstorm",
-      url: "https://cdn.freesound.org/previews/2/2523_4205-lq.mp3",
-      tags: ["nature", "storm"],
-    },
-    {
-      _id: "default-4",
-      name: "Campfire",
-      url: "https://cdn.freesound.org/previews/32/32443_151350-lq.mp3",
-      tags: ["fire", "cozy"],
-    },
-  ];
 
   const calculateVolume = (soundVolume: number, isSoundMuted: boolean) => {
     if (isMasterMuted || isSoundMuted) return 0;

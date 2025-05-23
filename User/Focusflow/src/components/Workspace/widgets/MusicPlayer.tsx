@@ -215,33 +215,12 @@ const MusicPlayer = ({ onClose }: { onClose: () => void }) => {
       setTracks(response.data);
     } catch (err) {
       console.error("Error fetching music tracks:", err);
-      setError("Failed to load music tracks. Using default tracks instead.");
-      setTracks(getDefaultTracks());
+      setError("Failed to load music tracks. Please try again later.");
+      setTracks([]);
     } finally {
       setIsLoading(false);
     }
   };
-
-  const getDefaultTracks = (): MusicTrack[] => [
-    {
-      _id: "default-1",
-      name: "Lo-Fi Chill",
-      url: "https://cdn.freesound.org/previews/18/18765_18799-lq.mp3",
-      tags: ["lofi", "chill"],
-    },
-    {
-      _id: "default-2",
-      name: "Jazz Piano",
-      url: "https://cdn.freesound.org/previews/47/47539_35187-lq.mp3",
-      tags: ["jazz", "piano"],
-    },
-    {
-      _id: "default-3",
-      name: "Ambient Synth",
-      url: "https://cdn.freesound.org/previews/2/2523_4205-lq.mp3",
-      tags: ["ambient", "synth"],
-    },
-  ];
 
   const calculateVolume = (trackVolume: number, isTrackMuted: boolean) => {
     if (isMasterMuted || isTrackMuted) return 0;

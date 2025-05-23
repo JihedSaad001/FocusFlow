@@ -23,7 +23,7 @@ function CreateProject() {
     const token = localStorage.getItem("token");
     console.log("Token:", token);
     if (!token) {
-      console.warn("❌ No token found, redirecting to login.");
+      console.warn(" No token found, redirecting to login.");
       navigate("/signin");
       return;
     }

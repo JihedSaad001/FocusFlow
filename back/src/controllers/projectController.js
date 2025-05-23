@@ -2,9 +2,8 @@ const mongoose = require("mongoose");
 const Project = require("../models/Project");
 const User = require("../models/User");
 
-/**
- * Create a new project
- */
+// Create a new project
+ 
 exports.createProject = async (req, res) => {
   try {
     const { name, description } = req.body;
@@ -23,9 +22,8 @@ exports.createProject = async (req, res) => {
   }
 };
 
-/**
- * Get all projects for a user
- */
+// Get all projects for a user
+
 exports.getUserProjects = async (req, res) => {
   try {
     const projects = await Project.find({ members: req.user.id }).populate("members", "username email");
@@ -35,22 +33,15 @@ exports.getUserProjects = async (req, res) => {
     res.status(500).json({ message: "Error fetching projects", error: error.message });
   }
 };
-
-/**
- * Get a specific project by ID
- */
+// Get a specific project by ID
 exports.getProjectById = async (req, res) => {
   try {
     const project = await Project.findById(req.params.projectId)
       .populate("members", "username email")
       .populate("owner", "username");
     if (!project) return res.status(404).json({ message: "Project not found" });
-    console.log(
-      "User ID:",
-      req.user.id,
-      "Project Members:",
-      project.members.map((m) => m._id.toString()),
-    );
+
+    //if user not a member
     if (!project.members.map((m) => m._id.toString()).includes(req.user.id))
       return res.status(403).json({ message: "Unauthorized" });
     res.status(200).json(project);
@@ -60,50 +51,21 @@ exports.getProjectById = async (req, res) => {
   }
 };
 
-/**
- * Update a project
- */
-exports.updateProject = async (req, res) => {
-  try {
-    const projectId = req.params.projectId;
-    const { name, description } = req.body;
-    const userId = req.user.id;
 
-    const project = await Project.findById(projectId);
 
-    if (!project) {
-      return res.status(404).json({ message: "Project not found" });
-    }
-
-    if (project.owner.toString() !== userId) {
-      return res.status(403).json({ message: "Unauthorized" });
-    }
-
-    project.name = name;
-    project.description = description;
-
-    await project.save();
-    res.status(200).json(project);
-  } catch (error) {
-    console.error("Error updating project:", error);
-    res.status(500).json({ message: "Error updating project", error: error.message });
-  }
-};
-
-/**
- * Delete a project
- */
+//Delete a project
+ 
 exports.deleteProject = async (req, res) => {
   try {
     const project = await Project.findById(req.params.projectId);
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
-
-    if (!project.members.map((m) => m._id.toString()).includes(req.user.id.toString())) {
+//check if member
+    if (!project.members.includes(req.user.id)) {
       return res.status(403).json({ message: "Unauthorized to delete this project" });
     }
-
+//check if owner
     if (project.owner._id.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: "Only the project owner can delete this project" });
     }
@@ -116,9 +78,7 @@ exports.deleteProject = async (req, res) => {
   }
 };
 
-/**
- * Add a member to a project
- */
+//Add a member to a project
 exports.addProjectMember = async (req, res) => {
   try {
     const { email } = req.body;
@@ -144,9 +104,8 @@ exports.addProjectMember = async (req, res) => {
   }
 };
 
-/**
- * Remove a member from a project
- */
+//Remove a member from a project
+ 
 exports.removeProjectMember = async (req, res) => {
   try {
     const project = await Project.findById(req.params.projectId)
@@ -215,9 +174,8 @@ exports.getPokerSession = async (req, res) => {
   }
 };
 
-/**
- * Add an issue to the poker session
- */
+// Add an issue to the poker session
+ 
 exports.addPokerIssue = async (req, res) => {
   const { projectId } = req.params;
   const { title, description } = req.body;
@@ -262,74 +220,46 @@ exports.voteOnPokerIssue = async (req, res) => {
   const { vote } = req.body;
   const userId = req.user.id;
 
-  console.log(`[DEBUG] Vote received - Project: ${projectId}, Issue: ${issueId}, User: ${userId}, Vote: ${vote}`);
-
   try {
-    console.log(`[DEBUG] Finding project ${projectId} and populating members`);
     const project = await Project.findById(projectId).populate("members", "username");
     if (!project || !project.activePokerSession) {
-      console.log(`[DEBUG] Project or poker session not found - Project exists: ${!!project}, Poker session exists: ${!!project?.activePokerSession}`);
       return res.status(404).json({ message: "Project or poker session not found" });
     }
 
     const memberIds = project.members.map((m) => m._id.toString());
-    console.log(`[DEBUG] Project members: ${memberIds.join(', ')}`);
-    console.log(`[DEBUG] Checking if user ${userId} is a member of the project`);
 
     if (!memberIds.includes(userId)) {
-      console.log(`[DEBUG] User ${userId} is not authorized to vote on this project`);
       return res.status(403).json({ message: "Unauthorized" });
     }
-
-    console.log(`[DEBUG] Finding issue ${issueId} in the poker session`);
+    
     const issue = project.activePokerSession.issues.find((i) => i._id.toString() === issueId);
-    if (!issue) {
-      console.log(`[DEBUG] Issue ${issueId} not found in the poker session`);
+    if (!issue) {  
       return res.status(404).json({ message: "Issue not found" });
     }
-
-    console.log(`[DEBUG] Current issue status: ${issue.status}, Votes count: ${issue.votes.length}`);
 
     // Check if user has already voted
     const existingVoteIndex = issue.votes.findIndex((v) => v.user.toString() === userId);
     if (existingVoteIndex !== -1) {
       // Update existing vote
-      const oldVote = issue.votes[existingVoteIndex].vote;
-      console.log(`[DEBUG] User ${userId} has already voted: ${oldVote}. Updating to: ${vote}`);
       issue.votes[existingVoteIndex].vote = vote;
     } else {
-      // Add new vote
-      console.log(`[DEBUG] User ${userId} is voting for the first time with: ${vote}`);
       issue.votes.push({ user: userId, vote });
     }
 
+    
     // Update issue status to Voting
     issue.status = "Voting";
-    console.log(`[DEBUG] Updated issue status to: ${issue.status}, New votes count: ${issue.votes.length}`);
-
-    console.log(`[DEBUG] Saving project with updated votes`);
     await project.save();
-
     // Get the populated votes to send to clients
-    console.log(`[DEBUG] Fetching populated issue to send to clients`);
     const populatedIssue = await Project.findById(projectId)
       .populate("activePokerSession.issues.votes.user", "username")
       .then((p) => p.activePokerSession.issues.id(issueId));
 
     if (!populatedIssue) {
-      console.log(`[DEBUG] Failed to retrieve populated issue after saving`);
       return res.status(500).json({ message: "Error retrieving updated issue" });
     }
 
-    console.log(`[DEBUG] Populated issue retrieved successfully. Votes count: ${populatedIssue.votes.length}`);
-
     // Emit voteRecorded event for real-time updates
-    console.log(`[DEBUG] Emitting voteRecorded event to room ${projectId} with data:`, {
-      issueId,
-      votesCount: populatedIssue.votes.length,
-      status: populatedIssue.status,
-    });
-
     req.io.to(projectId).emit("voteRecorded", {
       issueId,
       votes: populatedIssue.votes,
@@ -337,8 +267,6 @@ exports.voteOnPokerIssue = async (req, res) => {
     });
 
     // Check if the socket.io adapter is working
-    console.log(`[DEBUG] Socket.IO adapter type: ${req.io.adapter.constructor.name}`);
-    console.log(`[DEBUG] Socket.IO rooms for project ${projectId}:`, req.io.sockets.adapter.rooms.get(projectId));
 
     res.status(200).json({ message: "Vote recorded", issue: populatedIssue });
   } catch (error) {
@@ -428,7 +356,7 @@ exports.batchValidatePokerIssues = async (req, res) => {
 
     const validatedIssueIds = validatedIssues.map((issue) => issue.issueId);
 
-    // Find the sprint if sprintId is provided
+    // Find the sprint if sprintId is provided 
     for (const validatedIssue of validatedIssues) {
       if (validatedIssue.sprintId) {
         const sprint = project.sprints.id(validatedIssue.sprintId);
@@ -553,52 +481,46 @@ exports.revealPokerIssue = async (req, res) => {
   const projectId = req.params.projectId;
   const issueId = req.params.issueId;
 
-  console.log(`[DEBUG] Revealing votes - Project: ${projectId}, Issue: ${issueId}`);
+
 
   try {
-    console.log(`[DEBUG] Finding project ${projectId} and populating votes`);
+ 
     const project = await Project.findById(projectId).populate(
       "activePokerSession.issues.votes.user",
       "username",
     );
     if (!project) {
-      console.log(`[DEBUG] Project ${projectId} not found`);
+    
       return res.status(404).json({ message: "Project not found" });
     }
 
-    console.log(`[DEBUG] Finding issue ${issueId} in the poker session`);
+
     const issue = project.activePokerSession.issues.id(issueId);
     if (!issue) {
-      console.log(`[DEBUG] Issue ${issueId} not found in the poker session`);
+ 
       return res.status(404).json({ message: "Issue not found" });
     }
 
-    console.log(`[DEBUG] Current issue status: ${issue.status}, Votes count: ${issue.votes.length}`);
     issue.status = "Revealed";
-    console.log(`[DEBUG] Updated issue status to: ${issue.status}`);
+ 
 
-    console.log(`[DEBUG] Saving project with updated status`);
+  
     await project.save();
 
     // Get the populated votes to send to clients
-    console.log(`[DEBUG] Fetching populated issue to send to clients`);
+
     const populatedIssue = await Project.findById(projectId)
       .populate("activePokerSession.issues.votes.user", "username")
       .then((p) => p.activePokerSession.issues.id(issueId));
 
     if (!populatedIssue) {
-      console.log(`[DEBUG] Failed to retrieve populated issue after saving`);
+    
       return res.status(500).json({ message: "Error retrieving updated issue" });
     }
 
-    console.log(`[DEBUG] Populated issue retrieved successfully. Votes count: ${populatedIssue.votes.length}`);
+    
 
     // Emit voteRevealed event for real-time updates
-    console.log(`[DEBUG] Emitting voteRevealed event to room ${projectId} with data:`, {
-      issueId,
-      votesCount: populatedIssue.votes.length,
-      status: "Revealed",
-    });
 
     req.io.to(projectId).emit("voteRevealed", {
       issueId,
@@ -607,9 +529,6 @@ exports.revealPokerIssue = async (req, res) => {
     });
 
     // Check if the socket.io adapter is working
-    console.log(`[DEBUG] Socket.IO adapter type: ${req.io.adapter.constructor.name}`);
-    console.log(`[DEBUG] Socket.IO rooms for project ${projectId}:`, req.io.sockets.adapter.rooms.get(projectId));
-    console.log(`[DEBUG] Number of clients in room ${projectId}:`, req.io.sockets.adapter.rooms.get(projectId)?.size || 0);
 
     res.status(200).json({ message: "Votes revealed", issue: populatedIssue });
   } catch (error) {

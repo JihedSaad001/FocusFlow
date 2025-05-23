@@ -17,11 +17,11 @@ const ProjectSchema = new mongoose.Schema({
   description: { type: String },
   owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-  backlog: [TaskSchema], // Use the shared TaskSchema
+  backlog: [TaskSchema], 
   sprints: [
     {
       name: String,
-      tasks: [TaskSchema], // Use the shared TaskSchema for sprint tasks
+      tasks: [TaskSchema], 
       active: { type: Boolean, default: false },
       startDate: { type: Date },
       endDate: { type: Date },

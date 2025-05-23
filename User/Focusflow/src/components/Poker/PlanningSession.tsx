@@ -966,11 +966,6 @@ export function PlanningSession() {
       } else {
         throw new Error("Project ID is missing");
       }
-
-      // We've removed the code that adds tasks to users' Kanban boards
-      // Tasks will only be added to the project sprint Kanban
-
-      // Close the validation popup and reset the form
       setShowValidationPopup(false);
       setValidationIssues([]);
       setCurrentIssue(null);

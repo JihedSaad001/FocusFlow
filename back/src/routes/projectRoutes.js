@@ -19,8 +19,7 @@ module.exports = (io) => {
   // Route to get a specific project by ID
   router.get("/:projectId", authenticateJWT, projectController.getProjectById);
 
-  // Route to update a project
-  router.put("/:projectId", authenticateJWT, projectController.updateProject);
+
 
   // Route to delete a project
   router.delete("/:projectId", authenticateJWT, projectController.deleteProject);

@@ -1,37 +1,33 @@
 const express = require("express");
 const { authenticateJWT } = require("../middleware/authMiddleware");
 const userDataController = require("../controllers/userDataController");
+const User = require("../models/User");
 
-module.exports = (User) => {
-  const router = express.Router();
-  const Project = require("../models/Project");
 
-  console.log("✅ User model in userDataRoutes:", Object.keys(User.schema.paths));
+const router = express.Router();
 
-  // Kanban board routes
-  router.put("/kanban", authenticateJWT, (req, res) => userDataController.updateKanbanBoard(req, res, User));
-  router.get("/kanban", authenticateJWT, (req, res) => userDataController.getKanbanBoard(req, res, User));
+console.log("✅ User model in userDataRoutes:", Object.keys(User.schema.paths));
 
-  //User data route
-  router.get("/data", authenticateJWT, (req, res) => userDataController.getUserData(req, res, User));
+// Kanban board routes
+router.put("/kanban", authenticateJWT, userDataController.updateKanbanBoard);
+router.get("/kanban", authenticateJWT, userDataController.getKanbanBoard);
 
-  // Project task to kanban route
-  router.post("/kanban/project-task", authenticateJWT, (req, res) =>
-    userDataController.addProjectTaskToKanban(req, res, User, Project)
-  );
+//User data route
+router.get("/data", authenticateJWT, userDataController.getUserData);
 
-  // Todo tasks routes
-  router.get("/todo-tasks", authenticateJWT, (req, res) => userDataController.getTodoTasks(req, res, User));
-  router.put("/todo-tasks", authenticateJWT, (req, res) => userDataController.updateTodoTasks(req, res, User));
 
-  // Productivity tracking routes
-  router.get("/stats", authenticateJWT, (req, res) => userDataController.getUserStats(req, res, User));
-  router.post("/log-focus-session", authenticateJWT, (req, res) => userDataController.logFocusSession(req, res, User));
-  router.post("/log-completed-task", authenticateJWT, (req, res) => userDataController.logCompletedTask(req, res, User));
 
-  // Wallpaper routes
-  router.put("/wallpaper", authenticateJWT, (req, res) => userDataController.updateWallpaper(req, res, User));
-  router.get("/wallpaper", authenticateJWT, (req, res) => userDataController.getWallpaper(req, res, User));
+// Todo tasks routes
+router.get("/todo-tasks", authenticateJWT, userDataController.getTodoTasks);
+router.put("/todo-tasks", authenticateJWT, userDataController.updateTodoTasks);
 
-  return router;
-};
+// Productivity tracking routes
+router.get("/stats", authenticateJWT, userDataController.getUserStats);
+router.post("/log-focus-session", authenticateJWT, userDataController.logFocusSession);
+router.post("/log-completed-task", authenticateJWT, userDataController.logCompletedTask);
+
+// Wallpaper routes
+router.put("/wallpaper", authenticateJWT, userDataController.updateWallpaper);
+router.get("/wallpaper", authenticateJWT, userDataController.getWallpaper);
+
+module.exports = router;

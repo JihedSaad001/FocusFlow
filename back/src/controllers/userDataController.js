@@ -1,21 +1,20 @@
-/**
- * User data controller
- */
+
+const User = require("../models/User");
+
 
 /**
  * Update user's kanban board
  */
-exports.updateKanbanBoard = async (req, res, User) => {
+exports.updateKanbanBoard = async (req, res) => {
   try {
     const { columns } = req.body;
-    console.log("PUT /kanban - User ID:", req.user.id, "Request body:", req.body);
+   
     if (!columns || !Array.isArray(columns)) {
       return res.status(400).json({ message: "Invalid Kanban board data" });
     }
 
-    const userBefore = await User.findById(req.user.id);
-    console.log("User before update:", userBefore);
-
+  
+  
     const user = await User.findByIdAndUpdate(
       req.user.id,
       { kanbanBoard: { columns } },
@@ -35,7 +34,7 @@ exports.updateKanbanBoard = async (req, res, User) => {
 /**
  * Get user's kanban board
  */
-exports.getKanbanBoard = async (req, res, User) => {
+exports.getKanbanBoard = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -49,7 +48,7 @@ exports.getKanbanBoard = async (req, res, User) => {
 /**
  * Get user data
  */
-exports.getUserData = async (req, res, User) => {
+exports.getUserData = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -67,12 +66,11 @@ exports.getUserData = async (req, res, User) => {
 /**
  * Get user's todo tasks
  */
-exports.getTodoTasks = async (req, res, User) => {
+exports.getTodoTasks = async (req, res) => {
   try {
-    const userId = req.user.id;
 
     // Find the user
-    const user = await User.findById(userId);
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -90,7 +88,7 @@ exports.getTodoTasks = async (req, res, User) => {
 /**
  * Update user's todo tasks
  */
-exports.updateTodoTasks = async (req, res, User) => {
+exports.updateTodoTasks = async (req, res) => {
   try {
     const { tasks } = req.body;
     const userId = req.user.id;
@@ -122,7 +120,7 @@ exports.updateTodoTasks = async (req, res, User) => {
 /**
  * Get user productivity stats
  */
-exports.getUserStats = async (req, res, User) => {
+exports.getUserStats = async (req, res) => {
   try {
     const { timeRange = "week" } = req.query;
     const userId = req.user.id;
@@ -190,7 +188,7 @@ exports.getUserStats = async (req, res, User) => {
 /**
  * Log a focus session
  */
-exports.logFocusSession = async (req, res, User) => {
+exports.logFocusSession = async (req, res) => {
   try {
     const { duration, completed, ambientSound } = req.body;
     const userId = req.user.id;
@@ -326,7 +324,7 @@ exports.logFocusSession = async (req, res, User) => {
 /**
  * Log a completed task
  */
-exports.logCompletedTask = async (req, res, User) => {
+exports.logCompletedTask = async (req, res) => {
   try {
     const { taskId } = req.body;
     const userId = req.user.id;
@@ -452,7 +450,7 @@ exports.logCompletedTask = async (req, res, User) => {
 /**
  * Update user's wallpaper preference
  */
-exports.updateWallpaper = async (req, res, User) => {
+exports.updateWallpaper = async (req, res) => {
   try {
     const { wallpaperUrl } = req.body;
     const userId = req.user.id;
@@ -487,7 +485,7 @@ exports.updateWallpaper = async (req, res, User) => {
 /**
  * Get user's wallpaper preference
  */
-exports.getWallpaper = async (req, res, User) => {
+exports.getWallpaper = async (req, res) => {
   try {
     const userId = req.user.id;
 
@@ -505,5 +503,4 @@ exports.getWallpaper = async (req, res, User) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
 

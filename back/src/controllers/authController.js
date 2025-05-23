@@ -5,9 +5,8 @@ const User = require("../models/User");
 const { supabase } = require("../config/supabase");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../config/sendgrid");
 
-/**
- * Register a new user and send verification email
- */
+//Register a new user and send verification email
+ 
 exports.signup = async (req, res) => {
   const { username, email, password } = req.body;
 
@@ -316,32 +315,13 @@ exports.uploadProfilePic = async (req, res) => {
 
     res.status(200).json({ message: "Profile picture updated!", profilePic: publicUrl });
   } catch (error) {
-    console.error("❌ Upload Error:", error);
+    console.error(" Upload Error:", error);
     res.status(500).json({ message: "Upload failed", error: error.message });
   }
 };
 
 
 
-/**
- * Refresh token
- */
-exports.refreshToken = async (req, res) => {
-  const { refreshToken } = req.body;
-
-  try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const user = await User.findById(decoded.id);
-
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    const newToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "24h" });
-    res.json({ token: newToken });
-  } catch (error) {
-    console.error("Refresh Token Error:", error);
-    res.status(401).json({ message: "Invalid refresh token" });
-  }
-};
 
 /**
  * Admin login
@@ -359,7 +339,7 @@ exports.adminLogin = async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: "Invalid password" });
 
     if (!process.env.JWT_SECRET) {
-      console.error("❌ JWT_SECRET is missing! Check your .env file.");
+      console.error("JWT SECRET is missing Check your env");
       return res.status(500).json({ message: "Server error: missing JWT_SECRET" });
     }
 
@@ -367,7 +347,7 @@ exports.adminLogin = async (req, res) => {
 
     res.json({ message: "Admin login successful", token, admin: { username: user.username, role: user.role } });
   } catch (error) {
-    console.error("🔥 Admin Login Error:", error);
+    console.error(" Admin Login Error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };

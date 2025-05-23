@@ -11,22 +11,27 @@ function Projects() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
+  // Create API client function that returns a configured axios instance
+  const createApiClient = () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/signin");
+      return null;
+    }
+    
+    return axios.create({
+      baseURL: "https://focusflow-production.up.railway.app/api",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  };
+
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          navigate("/signin");
-          return;
-        }
-
-        // Create axios instance with default config
-        const api = axios.create({
-          baseURL: "https://focusflow-production.up.railway.app/api",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const api = createApiClient();
+        if (!api) return;
 
         // Get user projects
         const response = await api.get("/projects");
@@ -49,20 +54,9 @@ function Projects() {
     );
     if (!confirmed) return; // Exit if the user cancels
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-      navigate("/signin");
-      return;
-    }
-
     try {
-      // Create axios instance with default config
-      const api = axios.create({
-        baseURL: "https://focusflow-production.up.railway.app/api",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const api = createApiClient();
+      if (!api) return;
 
       // Delete project
       await api.delete(`/projects/${projectId}`);

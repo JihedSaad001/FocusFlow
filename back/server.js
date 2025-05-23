@@ -19,27 +19,24 @@ const allowedOrigins = [
   "http://localhost:5174",
 ];
 
-// CORS configuration for Express
+// CORS config
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (e.g., mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      } else {
+      if (!origin || !allowedOrigins.includes(origin)) {
         return callback(new Error("Not allowed by CORS"));
       }
+      return callback(null, true);
     },
-    credentials: true, // Allow cookies and authorization headers
+    credentials: true, // Allow cookies
   })
 );
 
-// Create HTTP server and integrate with Socket.IO
+// Create HTTP server and integrate with Socket
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins, // Use the same allowed origins as Express
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -56,23 +53,12 @@ Promise.all([pubClient.connect(), subClient.connect()])
     console.log("Redis adapter connected");
   })
   .catch(() => {
-    // Fallback to default in-memory adapter if Redis fails
     console.log("Using default in-memory adapter");
   });
 
 app.use(express.json());
 
-// Test endpoint to check environment variables
-app.get('/api/test-env', (req, res) => {
-  res.json({
-    sendgridKeyExists: !!process.env.SENDGRID_API_KEY,
-    sendgridKeyFirstChars: process.env.SENDGRID_API_KEY ? process.env.SENDGRID_API_KEY.substring(0, 5) + '...' : 'undefined',
-    fromEmail: process.env.FROM_EMAIL,
-    frontendUrl: process.env.FRONTEND_URL
-  });
-});
 
-// MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("Connected to MongoDB"))
@@ -83,10 +69,7 @@ const authRoutes = require("./src/routes/authRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const resourceRoutes = require("./src/routes/resourceRoutes");
 const projectRoutes = require("./src/routes/projectRoutes");
-const User = require("./src/models/User"); // Ensure User model is imported
-
-// Pass User to userDataRoutes
-const userDataRoutes = require("./src/routes/userDataRoutes")(User);
+const userDataRoutes = require("./src/routes/userDataRoutes");
 
 app.use("/api/projects", projectRoutes(io));
 app.use("/api/auth", authRoutes);
@@ -105,7 +88,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    // Handle disconnect if needed
   });
 
   socket.on("error", (error) => {
@@ -113,5 +95,4 @@ io.on("connection", (socket) => {
   });
 });
 
-// Start the server
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
