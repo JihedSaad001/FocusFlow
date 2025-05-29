@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState, useRef } from "react";
 import io from "socket.io-client";
 //to fix later
@@ -10,10 +8,7 @@ export function Chat({ projectId }: { projectId: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const socketRef = useRef(
-    io(
-      import.meta.env.VITE_API_BASE_URL ||
-        "https://focusflow-production.up.railway.app"
-    )
+    io(import.meta.env.VITE_API_BASE_URL || "https://focusflow-production.up.railway.app")
   );
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -68,18 +63,13 @@ export function Chat({ projectId }: { projectId: string }) {
   }, [projectId]);
 
   // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  //useEffect(() => {
+  //messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  //}, [messages]);
 
   const sendMessage = () => {
+    // at the backend in projectRoutes.js
     if (!newMessage.trim() || !currentUserId) return;
-
-    console.log("Sending message:", {
-      projectId,
-      userId: currentUserId,
-      message: newMessage,
-    });
 
     socketRef.current.emit("sendMessage", {
       projectId,

@@ -1,11 +1,10 @@
-"use client";
-
 import type React from "react";
 
 import { useState, useEffect } from "react";
 import { User, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react";
 import { useNavigate, Link, Navigate } from "react-router-dom";
 import axios from "axios";
+import Navbar from "./Navbar";
 
 function SignUp() {
   const navigate = useNavigate();
@@ -140,10 +139,7 @@ function SignUp() {
     const usernameError = validateField("username", formData.username);
     const emailError = validateField("email", formData.email);
     const passwordError = validateField("password", formData.password);
-    const confirmPasswordError = validateField(
-      "confirmPassword",
-      formData.confirmPassword
-    );
+    const confirmPasswordError = validateField("confirmPassword", formData.confirmPassword);
 
     // Update errors state
     const newErrors = {
@@ -168,7 +164,7 @@ function SignUp() {
 
     setLoading(true);
     try {
-      // Create axios instance with default config
+  
       const api = axios.create({
         baseURL: "https://focusflow-production.up.railway.app/api",
         headers: {
@@ -206,151 +202,154 @@ function SignUp() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="w-full max-w-md px-4">
-        {signupSuccess ? (
-          <div className="bg-[#1E1E1E] p-6 rounded-lg shadow-lg border border-gray-700">
-            <div className="flex justify-center mb-4">
-              <div className="bg-green-500/20 p-3 rounded-full">
-                <CheckCircle className="w-12 h-12 text-green-500" />
+    <>
+      <Navbar />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-full max-w-md px-4">
+          {signupSuccess ? (
+            <div className="bg-[#1E1E1E] p-6 rounded-lg shadow-lg border border-gray-700">
+              <div className="flex justify-center mb-4">
+                <div className="bg-green-500/20 p-3 rounded-full">
+                  <CheckCircle className="w-12 h-12 text-green-500" />
+                </div>
+              </div>
+              <h2 className="text-2xl font-bold text-white text-center mb-4">
+                Registration Successful!
+              </h2>
+              <p className="text-gray-300 text-center mb-6">
+                We've sent a verification link to your email address. Please
+                check your inbox and click the link to activate your account.
+              </p>
+              <div className="space-y-4">
+                <button
+                  onClick={() => navigate("/signin")}
+                  className="w-full py-3 rounded-lg bg-gradient-to-r from-[#830E13] to-[#6B1E07] text-white font-medium transition"
+                >
+                  Go to Sign In
+                </button>
               </div>
             </div>
-            <h2 className="text-2xl font-bold text-white text-center mb-4">
-              Registration Successful!
-            </h2>
-            <p className="text-gray-300 text-center mb-6">
-              We've sent a verification link to your email address. Please check
-              your inbox and click the link to activate your account.
-            </p>
-            <div className="space-y-4">
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start">
+                  <AlertCircle className="text-red-500 w-5 h-5 mt-0.5 mr-3 flex-shrink-0" />
+                  <p className="text-red-500">{error}</p>
+                </div>
+              )}
+
+              <div className="relative">
+                <input
+                  type="text"
+                  name="username"
+                  placeholder="Name"
+                  value={formData.username}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  required
+                  className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 transition pl-10 ${
+                    touched.username && errors.username
+                      ? "border border-red-500 focus:ring-red-500"
+                      : "focus:ring-[#830E13]"
+                  }`}
+                />
+                <User className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+                {touched.username && errors.username && (
+                  <p className="text-red-500 text-xs mt-1">{errors.username}</p>
+                )}
+              </div>
+
+              <div className="relative">
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  required
+                  className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 transition pl-10 ${
+                    touched.email && errors.email
+                      ? "border border-red-500 focus:ring-red-500"
+                      : "focus:ring-[#830E13]"
+                  }`}
+                />
+                <Mail className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+                {touched.email && errors.email && (
+                  <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+                )}
+              </div>
+
+              <div className="relative">
+                <input
+                  type="password"
+                  name="password"
+                  placeholder="Password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  required
+                  className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 transition pl-10 ${
+                    touched.password && errors.password
+                      ? "border border-red-500 focus:ring-red-500"
+                      : "focus:ring-[#830E13]"
+                  }`}
+                />
+                <Lock className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+                {touched.password && errors.password && (
+                  <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+                )}
+              </div>
+
+              <div className="relative">
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  placeholder="Confirm Password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  required
+                  className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 transition pl-10 ${
+                    touched.confirmPassword && errors.confirmPassword
+                      ? "border border-red-500 focus:ring-red-500"
+                      : "focus:ring-[#830E13]"
+                  }`}
+                />
+                <Lock className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
+                {touched.confirmPassword && errors.confirmPassword && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.confirmPassword}
+                  </p>
+                )}
+              </div>
+
               <button
-                onClick={() => navigate("/signin")}
-                className="w-full py-3 rounded-lg bg-gradient-to-r from-[#830E13] to-[#6B1E07] text-white font-medium transition"
+                type="submit"
+                disabled={loading}
+                className={`w-full py-3 rounded-lg bg-gradient-to-r from-[#830E13] to-[#6B1E07] text-white font-medium transition-all duration-300 ${
+                  loading
+                    ? "opacity-60 cursor-not-allowed"
+                    : "hover:shadow-[0_0_25px_rgba(131,14,19,0.8)] hover:opacity-95 hover:scale-[1.02]"
+                }`}
               >
-                Go to Sign In
+                {loading ? "Signing Up..." : "Sign Up"}
               </button>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start">
-                <AlertCircle className="text-red-500 w-5 h-5 mt-0.5 mr-3 flex-shrink-0" />
-                <p className="text-red-500">{error}</p>
-              </div>
-            )}
 
-            <div className="relative">
-              <input
-                type="text"
-                name="username"
-                placeholder="Name"
-                value={formData.username}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                required
-                className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 transition pl-10 ${
-                  touched.username && errors.username
-                    ? "border border-red-500 focus:ring-red-500"
-                    : "focus:ring-[#830E13]"
-                }`}
-              />
-              <User className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
-              {touched.username && errors.username && (
-                <p className="text-red-500 text-xs mt-1">{errors.username}</p>
-              )}
-            </div>
-
-            <div className="relative">
-              <input
-                type="email"
-                name="email"
-                placeholder="Email"
-                value={formData.email}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                required
-                className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 transition pl-10 ${
-                  touched.email && errors.email
-                    ? "border border-red-500 focus:ring-red-500"
-                    : "focus:ring-[#830E13]"
-                }`}
-              />
-              <Mail className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
-              {touched.email && errors.email && (
-                <p className="text-red-500 text-xs mt-1">{errors.email}</p>
-              )}
-            </div>
-
-            <div className="relative">
-              <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                value={formData.password}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                required
-                className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 transition pl-10 ${
-                  touched.password && errors.password
-                    ? "border border-red-500 focus:ring-red-500"
-                    : "focus:ring-[#830E13]"
-                }`}
-              />
-              <Lock className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
-              {touched.password && errors.password && (
-                <p className="text-red-500 text-xs mt-1">{errors.password}</p>
-              )}
-            </div>
-
-            <div className="relative">
-              <input
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm Password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                required
-                className={`w-full bg-[#1E1E1E] text-white px-4 py-3 rounded-lg shadow-[8px_-12px_15px_rgba(0,0,0,0.3)] outline-none focus:ring-2 transition pl-10 ${
-                  touched.confirmPassword && errors.confirmPassword
-                    ? "border border-red-500 focus:ring-red-500"
-                    : "focus:ring-[#830E13]"
-                }`}
-              />
-              <Lock className="absolute left-3 top-3.5 text-gray-400 w-5 h-5" />
-              {touched.confirmPassword && errors.confirmPassword && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.confirmPassword}
-                </p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className={`w-full py-3 rounded-lg bg-gradient-to-r from-[#830E13] to-[#6B1E07] text-white font-medium transition-all duration-300 ${
-                loading
-                  ? "opacity-60 cursor-not-allowed"
-                  : "hover:shadow-[0_0_25px_rgba(131,14,19,0.8)] hover:opacity-95 hover:scale-[1.02]"
-              }`}
-            >
-              {loading ? "Signing Up..." : "Sign Up"}
-            </button>
-
-            <p className="text-center text-gray-400">
-              Already have an account?{" "}
-              <Link
-                to="/signin"
-                className="text-white hover:text-[#830E13] transition"
-              >
-                Sign In
-              </Link>
-            </p>
-          </form>
-        )}
+              <p className="text-center text-gray-400">
+                Already have an account?{" "}
+                <Link
+                  to="/signin"
+                  className="text-white hover:text-[#830E13] transition"
+                >
+                  Sign In
+                </Link>
+              </p>
+            </form>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

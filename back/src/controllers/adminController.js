@@ -36,7 +36,7 @@ exports.getUserStats = async (req, res) => {
     // Get total users
     const totalUsers = await User.countDocuments();
 
-    // Get active users (active in the last 7 days)
+    // Get active users (the last 7 days)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const activeUsers = await User.countDocuments({
@@ -73,9 +73,6 @@ exports.getProjectStats = async (req, res) => {
   try {
     // Get total projects
     const totalProjects = await Project.countDocuments();
-
-    // You could add more project-related stats here
-
     res.status(200).json({
       totalProjects,
     });
@@ -85,35 +82,37 @@ exports.getProjectStats = async (req, res) => {
   }
 };
 
-/**
- * Get all users with project counts
- */
+// Get all users with project counts (Simple Version)
 exports.getUsers = async (req, res) => {
   try {
-    // Get all users with basic info
+    // Step 1: Get all users
     const users = await User.find({}, "username email role tasksCompleted xp level lastActive");
 
-    // Get project counts for each user
-    const projectCounts = await Promise.all(
-      users.map(async (user) => {
-        const count = await Project.countDocuments({
-          $or: [{ owner: user._id }, { members: user._id }],
-        });
-        return {
-          userId: user._id,
-          count,
-        };
-      })
-    );
+    // Step 2: Add project count to each user
+    const usersWithProjects = [];
 
-    // Combine user data with project counts
-    const usersWithProjects = users.map((user) => {
-      const projectData = projectCounts.find((p) => p.userId.toString() === user._id.toString());
-      return {
-        ...user.toObject(),
-        projectCount: projectData ? projectData.count : 0,
-      };
-    });
+    for (let user of users) {
+      // Count projects for this user
+      const projectCount = await Project.countDocuments({
+        $or: [
+          { owner: user._id },      // User owns the project
+          { members: user._id }     // User is a member
+        ]
+      });
+
+      // Add project count to user data
+      usersWithProjects.push({
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        tasksCompleted: user.tasksCompleted,
+        xp: user.xp,
+        level: user.level,
+        lastActive: user.lastActive,
+        projectCount: projectCount
+      });
+    }
 
     res.status(200).json(usersWithProjects);
   } catch (error) {

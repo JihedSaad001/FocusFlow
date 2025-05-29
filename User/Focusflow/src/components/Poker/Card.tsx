@@ -1,5 +1,3 @@
-"use client";
-
 interface CardProps {
   value: string;
   selected: boolean;

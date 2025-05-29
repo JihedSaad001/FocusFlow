@@ -1,10 +1,10 @@
-"use client";
-
 import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   uploadFile,
   fetchResources,
   fetchAudioResources,
+  fetchMusicResources,
   deleteResource,
   toggleResourceStatus,
 } from "../api";
@@ -22,6 +22,7 @@ import {
 } from "react-icons/fa";
 
 const ResourcesDatabase = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("wallpapers");
   const [files, setFiles] = useState<any[]>([]); // Wallpapers
   const [audioFiles, setAudioFiles] = useState<any[]>([]); // Ambient sounds
@@ -39,9 +40,9 @@ const ResourcesDatabase = () => {
     text: string;
     type: "success" | "error" | "warning";
   } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null); // Wallpaper input ref
-  const audioInputRef = useRef<HTMLInputElement>(null); // Ambient sound input ref
-  const musicInputRef = useRef<HTMLInputElement>(null); // Music input ref
+  const fileInputRef = useRef<HTMLInputElement>(null); // Wallpaper input ref ( for costumize the file input)
+  const audioInputRef = useRef<HTMLInputElement>(null); // Ambient sound input ref ( for costumize the file input)
+  const musicInputRef = useRef<HTMLInputElement>(null); // Music input ref ( for costumize the file input)
   const token = localStorage.getItem("adminToken");
 
   useEffect(() => {
@@ -58,21 +59,15 @@ const ResourcesDatabase = () => {
         const data = await fetchAudioResources();
         setAudioFiles(data);
       } else if (activeTab === "music") {
-        const token = localStorage.getItem("adminToken");
-        const url = token
-          ? `${API_BASE_URL}/api/resources/admin/music`
-          : `${API_BASE_URL}/api/resources/music`;
-
-        const response = await fetch(url, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-
-        if (!response.ok) throw new Error("Failed to fetch music tracks");
-        const data = await response.json();
+        const data = await fetchMusicResources();
         setMusicFiles(data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load resources", error);
+      if (error.message === "Admin authentication required") {
+        navigate("/admin/login");
+        return;
+      }
       setMessage({ text: "Failed to load resources", type: "error" });
     } finally {
       setLoading(false);

@@ -1,4 +1,4 @@
-import React from "react";
+
 import { Users, UserCircle, UserMinus } from "lucide-react";
 import { Project } from "../../types";
 
@@ -8,30 +8,26 @@ interface ProjectMembersProps {
   handleRemoveMember: (memberId: string) => void;
 }
 
-const ProjectMembers: React.FC<ProjectMembersProps> = ({
+const ProjectMembers = ({
   project,
   isProjectOwner,
   handleRemoveMember,
-}) => {
+}: ProjectMembersProps) => {
   return (
     <div className="mb-8">
       <h2 className="text-2xl font-semibold text-white mb-6 flex items-center">
         <Users className="w-6 h-6 mr-3 text-red-500" />
         Project Members ({project?.members.length || 0})
       </h2>
-      {project?.members.length === 0 ? (
-        <p className="text-gray-400 text-center">
-          No members in this project yet.
-        </p>
-      ) : (
+      
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {project?.members.map(
             (
               member: { _id: string; username: string; email: string },
-              index: number
+              
             ) => (
               <div
-                key={`${member._id}-${index}`}
+                key={`${member._id}`}
                 className="bg-black/30 rounded-lg p-3 border border-gray-700/50 flex items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -60,7 +56,7 @@ const ProjectMembers: React.FC<ProjectMembersProps> = ({
             )
           )}
         </div>
-      )}
+      
     </div>
   );
 };

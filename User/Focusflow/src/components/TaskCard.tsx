@@ -1,6 +1,3 @@
-"use client";
-
-import type React from "react";
 import type { Task } from "../types";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -11,25 +8,26 @@ interface TaskCardProps {
   onDelete: (taskId: string, columnId: string) => void;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, columnId, onDelete }) => {
+const TaskCard = ({ task, columnId, onDelete }: TaskCardProps) => {
+  // This hook makes the card draggable
   const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
+    attributes, // Accessibility attributes for screen readers
+    listeners, // Mouse/touch event handlers for dragging
+    setNodeRef, // Reference to connect this component to drag system
+    transform, // Current position during drag (x, y coordinates)
+    transition, // Smooth animation when dropping
+    isDragging, // Boolean: true when this card is being dragged
   } = useSortable({
-    id: task._id,
-    data: { task, columnId },
+    id: task._id, // Unique ID for this draggable item
+    data: { task, columnId }, // Extra data passed during drag events
   });
 
+  // Convert drag position to CSS transform
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
+    transform: CSS.Transform.toString(transform), // Apply drag position
+    transition, // Apply smooth animations
+    opacity: isDragging ? 0.5 : 1, // Make semi-transparent when dragging
   };
-
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "High":
@@ -43,26 +41,13 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, columnId, onDelete }) => {
     }
   };
 
-  const getStatusColor = (status: string | undefined) => {
-    switch (status) {
-      case "To Do":
-        return "text-gray-400";
-      case "In Progress":
-        return "text-yellow-400";
-      case "Done":
-        return "text-green-400";
-      default:
-        return "text-gray-400";
-    }
-  };
-
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className="w-full bg-gray-800 rounded-lg shadow-md p-3 mb-2 cursor-grab active:cursor-grabbing border border-gray-700 hover:border-red-500 hover:shadow-lg transition-all duration-200 max-h-[180px] overflow-hidden"
+      ref={setNodeRef} // Connect this div to the drag system
+      style={style} // Apply drag position and opacity
+      {...attributes} // Add accessibility attributes
+      {...listeners} // Add drag event handlers (mouse/touch)
+      className="w-full bg-gray-800 rounded-lg shadow-md p-3 mb-2 cursor-grab active:cursor-grabbing border border-gray-700 hover:border-red-500 hover:shadow-lg transition-all duration-200"
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-start flex-1 min-w-0 mr-2">
@@ -76,8 +61,8 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, columnId, onDelete }) => {
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={(e) => {
-              e.stopPropagation();
-              onDelete(task._id, columnId);
+              e.stopPropagation(); // Prevent drag when clicking delete
+              onDelete(task._id, columnId); // Call delete with both parameters
             }}
             className="text-gray-400 hover:text-red-500 transition"
           >
@@ -99,32 +84,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, columnId, onDelete }) => {
               task.priority
             )}`}
           >
-            {task.priority} {task.priority === "High" && "🔥"}
+            {task.priority}
           </span>
           {task.status && (
-            <span
-              className={`text-xs font-medium px-2 py-1 rounded-full bg-gray-700/50 ${getStatusColor(
-                task.status
-              )}`}
-            >
+            <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-700/50 text-gray-300">
               {task.status}
-            </span>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 mt-1">
-          {task.finalEstimate && (
-            <span className="text-xs text-red-400 font-semibold whitespace-nowrap">
-              Est: {task.finalEstimate}
-            </span>
-          )}
-          {task.assignedTo && (
-            <span className="text-xs text-gray-400 truncate max-w-[100px]">
-              Assigned: {task.assignedTo}
-            </span>
-          )}
-          {task.deadline && (
-            <span className="text-xs text-gray-400 whitespace-nowrap">
-              {new Date(task.deadline).toLocaleDateString()}
             </span>
           )}
         </div>

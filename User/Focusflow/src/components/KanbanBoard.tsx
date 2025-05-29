@@ -1,8 +1,5 @@
-"use client";
-
 import type React from "react";
 import { useState, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid";
 import type { Board, Task, Column as ColumnType } from "../types";
 import TaskCard from "./TaskCard";
 import { Plus } from "lucide-react";
@@ -23,28 +20,14 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
-// Initial board with 5 columns
-const initialBoard: Board = {
-  columns: [
-    { id: uuidv4(), title: "Backlog", tasks: [] },
-    { id: uuidv4(), title: "To Do", tasks: [] },
-    { id: uuidv4(), title: "Doing", tasks: [] },
-    { id: uuidv4(), title: "Blocked", tasks: [] },
-    { id: uuidv4(), title: "Done", tasks: [] },
-  ],
-};
-
-const KanbanBoard: React.FC = () => {
-  const [board, setBoard] = useState<Board>(initialBoard);
+const KanbanBoard = () => {
+  const [board, setBoard] = useState<Board | null>(null);
+  const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [notification, setNotification] = useState<{
     message: string;
     type: "success" | "error";
-  } | null>(null);
-  const [draggedTaskBackup, setDraggedTaskBackup] = useState<{
-    task: Task;
-    columnId: string;
   } | null>(null);
 
   const sensors = useSensors(
@@ -61,13 +44,14 @@ const KanbanBoard: React.FC = () => {
     const fetchBoard = async () => {
       try {
         const token = localStorage.getItem("token");
-        if (!token) return;
+        if (!token) {
+          setLoading(false);
+          return;
+        }
 
         // Create axios instance with default config
         const api = axios.create({
-          baseURL:
-            import.meta.env.VITE_API_URL ||
-            "https://focusflow-production.up.railway.app/api",
+          baseURL: import.meta.env.VITE_API_URL || "https://focusflow-production.up.railway.app/api",
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -80,12 +64,16 @@ const KanbanBoard: React.FC = () => {
         if (data.kanbanBoard && Array.isArray(data.kanbanBoard.columns)) {
           setBoard(data.kanbanBoard);
         } else {
-          console.warn("Kanban board data is invalid, using initial board");
-          setBoard(initialBoard);
+          console.warn(
+            "Kanban board data is invalid - no valid board structure received"
+          );
+          setBoard(null);
         }
       } catch (error) {
         console.error("Error fetching Kanban board:", error);
-        setBoard(initialBoard);
+        setBoard(null);
+      } finally {
+        setLoading(false);
       }
     };
     fetchBoard();
@@ -130,8 +118,7 @@ const KanbanBoard: React.FC = () => {
     const { active } = event;
     const { task, columnId } = active.data.current || {};
     if (task) {
-      setDraggedTaskBackup({ task, columnId });
-      setActiveTask(task);
+      setActiveTask(task); //to remember where we started
       setActiveColumnId(columnId);
     }
   };
@@ -140,35 +127,10 @@ const KanbanBoard: React.FC = () => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    // If there's no over target, restore the task to its original position
+    // If there's no over target, just clear the active states
     if (!over) {
-      if (draggedTaskBackup) {
-        setBoard((prevBoard) => {
-          const taskExists = prevBoard.columns.some((col) =>
-            col.tasks.some((task) => task._id === draggedTaskBackup.task._id)
-          );
-
-          if (taskExists) return prevBoard;
-
-          const updatedColumns = prevBoard.columns.map((col) => {
-            if (col.id === draggedTaskBackup.columnId) {
-              return {
-                ...col,
-                tasks: [...col.tasks, draggedTaskBackup.task],
-              };
-            }
-            return col;
-          });
-
-          const updatedBoard = { ...prevBoard, columns: updatedColumns };
-          saveBoard(updatedBoard); // Ensure the board is saved even if the drag is canceled
-          return updatedBoard;
-        });
-      }
-
       setActiveTask(null);
       setActiveColumnId(null);
-      setDraggedTaskBackup(null);
       return;
     }
 
@@ -178,16 +140,17 @@ const KanbanBoard: React.FC = () => {
     if (activeId === overId) {
       setActiveTask(null);
       setActiveColumnId(null);
-      setDraggedTaskBackup(null);
       return;
     }
 
-    const isActiveATask = active.data.current?.task;
+    const isActiveATask = active.data.current?.task; //get the task we are moving
     if (isActiveATask) {
-      const activeColumnId = active.data.current?.columnId;
-      const overColumnId = over.data.current?.columnId || over.id; // Handle case where over is a column
+      const activeColumnId = active.data.current?.columnId; //column we are moving from
+      const overColumnId = over.data.current?.columnId || over.id; //column we are moving to
 
       setBoard((prevBoard) => {
+        if (!prevBoard) return null;
+
         const activeColumn = prevBoard.columns.find(
           (col) => col.id === activeColumnId
         );
@@ -262,12 +225,13 @@ const KanbanBoard: React.FC = () => {
 
     setActiveTask(null);
     setActiveColumnId(null);
-    setDraggedTaskBackup(null);
   };
 
   const handleAddTask = (columnId: string, task: Task) => {
     console.log(`Adding task to column: ${columnId}`, task);
     setBoard((prevBoard) => {
+      if (!prevBoard) return null;
+
       const updatedColumns = prevBoard.columns.map((col) =>
         col.id === columnId
           ? { ...col, tasks: [...(col.tasks || []), task] }
@@ -284,6 +248,8 @@ const KanbanBoard: React.FC = () => {
 
   const handleDeleteTask = (taskId: string, columnId: string) => {
     setBoard((prevBoard) => {
+      if (!prevBoard) return null;
+
       const updatedColumns = prevBoard.columns.map((col) =>
         col.id === columnId
           ? { ...col, tasks: col.tasks.filter((task) => task._id !== taskId) }
@@ -295,11 +261,15 @@ const KanbanBoard: React.FC = () => {
     });
   };
 
-  const Column: React.FC<{
+  const Column = ({
+    column,
+    onAddTask,
+    onDeleteTask,
+  }: {
     column: ColumnType;
     onAddTask: (columnId: string, task: Task) => void;
     onDeleteTask: (taskId: string, columnId: string) => void;
-  }> = ({ column, onAddTask, onDeleteTask }) => {
+  }) => {
     const [showForm, setShowForm] = useState(false);
     const [newTask, setNewTask] = useState<Partial<Task>>({
       title: "",
@@ -371,7 +341,6 @@ const KanbanBoard: React.FC = () => {
                   task={task}
                   columnId={column.id}
                   onDelete={onDeleteTask}
-                  data-draggable="true"
                 />
               ))
             ) : (
@@ -459,6 +428,51 @@ const KanbanBoard: React.FC = () => {
     );
   };
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full bg-[#121212] text-white flex flex-col">
+        <div className="bg-[#1E1E1E] border-b border-gray-700 p-6">
+          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-700">
+            Kanban Board
+          </h1>
+          <p className="text-gray-400 mt-2">
+            Organize your tasks using this personal Kanban board.
+          </p>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-gray-400 text-lg">Loading your board...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if no board data
+  if (!board) {
+    return (
+      <div className="min-h-screen w-full bg-[#121212] text-white flex flex-col">
+        <div className="bg-[#1E1E1E] border-b border-gray-700 p-6">
+          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-700">
+            Kanban Board
+          </h1>
+          <p className="text-gray-400 mt-2">
+            Organize your tasks using this personal Kanban board.
+          </p>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-red-400 text-lg mb-2">
+              Unable to load board
+            </div>
+            <div className="text-gray-400">
+              Please check your connection and try refreshing the page.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen w-full bg-[#121212] text-white flex flex-col">
       {/* Notification */}
@@ -497,13 +511,12 @@ const KanbanBoard: React.FC = () => {
             }}
           >
             {board.columns.map((column) => (
-              <div key={column.id} className="flex flex-col">
-                <Column
-                  column={column}
-                  onAddTask={handleAddTask}
-                  onDeleteTask={handleDeleteTask}
-                />
-              </div>
+              <Column
+                key={column.id}
+                column={column}
+                onAddTask={handleAddTask}
+                onDeleteTask={handleDeleteTask}
+              />
             ))}
           </div>
           <DragOverlay>

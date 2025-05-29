@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import {
   BarChart,
@@ -27,43 +25,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 
-// Types for our stats
-interface FocusSession {
-  duration: number;
-  completed: boolean;
-  ambientSound: string;
-  timestamp: Date;
-}
-
-interface FocusTimeEntry {
-  date: string | Date;
-  duration: number;
-}
-
-interface DailyTaskEntry {
-  date: string | Date;
-  count: number;
-}
-
-interface TodoTask {
-  _id: string;
-  title: string;
-  completed: boolean;
-  createdAt: string;
-}
-
-interface UserStats {
-  focusSessions: FocusSession[];
-  tasksCompleted: number;
-  xp: number;
-  level: number;
-  focusTime: FocusTimeEntry[];
-  dailyTasks: DailyTaskEntry[];
-  todoTasks?: TodoTask[];
-  streakDays: number;
-}
-
-// Simple rank system based on level
+// Rank system based on level
 const getRank = (level: number) => {
   if (level >= 20) return { name: "Master", icon: "🏆" };
   if (level >= 15) return { name: "Expert", icon: "⭐" };
@@ -72,19 +34,136 @@ const getRank = (level: number) => {
   return { name: "Novice", icon: "🌱" };
 };
 
+// Achievement definitions
+const achievements = [
+  {
+    id: "first-hour",
+    icon: "🕐",
+    title: "First Hour",
+    description: "Complete your first hour of focused work",
+    xp: 100,
+    condition: (stats: any) =>
+      (stats.focusTime?.reduce(
+        (sum: number, entry: any) => sum + entry.duration,
+        0
+      ) || 0) >= 60,
+  },
+  {
+    id: "task-master",
+    icon: "✅",
+    title: "Task Master",
+    description: "Complete 10 tasks",
+    xp: 200,
+    condition: (stats: any) => (stats.tasksCompleted || 0) >= 10,
+  },
+  {
+    id: "streak-warrior",
+    icon: "🔥",
+    title: "Streak Warrior",
+    description: "Maintain a 3-day productivity streak",
+    xp: 150,
+    condition: (stats: any) => (stats.streakDays || 0) >= 3,
+  },
+  {
+    id: "focus-champion",
+    icon: "🧠",
+    title: "Focus Champion",
+    description: "Complete 5 focus sessions without interruption",
+    xp: 250,
+    condition: (stats: any) =>
+      (stats.focusSessions?.filter((s: any) => s.completed) || []).length >= 5,
+  },
+  {
+    id: "sound-explorer",
+    icon: "🔊",
+    title: "Sound Explorer",
+    description: "Try 3 different ambient sounds during focus sessions",
+    xp: 100,
+    condition: (stats: any) =>
+      //set trod el array unique values
+      new Set(
+        stats.focusSessions?.map((s: any) => s.ambientSound).filter(Boolean)
+      ).size >= 3,
+  },
+];
+
 const Dashboard = () => {
-  const [stats, setStats] = useState<UserStats | null>(null);
+  // Initialize with the user model structure that comes from the backend
+  const [stats, setStats] = useState({
+    focusSessions: [
+      {
+        duration: 0,
+        completed: false,
+        ambientSound: "",
+        timestamp: new Date(),
+      },
+    ],
+    tasksCompleted: 0,
+    xp: 0,
+    level: 1,
+    focusTime: [
+      {
+        date: new Date(),
+        duration: 0,
+      },
+    ],
+    dailyTasks: [
+      {
+        date: new Date(),
+        count: 0,
+      },
+    ],
+    todoTasks: [
+      {
+        _id: "",
+        title: "",
+        completed: false,
+        createdAt: new Date(),
+      },
+    ],
+    streakDays: 0,
+    lastActive: new Date(),
+    lastStreakUpdate: null,
+  });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
-  const [timeRange, setTimeRange] = useState<"week" | "month" | "quarter">(
-    "week"
-  );
+  const [timeRange, setTimeRange] = useState("week");
+  // ? te9bel null if null stop , if not go on
+  const getTotalFocusTime = () => {
+    return (
+      stats?.focusTime?.reduce((sum, entry) => sum + entry.duration, 0) || 0
+    );
+  };
+
+  const getCompletedFocusSessions = () => {
+    return stats?.focusSessions?.filter((s) => s.completed) || [];
+  };
+
+  const getTodaysFocusSessions = () => {
+    const today = new Date();
+    return (
+      stats?.focusSessions?.filter((s) => {
+        const sessionDate = new Date(s.timestamp);
+        return sessionDate.toDateString() === today.toDateString();
+      }) || []
+    );
+  };
+
+  const getTodaysTaskCount = () => {
+    const today = new Date();
+    return (
+      stats?.dailyTasks?.find((t) => {
+        const taskDate = new Date(t.date);
+        return taskDate.toDateString() === today.toDateString();
+      })?.count || 0
+    );
+  };
 
   useEffect(() => {
     const loadStats = async () => {
       setLoading(true);
-      setError(null); // Clear previous errors
+      setError("");
       try {
         const token = localStorage.getItem("token");
         if (!token) {
@@ -92,28 +171,20 @@ const Dashboard = () => {
             "Not authenticated. Please log in to view your dashboard."
           );
         }
-
-        // Create axios instance with default config
         const api = axios.create({
-          baseURL:
-            import.meta.env.VITE_API_URL ||
-            "https://focusflow-production.up.railway.app/api",
+          baseURL: import.meta.env.VITE_API_URL || "https://focusflow-production.up.railway.app/api",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
         });
-
         // Get user stats
         const response = await api.get(`/user/stats?timeRange=${timeRange}`);
         setStats(response.data);
-      } catch (err: any) {
+      } catch (err) {
         console.error("Error loading stats:", err);
-        setError(
-          err.message ||
-            "Failed to load productivity stats. Please try again later."
-        );
-        // Don't set stats to null to keep any previous data visible
+        setError("Failed to load productivity stats. Please try again later.");
+       
       } finally {
         setLoading(false);
       }
@@ -129,94 +200,70 @@ const Dashboard = () => {
       day: "numeric",
     });
   };
-
-  // Prepare data for charts
-  const prepareFocusTimeData = () => {
-    if (!stats?.focusTime) return [];
-
-    return stats.focusTime.map((entry) => ({
+  // Simplified chart data preparation
+  const prepareFocusTimeData = () =>
+    stats?.focusTime?.map((entry) => ({
       name: formatDate(entry.date),
       minutes: entry.duration,
-    }));
-  };
+    })) || [];
 
-  const prepareDailyTasksData = () => {
-    if (!stats?.dailyTasks) return [];
-
-    return stats.dailyTasks.map((entry) => ({
+  const prepareDailyTasksData = () =>
+    stats?.dailyTasks?.map((entry) => ({
       name: formatDate(entry.date),
       tasks: entry.count,
-    }));
-  };
+    })) || [];
 
   const prepareFocusSessionsData = () => {
     if (!stats?.focusSessions) return [];
 
-    // Group by ambient sound
-    const soundCounts: Record<string, number> = {};
+    const soundCounts = new Map();
     stats.focusSessions.forEach((session) => {
       if (session.ambientSound) {
-        soundCounts[session.ambientSound] =
-          (soundCounts[session.ambientSound] || 0) + 1;
+        const count = soundCounts.get(session.ambientSound) || 0;
+        soundCounts.set(session.ambientSound, count + 1);
       }
     });
 
-    // Return data in the format expected by the PieChart
-    return Object.entries(soundCounts).map(([name, value]) => ({
+    return Array.from(soundCounts.entries()).map(([name, value]) => ({
       name,
       value,
     }));
   };
 
-  // Calculate productivity score (simple algorithm)
+  // Calculate productivity score (simplified)
   const calculateProductivityScore = () => {
     if (!stats) return 0;
 
-    const focusMinutes =
-      stats.focusTime?.reduce((sum, entry) => sum + entry.duration, 0) || 0;
+    const focusMinutes = getTotalFocusTime();
     const taskCount =
       stats.dailyTasks?.reduce((sum, entry) => sum + entry.count, 0) || 0;
+    const streakBonus = (stats.streakDays || 0) * 5;
 
-    // Simple formula: (focus minutes + tasks*10 + streak*5) / divisor to get 0-100
-    const divisor =
-      timeRange === "week" ? 15 : timeRange === "month" ? 60 : 180;
-    const score = Math.min(
-      100,
-      Math.round(
-        (focusMinutes + taskCount * 10 + (stats.streakDays || 0) * 5) / divisor
-      )
-    );
+    const divisor = { week: 15, month: 60, quarter: 180 }[timeRange] || 15;
+    const rawScore = (focusMinutes + taskCount * 10 + streakBonus) / divisor;
 
-    return score;
+    return Math.min(100, Math.round(rawScore));
   };
 
-  // Calculate task completion rate (completed tasks / total tasks) * 100
+  // Calculate task completion rate
   const calculateTaskCompletionRate = () => {
-    if (!stats || !stats.todoTasks || stats.todoTasks.length === 0) return 0;
+    if (!stats?.todoTasks?.length) return 0;
 
-    const totalTasks = stats.todoTasks.length;
     const completedTasks = stats.todoTasks.filter(
       (task) => task.completed
     ).length;
-
-    return Math.round((completedTasks / totalTasks) * 100);
+    return Math.round((completedTasks / stats.todoTasks.length) * 100);
   };
 
   // Calculate XP progress to next level
   const calculateXpProgress = () => {
     if (!stats) return { current: 0, total: 1000, percentage: 0 };
 
-    const xpForCurrentLevel = stats.level * 1000;
-    const xpForNextLevel = (stats.level + 1) * 1000;
-    const currentLevelXp = stats.xp - xpForCurrentLevel;
-    const xpNeeded = xpForNextLevel - xpForCurrentLevel;
+    const currentLevelXp = stats.xp - stats.level * 1000;
+    const xpNeeded = 1000; // Each level needs 1000 XP
     const percentage = Math.round((currentLevelXp / xpNeeded) * 100);
 
-    return {
-      current: currentLevelXp,
-      total: xpNeeded,
-      percentage,
-    };
+    return { current: currentLevelXp, total: xpNeeded, percentage };
   };
 
   // Colors for charts
@@ -341,10 +388,7 @@ const Dashboard = () => {
                     </div>
                     <div className="bg-[#252525] p-3 rounded-lg text-center">
                       <div className="text-xl font-bold">
-                        {stats.focusTime?.reduce(
-                          (sum, entry) => sum + entry.duration,
-                          0
-                        ) || 0}
+                        {getTotalFocusTime()}
                       </div>
                       <div className="text-xs text-gray-400">Focus Minutes</div>
                     </div>
@@ -461,53 +505,24 @@ const Dashboard = () => {
                           </span>
                           <span
                             className={`text-xs px-2 py-1 rounded ${
-                              (stats.focusSessions?.filter((s) => {
-                                const today = new Date();
-                                const sessionDate = new Date(s.timestamp);
-                                return (
-                                  sessionDate.toDateString() ===
-                                  today.toDateString()
-                                );
-                              }).length || 0) >= 3
+                              getTodaysFocusSessions().length >= 3
                                 ? "bg-green-500/20 text-green-400"
                                 : "bg-gray-500/20 text-gray-400"
                             }`}
                           >
-                            {stats.focusSessions?.filter((s) => {
-                              const today = new Date();
-                              const sessionDate = new Date(s.timestamp);
-                              return (
-                                sessionDate.toDateString() ===
-                                today.toDateString()
-                              );
-                            }).length || 0}
-                            /3
+                            {getTodaysFocusSessions().length}/3
                           </span>
                         </li>
                         <li className="flex items-center justify-between">
                           <span className="text-sm">Finish 5 tasks</span>
                           <span
                             className={`text-xs px-2 py-1 rounded ${
-                              (stats.dailyTasks?.find((t) => {
-                                const today = new Date();
-                                const taskDate = new Date(t.date);
-                                return (
-                                  taskDate.toDateString() ===
-                                  today.toDateString()
-                                );
-                              })?.count || 0) >= 5
+                              getTodaysTaskCount() >= 5
                                 ? "bg-green-500/20 text-green-400"
                                 : "bg-gray-500/20 text-gray-400"
                             }`}
                           >
-                            {stats.dailyTasks?.find((t) => {
-                              const today = new Date();
-                              const taskDate = new Date(t.date);
-                              return (
-                                taskDate.toDateString() === today.toDateString()
-                              );
-                            })?.count || 0}
-                            /5
+                            {getTodaysTaskCount()}/5
                           </span>
                         </li>
                         <li className="flex items-center justify-between">
@@ -526,15 +541,14 @@ const Dashboard = () => {
                                 : "bg-gray-500/20 text-gray-400"
                             }`}
                           >
-                            {stats.focusTime?.find((t) => {
+                            {(stats.focusTime?.find((t) => {
                               const today = new Date();
                               const focusDate = new Date(t.date);
                               return (
                                 focusDate.toDateString() ===
                                 today.toDateString()
                               );
-                            })?.duration || 0}
-                            /60
+                            })?.duration || 0) + " / 60"}
                           </span>
                         </li>
                       </ul>
@@ -552,14 +566,7 @@ const Dashboard = () => {
                         <li className="flex items-center justify-between">
                           <span className="text-sm">Focus Time Bonus</span>
                           <span className="text-xs font-medium text-yellow-400">
-                            +
-                            {Math.floor(
-                              (stats.focusTime?.reduce(
-                                (sum, entry) => sum + entry.duration,
-                                0
-                              ) || 0) / 10
-                            ) * 5}{" "}
-                            XP
+                            +{Math.floor(getTotalFocusTime() / 10) * 5} XP
                           </span>
                         </li>
                         <li className="flex items-center justify-between">
@@ -821,36 +828,36 @@ const Dashboard = () => {
               </div>
 
               <div className="bg-[#1E1E1E] p-6 rounded-lg border border-gray-700">
-                <h3 className="text-lg font-medium mb-4">Focus Insights</h3>
+                <h3 className="text-lg font-medium mb-4">Focus Summary</h3>
                 <div className="space-y-4">
                   <div className="p-4 bg-[#252525] rounded-lg">
                     <h4 className="text-md font-medium text-red-400 mb-2">
-                      Optimal Duration
+                      Total Sessions
                     </h4>
                     <p className="text-sm">
-                      Your most effective focus sessions last between 25-30
-                      minutes. Consider using the Pomodoro technique with this
-                      duration.
+                      You've completed {getCompletedFocusSessions().length}{" "}
+                      focus sessions out of {stats?.focusSessions?.length || 0}{" "}
+                      total attempts.
                     </p>
                   </div>
 
                   <div className="p-4 bg-[#252525] rounded-lg">
                     <h4 className="text-md font-medium text-red-400 mb-2">
-                      Sound Effectiveness
+                      Focus Time
                     </h4>
                     <p className="text-sm">
-                      Sessions with "Rainforest" ambient sound are 27% more
-                      likely to be completed without interruption.
+                      You've focused for a total of {getTotalFocusTime()}{" "}
+                      minutes during this {timeRange}.
                     </p>
                   </div>
 
                   <div className="p-4 bg-[#252525] rounded-lg">
                     <h4 className="text-md font-medium text-red-400 mb-2">
-                      Time of Day
+                      Today's Progress
                     </h4>
                     <p className="text-sm">
-                      Morning sessions (9 AM - 12 PM) have the highest
-                      completion rate at 85%.
+                      Today you've completed {getTodaysFocusSessions().length}{" "}
+                      focus sessions and {getTodaysTaskCount()} tasks.
                     </p>
                   </div>
                 </div>
@@ -938,35 +945,35 @@ const Dashboard = () => {
               </div>
 
               <div className="bg-[#1E1E1E] p-6 rounded-lg border border-gray-700">
-                <h3 className="text-lg font-medium mb-4">Task Insights</h3>
+                <h3 className="text-lg font-medium mb-4">Task Summary</h3>
                 <div className="space-y-4">
                   <div className="p-4 bg-[#252525] rounded-lg">
                     <h4 className="text-md font-medium text-red-400 mb-2">
-                      Most Productive Day
+                      Total Completed
                     </h4>
                     <p className="text-sm">
-                      Tuesday is your most productive day, with an average of 7
-                      tasks completed.
+                      You've completed {stats?.tasksCompleted || 0} tasks during
+                      this {timeRange}.
                     </p>
                   </div>
 
                   <div className="p-4 bg-[#252525] rounded-lg">
                     <h4 className="text-md font-medium text-red-400 mb-2">
-                      Task Completion Pattern
+                      Completion Rate
                     </h4>
                     <p className="text-sm">
-                      You tend to complete more tasks after focus sessions of
-                      20+ minutes.
+                      Your current task completion rate is{" "}
+                      {calculateTaskCompletionRate()}%.
                     </p>
                   </div>
 
                   <div className="p-4 bg-[#252525] rounded-lg">
                     <h4 className="text-md font-medium text-red-400 mb-2">
-                      Recommendation
+                      Current Streak
                     </h4>
                     <p className="text-sm">
-                      Try breaking larger tasks into smaller subtasks to
-                      increase your completion rate.
+                      You're on a {stats?.streakDays || 0}-day productivity
+                      streak. Keep it up!
                     </p>
                   </div>
                 </div>
@@ -985,271 +992,48 @@ const Dashboard = () => {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* First Hour */}
-                <div
-                  className={`p-4 rounded-lg border ${
-                    (stats.focusTime?.reduce(
-                      (sum, entry) => sum + entry.duration,
-                      0
-                    ) || 0) >= 60
-                      ? "bg-[#252525] border-yellow-500/30"
-                      : "bg-[#1A1A1A] border-gray-700/30"
-                  }`}
-                >
-                  <div className="flex items-start">
-                    <div className="text-3xl mr-3">🕐</div>
-                    <div>
-                      <h4
-                        className={`font-bold ${
-                          (stats.focusTime?.reduce(
-                            (sum, entry) => sum + entry.duration,
-                            0
-                          ) || 0) >= 60
-                            ? "text-white"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        First Hour
-                      </h4>
-                      <p
-                        className={`text-sm mt-1 ${
-                          (stats.focusTime?.reduce(
-                            (sum, entry) => sum + entry.duration,
-                            0
-                          ) || 0) >= 60
-                            ? "text-gray-300"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        Complete your first hour of focused work
-                      </p>
-                      <div
-                        className={`mt-2 text-sm font-medium ${
-                          (stats.focusTime?.reduce(
-                            (sum, entry) => sum + entry.duration,
-                            0
-                          ) || 0) >= 60
-                            ? "text-yellow-400"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {(stats.focusTime?.reduce(
-                          (sum, entry) => sum + entry.duration,
-                          0
-                        ) || 0) >= 60
-                          ? "+100 XP Earned!"
-                          : "+100 XP"}
+                {achievements.map((achievement) => {
+                  const isCompleted = achievement.condition(stats);
+                  return (
+                    <div
+                      key={achievement.id}
+                      className={`p-4 rounded-lg border ${
+                        isCompleted
+                          ? "bg-[#252525] border-yellow-500/30"
+                          : "bg-[#1A1A1A] border-gray-700/30"
+                      }`}
+                    >
+                      <div className="flex items-start">
+                        <div className="text-3xl mr-3">{achievement.icon}</div>
+                        <div>
+                          <h4
+                            className={`font-bold ${
+                              isCompleted ? "text-white" : "text-gray-400"
+                            }`}
+                          >
+                            {achievement.title}
+                          </h4>
+                          <p
+                            className={`text-sm mt-1 ${
+                              isCompleted ? "text-gray-300" : "text-gray-500"
+                            }`}
+                          >
+                            {achievement.description}
+                          </p>
+                          <div
+                            className={`mt-2 text-sm font-medium ${
+                              isCompleted ? "text-yellow-400" : "text-gray-500"
+                            }`}
+                          >
+                            {isCompleted
+                              ? `+${achievement.xp} XP Earned!`
+                              : `+${achievement.xp} XP`}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Task Master */}
-                <div
-                  className={`p-4 rounded-lg border ${
-                    (stats.tasksCompleted || 0) >= 10
-                      ? "bg-[#252525] border-yellow-500/30"
-                      : "bg-[#1A1A1A] border-gray-700/30"
-                  }`}
-                >
-                  <div className="flex items-start">
-                    <div className="text-3xl mr-3">✅</div>
-                    <div>
-                      <h4
-                        className={`font-bold ${
-                          (stats.tasksCompleted || 0) >= 10
-                            ? "text-white"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        Task Master
-                      </h4>
-                      <p
-                        className={`text-sm mt-1 ${
-                          (stats.tasksCompleted || 0) >= 10
-                            ? "text-gray-300"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        Complete 10 tasks
-                      </p>
-                      <div
-                        className={`mt-2 text-sm font-medium ${
-                          (stats.tasksCompleted || 0) >= 10
-                            ? "text-yellow-400"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {(stats.tasksCompleted || 0) >= 10
-                          ? "+200 XP Earned!"
-                          : "+200 XP"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Streak Warrior */}
-                <div
-                  className={`p-4 rounded-lg border ${
-                    (stats.streakDays || 0) >= 3
-                      ? "bg-[#252525] border-yellow-500/30"
-                      : "bg-[#1A1A1A] border-gray-700/30"
-                  }`}
-                >
-                  <div className="flex items-start">
-                    <div className="text-3xl mr-3">🔥</div>
-                    <div>
-                      <h4
-                        className={`font-bold ${
-                          (stats.streakDays || 0) >= 3
-                            ? "text-white"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        Streak Warrior
-                      </h4>
-                      <p
-                        className={`text-sm mt-1 ${
-                          (stats.streakDays || 0) >= 3
-                            ? "text-gray-300"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        Maintain a 3-day productivity streak
-                      </p>
-                      <div
-                        className={`mt-2 text-sm font-medium ${
-                          (stats.streakDays || 0) >= 3
-                            ? "text-yellow-400"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {(stats.streakDays || 0) >= 3
-                          ? "+150 XP Earned!"
-                          : "+150 XP"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Focus Champion */}
-                <div
-                  className={`p-4 rounded-lg border ${
-                    (stats.focusSessions?.filter((s) => s.completed) || [])
-                      .length >= 5
-                      ? "bg-[#252525] border-yellow-500/30"
-                      : "bg-[#1A1A1A] border-gray-700/30"
-                  }`}
-                >
-                  <div className="flex items-start">
-                    <div className="text-3xl mr-3">🧠</div>
-                    <div>
-                      <h4
-                        className={`font-bold ${
-                          (
-                            stats.focusSessions?.filter((s) => s.completed) ||
-                            []
-                          ).length >= 5
-                            ? "text-white"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        Focus Champion
-                      </h4>
-                      <p
-                        className={`text-sm mt-1 ${
-                          (
-                            stats.focusSessions?.filter((s) => s.completed) ||
-                            []
-                          ).length >= 5
-                            ? "text-gray-300"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        Complete 5 focus sessions without interruption
-                      </p>
-                      <div
-                        className={`mt-2 text-sm font-medium ${
-                          (
-                            stats.focusSessions?.filter((s) => s.completed) ||
-                            []
-                          ).length >= 5
-                            ? "text-yellow-400"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {(stats.focusSessions?.filter((s) => s.completed) || [])
-                          .length >= 5
-                          ? "+250 XP Earned!"
-                          : "+250 XP"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sound Explorer */}
-                <div
-                  className={`p-4 rounded-lg border ${
-                    new Set(
-                      stats.focusSessions
-                        ?.map((s) => s.ambientSound)
-                        .filter(Boolean)
-                    ).size >= 3
-                      ? "bg-[#252525] border-yellow-500/30"
-                      : "bg-[#1A1A1A] border-gray-700/30"
-                  }`}
-                >
-                  <div className="flex items-start">
-                    <div className="text-3xl mr-3">🔊</div>
-                    <div>
-                      <h4
-                        className={`font-bold ${
-                          new Set(
-                            stats.focusSessions
-                              ?.map((s) => s.ambientSound)
-                              .filter(Boolean)
-                          ).size >= 3
-                            ? "text-white"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        Sound Explorer
-                      </h4>
-                      <p
-                        className={`text-sm mt-1 ${
-                          new Set(
-                            stats.focusSessions
-                              ?.map((s) => s.ambientSound)
-                              .filter(Boolean)
-                          ).size >= 3
-                            ? "text-gray-300"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        Try 3 different ambient sounds during focus sessions
-                      </p>
-                      <div
-                        className={`mt-2 text-sm font-medium ${
-                          new Set(
-                            stats.focusSessions
-                              ?.map((s) => s.ambientSound)
-                              .filter(Boolean)
-                          ).size >= 3
-                            ? "text-yellow-400"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {new Set(
-                          stats.focusSessions
-                            ?.map((s) => s.ambientSound)
-                            .filter(Boolean)
-                        ).size >= 3
-                          ? "+100 XP Earned!"
-                          : "+100 XP"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
             </div>
 

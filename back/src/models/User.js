@@ -17,7 +17,11 @@ const UserSchema = new mongoose.Schema({
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },
   wallpaper: { type: String, default: "" },
-
+pomodoroSettings :{
+   focusDuration: { type: Number, default: 25 },
+   shortBreakDuration: { type: Number, default: 5 },
+   longBreakDuration: { type: Number, default: 15 },
+  },
   kanbanBoard: {
     type: {
       columns: [
@@ -30,7 +34,7 @@ const UserSchema = new mongoose.Schema({
               title: { type: String, required: true },
               priority: { type: String, enum: ["Low", "Medium", "High"], default: "Medium" },
               icon: { type: String },
-             
+
             },
           ],
         },
@@ -65,7 +69,7 @@ const UserSchema = new mongoose.Schema({
   ],
   tasksCompleted: { type: Number, default: 0 },
 
-  
+
   xp: { type: Number, default: 0 },
   level: { type: Number, default: 1 },
   focusTime: [

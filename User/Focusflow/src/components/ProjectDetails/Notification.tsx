@@ -1,4 +1,4 @@
-import React from "react";
+
 
 interface NotificationProps {
   notification: {
@@ -7,7 +7,7 @@ interface NotificationProps {
   } | null;
 }
 
-const Notification: React.FC<NotificationProps> = ({ notification }) => {
+const Notification = ({ notification }: NotificationProps) => {
   if (!notification) return null;
 
   return (

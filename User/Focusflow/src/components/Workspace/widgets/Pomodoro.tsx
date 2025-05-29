@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import { Play, Pause, RotateCcw, X, Coffee, Brain } from "lucide-react";
 import { useDraggable } from "../hooks/use-draggable";
@@ -224,6 +222,7 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
         "pomodoroEndTime",
         (Date.now() + time * 1000).toString()
       );
+      
       localStorage.setItem(
         "pomodoroInitialDuration",
         initialDuration.toString()
@@ -405,9 +404,7 @@ const Pomodoro = ({ onClose }: PomodoroProps) => {
 
       // Create axios instance with default config
       const api = axios.create({
-        baseURL:
-          import.meta.env.VITE_API_URL ||
-          "https://focusflow-production.up.railway.app/api",
+        baseURL: import.meta.env.VITE_API_URL || "https://focusflow-production.up.railway.app/api",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,

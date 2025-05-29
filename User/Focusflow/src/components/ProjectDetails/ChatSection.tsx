@@ -1,4 +1,4 @@
-import React from "react";
+
 import { MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 import Chat from "../Chat";
 
@@ -8,11 +8,7 @@ interface ChatSectionProps {
   setShowChat: (show: boolean) => void;
 }
 
-const ChatSection: React.FC<ChatSectionProps> = ({
-  id,
-  showChat,
-  setShowChat,
-}) => {
+const ChatSection = ({ id, showChat, setShowChat }: ChatSectionProps) => {
   return (
     <div className="mb-8">
       <div

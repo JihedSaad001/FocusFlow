@@ -44,7 +44,7 @@ interface SprintSectionProps {
   getMemberName: (memberId: string | undefined) => string;
 }
 
-const SprintSection: React.FC<SprintSectionProps> = ({
+const SprintSection = ({
   project,
   showSprintPlanning,
   setShowSprintPlanning,
@@ -59,7 +59,7 @@ const SprintSection: React.FC<SprintSectionProps> = ({
   updateTaskStatus,
   deleteTaskFromSprint,
   getMemberName,
-}) => {
+}: SprintSectionProps) => {
   const [startDateError, setStartDateError] = useState<string | null>(null);
   const [endDateError, setEndDateError] = useState<string | null>(null);
 

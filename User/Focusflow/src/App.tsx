@@ -1,22 +1,10 @@
-// Extend the Window interface to include custom properties
-declare global {
-  interface Window {
-    ambientSoundsInitialized?: boolean;
-    showAmbientSounds?: boolean;
-    musicPlayerInitialized?: boolean;
-    showMusicPlayer?: boolean;
-  }
-}
-
-import { useEffect, useState } from "react";
 import {
   BrowserRouter as Router,
   Route,
   Routes,
   Navigate,
 } from "react-router-dom";
-import Navbar from "./components/Navbar";
-import Sidebar from "./components/Sidebar";
+
 import MainMenu from "./components/MainMenu";
 import Dashboard from "./components/Dashboard";
 import Profile from "./components/Profile";
@@ -32,239 +20,99 @@ import PlanningSession from "./components/Poker/PlanningSession";
 import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
 import VerifyEmail from "./components/VerifyEmail";
-import AmbientSounds from "./components/Workspace/widgets/AmbientSounds";
-import MusicPlayer from "./components/Workspace/widgets/MusicPlayer";
+
 import ProtectedRoute from "./components/ProtectedRoute";
 
-// Global state for ambient sounds and music player
-if (typeof window !== "undefined") {
-  // @ts-ignore
-  window.ambientSoundsInitialized = window.ambientSoundsInitialized || false;
-  // @ts-ignore
-  window.showAmbientSounds = window.showAmbientSounds || false;
-  // @ts-ignore
-  window.musicPlayerInitialized = window.musicPlayerInitialized || false;
-  // @ts-ignore
-  window.showMusicPlayer = window.showMusicPlayer || false;
-}
-
 const App = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("user"));
-  // State for persistent ambient sounds and music player
-  const [showAmbientSounds, setShowAmbientSounds] = useState(false);
-  const [ambientSoundsInitialized, setAmbientSoundsInitialized] =
-    useState(false);
-  const [showMusicPlayer, setShowMusicPlayer] = useState(false);
-  const [musicPlayerInitialized, setMusicPlayerInitialized] = useState(false);
-
-  // Detect login/logout changes
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setIsLoggedIn(!!localStorage.getItem("user"));
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-
-  // Initialize ambient sounds and music player state
-  useEffect(() => {
-    // Check if any ambient sounds or music tracks are active
-    const activeAmbientSound = localStorage.getItem("activeAmbientSound");
-    const activeMusicTrack = localStorage.getItem("activeMusicTrack");
-
-    // Initialize from window global or localStorage
-    if (typeof window !== "undefined") {
-      // @ts-ignore
-      setAmbientSoundsInitialized(
-        window.ambientSoundsInitialized || activeAmbientSound !== null
-      );
-      // @ts-ignore
-      setShowAmbientSounds(window.showAmbientSounds || false);
-      // @ts-ignore
-      setMusicPlayerInitialized(
-        window.musicPlayerInitialized || activeMusicTrack !== null
-      );
-      // @ts-ignore
-      setShowMusicPlayer(window.showMusicPlayer || false);
-
-      // Update the global variables
-      if (activeAmbientSound) {
-        // @ts-ignore
-        window.ambientSoundsInitialized = true;
-      }
-      if (activeMusicTrack) {
-        // @ts-ignore
-        window.musicPlayerInitialized = true;
-      }
-    }
-
-    // Listen for changes to the global variables
-    const checkGlobals = () => {
-      if (typeof window !== "undefined") {
-        // @ts-ignore
-        setShowAmbientSounds(window.showAmbientSounds || false);
-        // @ts-ignore
-        setAmbientSoundsInitialized(window.ambientSoundsInitialized || false);
-        // @ts-ignore
-        setShowMusicPlayer(window.showMusicPlayer || false);
-        // @ts-ignore
-        setMusicPlayerInitialized(window.musicPlayerInitialized || false);
-      }
-    };
-
-    const interval = setInterval(checkGlobals, 500);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Handle closing the ambient sounds panel
-  const handleCloseAmbientSounds = () => {
-    setShowAmbientSounds(false);
-    // @ts-ignore
-    if (typeof window !== "undefined") window.showAmbientSounds = false;
-  };
-
-  // Handle closing the music player panel
-  const handleCloseMusicPlayer = () => {
-    setShowMusicPlayer(false);
-    // @ts-ignore
-    if (typeof window !== "undefined") window.showMusicPlayer = false;
-  };
-
   return (
     <Router>
-      <div className="min-h-screen bg-[#121212] ">
-        {/* Show Sidebar when logged in, Navbar when logged out */}
-        {isLoggedIn && <Sidebar />}
-        <div className={`flex-1 ${isLoggedIn ? "ml-20" : ""} `}>
-          {!isLoggedIn && <Navbar />}
-          <Routes>
-            {/* Public Routes */}
-            <Route
-              path="/"
-              element={
-                isLoggedIn ? <Navigate to="/home" replace /> : <MainMenu />
-              }
-            />
-            <Route path="/signin" element={<SignIn />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/verify-email" element={<VerifyEmail />} />
+      <div className="min-h-screen bg-[#121212]">
+        <Routes>
+        
+          <Route path="/" element={<MainMenu />} />
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
 
-            {/* Protected Routes - Only accessible when logged in */}
-            <Route
-              path="/home"
-              element={
-                <ProtectedRoute>
-                  <Home />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/workspace"
-              element={
-                <ProtectedRoute>
-                  <Workspace />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/kanban"
-              element={
-                <ProtectedRoute>
-                  <KanbanBoard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/createProject"
-              element={
-                <ProtectedRoute>
-                  <CreateProject />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/projects/:id"
-              element={
-                <ProtectedRoute>
-                  <ProjectDetails />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/projects/:id/poker"
-              element={
-                <ProtectedRoute>
-                  <PlanningSession />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/projects"
-              element={
-                <ProtectedRoute>
-                  <Projects />
-                </ProtectedRoute>
-              }
-            />
+          
+          <Route
+            path="/home"
+            element={
+              <ProtectedRoute>
+                <Home />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/workspace"
+            element={
+              <ProtectedRoute>
+                <Workspace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kanban"
+            element={
+              <ProtectedRoute>
+                <KanbanBoard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/createProject"
+            element={
+              <ProtectedRoute>
+                <CreateProject />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:id"
+            element={
+              <ProtectedRoute>
+                <ProjectDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:id/poker"
+            element={
+              <ProtectedRoute>
+                <PlanningSession />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects"
+            element={
+              <ProtectedRoute>
+                <Projects />
+              </ProtectedRoute>
+            }
+          />
 
-            {/* Catch-all route - Redirect to home if logged in, otherwise to main menu */}
-            <Route
-              path="*"
-              element={
-                isLoggedIn ? (
-                  <Navigate to="/home" replace />
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              }
-            />
-          </Routes>
-        </div>
-
-        {/* Persistent AmbientSounds component */}
-        {ambientSoundsInitialized && (
-          <div
-            style={{
-              display: showAmbientSounds ? "block" : "none",
-              position: "fixed",
-              zIndex: 9999,
-            }}
-          >
-            <AmbientSounds onClose={handleCloseAmbientSounds} />
-          </div>
-        )}
-
-        {/* Persistent MusicPlayer component */}
-        {musicPlayerInitialized && (
-          <div
-            style={{
-              display: showMusicPlayer ? "block" : "none",
-              position: "fixed",
-              zIndex: 9999,
-            }}
-          >
-            <MusicPlayer onClose={handleCloseMusicPlayer} />
-          </div>
-        )}
+          {/* Catch-all route - Redirect to main menu */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </div>
     </Router>
   );

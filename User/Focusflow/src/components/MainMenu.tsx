@@ -1,4 +1,4 @@
-import { useNavigate, Navigate } from "react-router-dom";
+import { Navigate, Link } from "react-router-dom";
 import {
   Layout,
   Spade,
@@ -7,9 +7,9 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import Navbar from "./Navbar";
 
 const MainMenu = () => {
-  const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Check if user is logged in
@@ -44,21 +44,20 @@ const MainMenu = () => {
     },
   ];
 
-  // Redirect to home if user is logged in
+  // Redirect to home if logged in
   if (isLoggedIn) {
     return <Navigate to="/home" replace />;
   }
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white">
+    <div className=" bg-[#121212] text-white">
+      <Navbar />
       {/* Hero Section */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center text-center py-20 px-6 overflow-hidden">
-        <div className="absolute inset-0 bg-[#1E1E1E] opacity-10"></div>
-
+      <section className=" min-h-screen flex flex-col items-center justify-center text-center py-20 px-6 overflow-hidden">
         {/* Content */}
         <div className="relative z-10 max-w-6xl mx-auto">
-          <h1 className="text-6xl md:text-8xl font-extrabold leading-tight mb-8">
-            <span className="bg-gradient-to-r from-[#830E13] via-[#ff4e50] to-[#830E13] bg-clip-text text-transparent animate-gradient-x">
+          <h1 className="text-6xl md:text-8xl font-extrabold  mb-8 mt-5">
+            <span className="bg-gradient-to-r from-[#830E13] via-[#ff4e50] to-[#830E13] bg-clip-text text-transparent">
               Focus Flow
             </span>
           </h1>
@@ -68,19 +67,19 @@ const MainMenu = () => {
             management, and team collaboration in one seamless platform.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12">
-            <button
-              onClick={() => navigate("/signup")}
-              className="group relative px-8 py-4 text-lg font-medium bg-gradient-to-r from-[#830E13] to-[#6B1E07] rounded-xl hover:opacity-90 transition-all duration-300 ease-out hover:scale-105"
+            <Link
+              to="/signup"
+              className="group relative px-8 py-4 text-lg font-medium bg-gradient-to-r from-[#830E13] to-[#6B1E07] rounded-xl hover:opacity-90 transition-all duration-300 ease-out hover:scale-105 inline-block text-center"
             >
               Get Started Free
               <ArrowRight className="inline-block ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
-            <button
-              onClick={() => navigate("/signin")}
-              className="px-8 py-4 text-lg border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300 backdrop-blur-sm hover:scale-105"
+            </Link>
+            <Link
+              to="/signin"
+              className="px-8 py-4 text-lg border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300 backdrop-blur-sm hover:scale-105 inline-block text-center"
             >
               Sign In
-            </button>
+            </Link>
           </div>
           {/* Feature Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-16 max-w-4xl mx-auto">
@@ -99,7 +98,6 @@ const MainMenu = () => {
               </div>
             ))}
           </div>
-
           {/* Why FocusFlow Section */}
           <div className="mt-24 max-w-4xl mx-auto">
             <h2 className="text-4xl font-bold mb-8">Why Choose FocusFlow?</h2>

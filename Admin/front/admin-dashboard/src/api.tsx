@@ -2,30 +2,24 @@ import axios from "axios";
 
 // Get API base URL from environment variables
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  "https://focusflow-production.up.railway.app";
+  import.meta.env.VITE_API_BASE_URL || "https://focusflow-production.up.railway.app";
 
 export const fetchResources = async () => {
   try {
     const token = localStorage.getItem("adminToken");
-    if (token) {
-      // If admin token exists, fetch all wallpapers (active and inactive)
-      const response = await axios.get(
-        `${API_BASE_URL}/api/resources/admin/wallpapers`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      return response.data;
-    } else {
-      // Fallback to public endpoint (active only)
-      const response = await axios.get(
-        `${API_BASE_URL}/api/resources/wallpapers`
-      );
-      return response.data;
+    if (!token) {
+      throw new Error("Admin authentication required");
     }
+    
+    const response = await axios.get(
+      `${API_BASE_URL}/api/resources/admin/wallpapers`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
   } catch (error) {
     console.error("🔥 Error fetching resources:", error);
     throw error;
@@ -36,24 +30,19 @@ export const fetchResources = async () => {
 export const fetchAudioResources = async () => {
   try {
     const token = localStorage.getItem("adminToken");
-    if (token) {
-      // If admin token exists, fetch all ambient sounds (active and inactive)
-      const response = await axios.get(
-        `${API_BASE_URL}/api/resources/admin/ambient-sounds`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      return response.data;
-    } else {
-      // Fallback to public endpoint (active only)
-      const response = await axios.get(
-        `${API_BASE_URL}/api/resources/ambient-sounds`
-      );
-      return response.data;
+    if (!token) {
+      throw new Error("Admin authentication required");
     }
+    
+    const response = await axios.get(
+      `${API_BASE_URL}/api/resources/admin/ambient-sounds`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
   } catch (error) {
     console.error("🔥 Error fetching ambient sounds:", error);
     throw error;
@@ -328,5 +317,28 @@ export const fetchProjectStats = async (token: string) => {
     console.error("🔥 Error fetching project statistics:", error);
     // Return default values in case of error
     return { totalProjects: 0 };
+  }
+};
+
+// Function to fetch music tracks
+export const fetchMusicResources = async () => {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      throw new Error("Admin authentication required");
+    }
+    
+    const response = await axios.get(
+      `${API_BASE_URL}/api/resources/admin/music`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("🔥 Error fetching music tracks:", error);
+    throw error;
   }
 };

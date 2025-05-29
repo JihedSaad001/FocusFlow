@@ -1,23 +1,6 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import { ExternalLink, RefreshCw } from "lucide-react";
-
-type Article = {
-  id: number;
-  title: string;
-  url: string;
-  published_at: string;
-  user: {
-    name: string;
-  };
-};
-
-type ProductivityTip = {
-  id: number;
-  tip: string;
-  source: string;
-};
+import { Article, ProductivityTip } from "../types";
 
 // Curated productivity tips
 const productivityTips: ProductivityTip[] = [
@@ -82,7 +65,7 @@ const NewsSection = () => {
   const fetchNews = async () => {
     setLoading(true);
     try {
-      // Fetch from Dev.to API - completely free and no API key required
+      // Fetch from Dev.to API -
       const response = await fetch("https://dev.to/api/articles?top=7");
       if (!response.ok) throw new Error("Failed to fetch articles");
 
@@ -113,7 +96,6 @@ const NewsSection = () => {
         <button
           onClick={fetchNews}
           className="p-2 rounded-full hover:bg-[#252525] transition-colors"
-          aria-label="Refresh news"
         >
           <RefreshCw className="w-4 h-4 text-gray-400" />
         </button>
@@ -135,7 +117,6 @@ const NewsSection = () => {
             <div className="space-y-3">
               {articles.map((article) => (
                 <a
-                  key={article.id}
                   href={article.url}
                   target="_blank"
                   rel="noopener noreferrer"

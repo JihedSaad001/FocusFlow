@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useState, useRef, useEffect } from "react";
 import {
   X,
@@ -52,8 +50,6 @@ const setupAudioStateHandler = () => {
         })
         .join(", ");
 
-      console.log("Active ambient sounds:", activeSoundNames || "None");
-
       if (activeSoundNames) {
         localStorage.setItem("activeAmbientSound", activeSoundNames);
         console.log(
@@ -62,7 +58,6 @@ const setupAudioStateHandler = () => {
         );
       } else {
         localStorage.removeItem("activeAmbientSound");
-        console.log("Removed activeAmbientSound from localStorage");
       }
     } catch (error) {
       console.error("Error in audio state handler:", error);

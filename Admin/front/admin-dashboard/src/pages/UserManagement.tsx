@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import {
   fetchUsers,
@@ -16,7 +14,7 @@ import {
   FaProjectDiagram,
   FaChartLine,
 } from "react-icons/fa";
-import { toast } from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
 
 interface User {
   _id: string;
@@ -27,7 +25,7 @@ interface User {
   xp: number;
   level: number;
   lastActive: string;
-  projectCount: number; // New field for project count
+  projectCount: number;
 }
 
 interface UserStats {
@@ -103,11 +101,27 @@ const UserManagement = () => {
           user._id === userId ? { ...user, role: "admin" } : user
         )
       );
-      toast.success("User role updated to admin successfully!");
+      toast.success("User role updated to admin successfully!", {
+        duration: 3000,
+        position: "top-right",
+        style: {
+          background: "#151515",
+          color: "#fff",
+          border: "1px solid #333",
+        },
+      });
     } catch (err) {
       console.error("Error updating user role:", err);
       setError("Failed to update user role.");
-      toast.error("Failed to update user role.");
+      toast.error("Failed to update user role.", {
+        duration: 3000,
+        position: "top-right",
+        style: {
+          background: "#151515",
+          color: "#fff",
+          border: "1px solid #333",
+        },
+      });
     }
   };
 
@@ -120,6 +134,7 @@ const UserManagement = () => {
 
   return (
     <div className="min-h-screen bg-[#121212] text-white px-6 md:px-10 mt-23 py-6 relative">
+      <Toaster />
       <div className="max-w-7xl mx-auto">
         {/* 🔴 OVERVIEW TITLE */}
         <h1 className="text-4xl font-extrabold text-[#ffffff] mb-6">
@@ -195,11 +210,7 @@ const UserManagement = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {users
-                .filter((user) =>
-                  user.username.toLowerCase().includes(search.toLowerCase())
-                )
-                .map((user) => (
+              {users.filter((user) =>user.username.toLowerCase().includes(search.toLowerCase())).map((user) => (
                   <div
                     key={user._id}
                     className="bg-[#151515] border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center justify-between"
@@ -221,7 +232,7 @@ const UserManagement = () => {
                         {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                       </span>
 
-                      {/* Projects Count - Replacing Day Streak */}
+                      {/* Projects Count  */}
                       <span className="text-gray-300 text-center">
                         <FaProjectDiagram className="inline-block mr-2 text-green-400" />
                         {user.projectCount || 0} Projects
@@ -244,7 +255,7 @@ const UserManagement = () => {
                             className="text-gray-400 cursor-pointer"
                             onClick={() =>
                               setOpenMenu(
-                                openMenu === user._id ? null : user._id
+                                openMenu === user._id ? null : user._id//null is for close the menu
                               )
                             }
                           />

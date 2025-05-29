@@ -92,8 +92,7 @@ export default function AdminLogin() {
 
     try {
       const API_BASE_URL =
-        import.meta.env.VITE_API_BASE_URL ||
-        "https://focusflow-production.up.railway.app";
+        import.meta.env.VITE_API_BASE_URL || "https://focusflow-production.up.railway.app";
       const response = await fetch(`${API_BASE_URL}/api/auth/admin-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

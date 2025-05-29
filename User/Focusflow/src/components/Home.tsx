@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { Calendar } from "lucide-react";
 import NewsSection from "./NewsSection";
@@ -13,36 +11,16 @@ const quotes = [
 ];
 
 const Home = () => {
-  const [user, setUser] = useState<{ username: string } | null>(null);
+  const [user, setUser] = useState(null);
   const [quote, setQuote] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
   const [dayProgress, setDayProgress] = useState(0);
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    // Select a random quote
-    setQuote(quotes[Math.floor(Math.random() * quotes.length)]);
-
-    // Update time every minute
-    const interval = setInterval(() => {
-      const now = new Date();
-      setCurrentTime(now);
-
-      // Calculate day progress (from 0 to 100)
-      const startOfDay = new Date(now);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(now);
-      endOfDay.setHours(23, 59, 59, 999);
-      const totalDayMs = endOfDay.getTime() - startOfDay.getTime();
-      const elapsedMs = now.getTime() - startOfDay.getTime();
-      setDayProgress(Math.floor((elapsedMs / totalDayMs) * 100));
-    }, 60000);
-
- 
+  // Function to calculate day progress (reusable)
+  const calculateDayProgress = () => {
     const now = new Date();
+    setCurrentTime(now);
+
     const startOfDay = new Date(now);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(now);
@@ -50,6 +28,21 @@ const Home = () => {
     const totalDayMs = endOfDay.getTime() - startOfDay.getTime();
     const elapsedMs = now.getTime() - startOfDay.getTime();
     setDayProgress(Math.floor((elapsedMs / totalDayMs) * 100));
+  };
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+
+    setQuote(quotes[Math.floor(Math.random() * quotes.length)]);
+
+    // Calculate initial day progress
+    calculateDayProgress();
+
+    // Update time and progress every minute
+    const interval = setInterval(calculateDayProgress, 60000);
 
     return () => clearInterval(interval);
   }, []);
@@ -89,7 +82,7 @@ const Home = () => {
           <h1 className="text-4xl font-bold">
             Welcome back,{" "}
             <span className="bg-gradient-to-r from-[#ff4e50] to-[#fc913a] bg-clip-text text-transparent">
-              {user?.username || "User"}!
+              {(user as any)?.username || "User"}!
             </span>
           </h1>
           <p className="text-gray-400 mt-2">

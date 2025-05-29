@@ -1,10 +1,10 @@
-"use client";
-
 import { useEffect, useState, useRef } from "react";
 import WidgetSidebar from "./WidgetSidebar";
 import WallpaperSelector from "./WallpaperSelector";
 import Pomodoro from "./widgets/Pomodoro";
 import ToDoList from "./widgets/ToDoList";
+import AmbientSounds from "./widgets/AmbientSounds";
+import MusicPlayer from "./widgets/MusicPlayer";
 import YouTubePlayer from "./widgets/YouTubePlayer";
 
 const Workspace = () => {
@@ -16,6 +16,8 @@ const Workspace = () => {
   const wallpaperButtonRef = useRef<HTMLButtonElement | null>(null);
   const [showPomodoro, setShowPomodoro] = useState(false);
   const [showToDoList, setShowToDoList] = useState(false);
+  const [showAmbientSounds, setShowAmbientSounds] = useState(false);
+  const [showMusicPlayer, setShowMusicPlayer] = useState(false);
 
   // Keep track of which widgets have been initialized
   const [widgetsInitialized, setWidgetsInitialized] = useState({
@@ -80,35 +82,23 @@ const Workspace = () => {
         todoList: true,
       }));
     } else if (widget === "ambient-music") {
-      // Update the global ambient sounds state
-      if (typeof window !== "undefined") {
-        // @ts-ignore
-        window.ambientSoundsInitialized = true;
-        // @ts-ignore
-        window.showAmbientSounds = true;
-        setWidgetsInitialized((prev) => ({
-          ...prev,
-          ambientSounds: true,
-        }));
-      }
+      setShowAmbientSounds(true);
+      setWidgetsInitialized((prev) => ({
+        ...prev,
+        ambientSounds: true,
+      }));
     } else if (widget === "music-player") {
-      // Update the global music player state
-      if (typeof window !== "undefined") {
-        // @ts-ignore
-        window.musicPlayerInitialized = true;
-        // @ts-ignore
-        window.showMusicPlayer = true;
-        setWidgetsInitialized((prev) => ({
-          ...prev,
-          musicPlayer: true,
-        }));
-      }
+      setShowMusicPlayer(true);
+      setWidgetsInitialized((prev) => ({
+        ...prev,
+        musicPlayer: true,
+      }));
     }
   };
 
   const openWallpaperSelector = () => {
     if (wallpaperButtonRef.current) {
-      const rect = wallpaperButtonRef.current.getBoundingClientRect();
+      const rect = wallpaperButtonRef.current.getBoundingClientRect(); //display position
       setSelectorPosition({
         x: Math.max(20, rect.left - 280),
         y: Math.min(window.innerHeight - 450, rect.top),
@@ -158,7 +148,19 @@ const Workspace = () => {
         </div>
       )}
 
-      {/* Ambient Sounds and Music Player are managed at the App level */}
+      {/* Ambient Sounds Widget - Only initialize once, then toggle visibility */}
+      {widgetsInitialized.ambientSounds && (
+        <div style={{ display: showAmbientSounds ? "block" : "none" }}>
+          <AmbientSounds onClose={() => setShowAmbientSounds(false)} />
+        </div>
+      )}
+
+      {/* Music Player Widget - Only initialize once, then toggle visibility */}
+      {widgetsInitialized.musicPlayer && (
+        <div style={{ display: showMusicPlayer ? "block" : "none" }}>
+          <MusicPlayer onClose={() => setShowMusicPlayer(false)} />
+        </div>
+      )}
 
       {/* YouTube Player is Always Visible */}
       <YouTubePlayer />

@@ -1,8 +1,6 @@
-"use client";
-
 import React, { useState, useEffect, useRef } from "react"; // Add useRef
 import { Plus, X, Check, Trash2, Loader2 } from "lucide-react";
-import Draggable from "react-draggable"; // Import react-draggable
+import Draggable from "react-draggable"; 
 import axios from "axios";
 
 interface ToDoListProps {
@@ -16,8 +14,7 @@ interface Task {
 }
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  "https://focusflow-production.up.railway.app";
+  import.meta.env.VITE_API_BASE_URL || "https://focusflow-production.up.railway.app";
 
 const ToDoList = ({ onClose }: ToDoListProps) => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -179,8 +176,7 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
           // Create axios instance with default config
           const api = axios.create({
             baseURL:
-              import.meta.env.VITE_API_URL ||
-              "https://focusflow-production.up.railway.app/api",
+              import.meta.env.VITE_API_URL || "https://focusflow-production.up.railway.app/api",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
@@ -219,7 +215,7 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
           </button>
         </div>
 
-        {/* Input Section */}
+        
         <div className="flex space-x-2 mb-4">
           <input
             type="text"
@@ -279,7 +275,7 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
         {/* Task List */}
         <div className="space-y-2 max-h-[300px] overflow-y-auto">
           {isLoading ? (
-            <div className="flex justify-center items-center py-8">
+            <div className="text-center py-8">
               <Loader2 className="w-6 h-6 text-white/50 animate-spin" />
             </div>
           ) : tasks.length === 0 ? (
@@ -304,7 +300,7 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
                     onClick={() => toggleTaskCompletion(task.id)}
                     className={`p-2 rounded-full ${
                       task.completed ? "bg-green-500" : "bg-gray-600"
-                    } transition-all`}
+                    } transition-colors`}
                   >
                     <Check className="w-4 h-4 text-white" />
                   </button>
@@ -319,7 +315,7 @@ const ToDoList = ({ onClose }: ToDoListProps) => {
                   </span>
                   <button
                     onClick={() => removeTask(task.id)}
-                    className="text-red-400 hover:text-red-500 transition-all"
+                    className="text-red-400 hover:text-red-500 transition-colors"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>

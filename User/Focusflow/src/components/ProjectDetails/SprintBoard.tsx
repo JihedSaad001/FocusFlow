@@ -1,4 +1,3 @@
-import React from "react";
 import {
   ListTodo,
   Loader2,
@@ -24,14 +23,14 @@ interface SprintBoardProps {
   getMemberName: (memberId: string | undefined) => string;
 }
 
-const SprintBoard: React.FC<SprintBoardProps> = ({
+const SprintBoard = ({
   activeSprint,
   showSprintBoard,
   setShowSprintBoard,
   updateTaskStatus,
   deleteTaskFromSprint,
   getMemberName,
-}) => {
+}: SprintBoardProps) => {
   return (
     <div className="mt-6">
       <div

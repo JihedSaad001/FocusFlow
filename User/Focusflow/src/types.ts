@@ -8,12 +8,20 @@ export interface Task {
   priority: "Low" | "Medium" | "High"
   assignedTo?: string
   deadline?: string
-  status?: "To Do" | "In Progress" |"Testing"|"Blocked"| "Done"
+  status?: string
   finalEstimate?: string
   icon?: string
-
 }
-
+export interface TaskCardProps {
+  task: Task;
+  columnType: "todo" | "inProgress" | "testing" | "blocked" | "done";
+  updateTaskStatus: (
+    taskId: string,
+    status: "To Do" | "In Progress" | "Testing" | "Blocked" | "Done"
+  ) => void;
+  deleteTaskFromSprint: (taskId: string) => void;
+  getMemberName: (memberId: string | undefined) => string;
+}
 export interface Sprint {
   _id: string
   name: string
@@ -22,8 +30,6 @@ export interface Sprint {
   startDate?: string
   endDate?: string
   goals: string[]
-
-  
 }
 
 export interface Project {
@@ -98,7 +104,6 @@ export interface User {
 export interface KanbanColumn {
   id: string;
   title: string;
-
 }
 
 export interface KanbanBoard {
@@ -118,20 +123,45 @@ export interface TodoTask {
   createdAt: string;
 }
 
+// Dashboard-specific interfaces (moved from Dashboard.tsx)
+export interface DashboardTodoTask {
+  _id: string;
+  title: string;
+  completed: boolean;
+  createdAt: string;
+}
+
+// NewsSection interfaces (moved from NewsSection.tsx)
+export interface Article {
+  id: number;
+  title: string;
+  url: string;
+  published_at: string;
+  user: {
+    name: string;
+  };
+}
+
+export interface ProductivityTip {
+  id: number;
+  tip: string;
+  source: string;
+}
+
 export interface FocusSession {
   duration: number;
   completed: boolean;
-  ambientSound?: string;
-  timestamp: string;
+  ambientSound: string;
+  timestamp: Date;
 }
 
 export interface FocusTimeEntry {
-  date: string;
+  date: string | Date;
   duration: number;
 }
 
 export interface DailyTaskEntry {
-  date: string;
+  date: string | Date;
   count: number;
 }
 
@@ -142,6 +172,7 @@ export interface UserStats {
   level: number;
   focusTime: FocusTimeEntry[];
   dailyTasks: DailyTaskEntry[];
+  todoTasks?: DashboardTodoTask[];
   streakDays: number;
   lastActive: string;
   lastStreakUpdate?: string;

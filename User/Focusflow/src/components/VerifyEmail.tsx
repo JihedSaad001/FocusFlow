@@ -1,13 +1,11 @@
-"use client";
-
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import axios from "axios";
 
 const VerifyEmail = () => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [verifying, setVerifying] = useState(true);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -15,8 +13,8 @@ const VerifyEmail = () => {
   useEffect(() => {
     const verifyToken = async () => {
       try {
-        const params = new URLSearchParams(location.search);
-        const token = params.get("token");
+        // Get token directly from URL search parameters
+        const token = searchParams.get("token");
 
         if (!token) {
           setError("Verification token is missing");
@@ -26,9 +24,7 @@ const VerifyEmail = () => {
 
         // Create axios instance with default config
         const api = axios.create({
-          baseURL:
-            import.meta.env.VITE_API_URL ||
-            "https://focusflow-production.up.railway.app/api",
+          baseURL: import.meta.env.VITE_API_URL || "https://focusflow-production.up.railway.app/api",
           headers: {
             "Content-Type": "application/json",
           },
@@ -47,7 +43,7 @@ const VerifyEmail = () => {
     };
 
     verifyToken();
-  }, [location.search]);
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

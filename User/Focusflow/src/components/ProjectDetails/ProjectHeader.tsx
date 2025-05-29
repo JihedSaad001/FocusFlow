@@ -1,4 +1,3 @@
-import React from "react";
 import { Folder, Users, UserCircle, UserPlus, PlayCircle } from "lucide-react";
 import { Project } from "../../types";
 
@@ -14,7 +13,7 @@ interface ProjectHeaderProps {
   addMemberSuccess: string | null;
 }
 
-const ProjectHeader: React.FC<ProjectHeaderProps> = ({
+const ProjectHeader = ({
   project,
   showAddMember,
   setShowAddMember,
@@ -24,7 +23,7 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = ({
   handleAddMember,
   addMemberError,
   addMemberSuccess,
-}) => {
+}: ProjectHeaderProps) => {
   return (
     <div className="border-b border-gray-700/50 p-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -58,9 +57,7 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = ({
             className="bg-gradient-to-r from-red-500 to-red-700 text-white px-4 py-2 rounded-lg font-semibold shadow-lg transform transition-all duration-200 hover:scale-[1.02] hover:shadow-red-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
           >
             <PlayCircle className="w-5 h-5" />
-            {project?.activePokerSession
-              ? "Go to Poker Session"
-              : "Start Poker Session"}
+          Go to Poker Session
           </button>
         </div>
       </div>

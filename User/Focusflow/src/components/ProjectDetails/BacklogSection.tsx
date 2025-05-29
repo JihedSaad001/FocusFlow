@@ -34,7 +34,7 @@ interface BacklogSectionProps {
   deleteTaskFromBacklog: (taskId: string) => void;
 }
 
-const BacklogSection: React.FC<BacklogSectionProps> = ({
+const BacklogSection = ({
   project,
   showBacklog,
   setShowBacklog,
@@ -42,7 +42,7 @@ const BacklogSection: React.FC<BacklogSectionProps> = ({
   setNewTask,
   addTaskToBacklog,
   deleteTaskFromBacklog,
-}) => {
+}: BacklogSectionProps) => {
   const [dateError, setDateError] = useState<string | null>(null);
 
   // Calculate date limits

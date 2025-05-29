@@ -1,25 +1,16 @@
-import React from "react";
+
 import { Trash2, UserCircle } from "lucide-react";
-import { Task } from "../../types";
+import {TaskCardProps } from "../../types";
 
-interface TaskCardProps {
-  task: Task;
-  columnType: "todo" | "inProgress" | "testing" | "blocked" | "done";
-  updateTaskStatus: (
-    taskId: string,
-    status: "To Do" | "In Progress" | "Testing" | "Blocked" | "Done"
-  ) => void;
-  deleteTaskFromSprint: (taskId: string) => void;
-  getMemberName: (memberId: string | undefined) => string;
-}
 
-const TaskCard: React.FC<TaskCardProps> = ({
+
+const TaskCard = ({
   task,
   columnType,
   updateTaskStatus,
-  deleteTaskFromSprint,
+  deleteTaskFromSprint, 
   getMemberName,
-}) => {
+}: TaskCardProps) => {
   const renderStatusButtons = () => {
     switch (columnType) {
       case "todo":

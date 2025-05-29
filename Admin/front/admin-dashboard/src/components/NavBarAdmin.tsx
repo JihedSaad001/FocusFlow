@@ -15,7 +15,7 @@ const NavBar = () => {
     <div className="flex justify-between items-center px-6 md:px-10 py-4 bg-[#121212] shadow-lg border-b border-[#6E1818] fixed top-0 left-0 w-full z-50">
       {/* Left: Profile Image */}
       <img
-        src="/src/assets/cat.png"
+        src="/src/assets/logo.png"
         alt="Logo"
         className="w-16 h-16 object-contain"
       />

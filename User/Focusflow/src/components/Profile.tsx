@@ -54,9 +54,9 @@ const Profile = () => {
     const token = localStorage.getItem("token"); // ✅ Fix case sensitivity
 
     if (storedUser && token) {
-      const parsedUser = JSON.parse(storedUser);
+      const parsedUser = JSON.parse(storedUser); //parse makes json an object
       setUser(parsedUser);
-      setNewUsername(parsedUser.username || "");
+      setNewUsername(parsedUser.username);
     } else {
       navigate("/signin");
     }
@@ -217,9 +217,7 @@ Uploaded file type: ${file.type}`);
       // Extract the profile picture URL from the response
       const profilePicUrl = response.data.profilePic;
 
-      // Update user profile with new image URL
-      await api.put("/auth/update-user", { profilePic: profilePicUrl });
-
+      // Update local state and localStorage with new profile picture
       const updatedUser = { ...user, profilePic: profilePicUrl };
       setUser(updatedUser);
       localStorage.setItem("user", JSON.stringify(updatedUser));

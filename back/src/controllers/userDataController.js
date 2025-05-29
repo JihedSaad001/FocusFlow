@@ -13,8 +13,6 @@ exports.updateKanbanBoard = async (req, res) => {
       return res.status(400).json({ message: "Invalid Kanban board data" });
     }
 
-  
-  
     const user = await User.findByIdAndUpdate(
       req.user.id,
       { kanbanBoard: { columns } },
@@ -124,17 +122,14 @@ exports.getUserStats = async (req, res) => {
   try {
     const { timeRange = "week" } = req.query;
     const userId = req.user.id;
-
     // Find the user
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-
     // Calculate date range
     const now = new Date();
     let startDate;
-
     switch (timeRange) {
       case "week":
         startDate = new Date(now);
@@ -152,20 +147,16 @@ exports.getUserStats = async (req, res) => {
         startDate = new Date(now);
         startDate.setDate(now.getDate() - 7);
     }
-
     // Filter data based on date range
     const filteredFocusSessions = user.focusSessions
       ? user.focusSessions.filter((session) => new Date(session.timestamp) >= startDate)
       : [];
-
     const filteredFocusTime = user.focusTime
       ? user.focusTime.filter((entry) => new Date(entry.date) >= startDate)
       : [];
-
     const filteredDailyTasks = user.dailyTasks
       ? user.dailyTasks.filter((entry) => new Date(entry.date) >= startDate)
       : [];
-
     // Return the filtered stats
     res.json({
       focusSessions: filteredFocusSessions || [],
@@ -201,14 +192,7 @@ exports.logFocusSession = async (req, res) => {
     // If ambientSound is undefined, null, or empty string, set it to null
     const soundToLog = ambientSound && ambientSound.trim() !== "" ? ambientSound : null;
 
-    console.log("Logging focus session:", {
-      duration,
-      completed,
-      ambientSound: soundToLog,
-      userId,
-      originalAmbientSound: ambientSound // Log the original value for debugging
-    });
-
+  
     // Find the user
     const user = await User.findById(userId);
     if (!user) {

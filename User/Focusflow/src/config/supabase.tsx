@@ -13,24 +13,4 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-export const fetchWallpapers = async () => {
-  // 🔹 Fetch files from the "wallpapers" bucket
-  const { data, error } = await supabase.storage.from("wallpapers").list();
 
-  if (error) {
-    console.error("❌ Error fetching wallpapers:", error.message);
-    return [];
-  }
-
-  // 🔹 Generate public URLs for each wallpaper using Supabase's getPublicUrl method
-  return data.map((file) => {
-    const { data: publicUrlData } = supabase.storage
-      .from("wallpapers")
-      .getPublicUrl(file.name);
-
-    return {
-      name: file.name,
-      url: publicUrlData?.publicUrl || "",
-    };
-  });
-};

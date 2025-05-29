@@ -1,5 +1,3 @@
-"use client";
-
 import type { Issue } from "../../types";
 import { CheckCircle, Eye, Clock } from "lucide-react";
 

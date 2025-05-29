@@ -6,7 +6,7 @@ const { supabase } = require("../config/supabase");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../config/sendgrid");
 
 //Register a new user and send verification email
- 
+
 exports.signup = async (req, res) => {
   const { username, email, password } = req.body;
 
@@ -96,7 +96,7 @@ exports.resendVerification = async (req, res) => {
     // Generate new verification token
     const verificationToken = crypto.randomBytes(32).toString("hex");
     const tokenExpiry = new Date();
-    tokenExpiry.setHours(tokenExpiry.getHours() + 24); // Token valid for 24 hours
+    tokenExpiry.setHours(tokenExpiry.getHours() + 24);
 
     user.verificationToken = verificationToken;
     user.verificationTokenExpires = tokenExpiry;
@@ -121,9 +121,8 @@ exports.resendVerification = async (req, res) => {
   }
 };
 
-/**
- * Request password reset email
- */
+//Request password reset email
+
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
 
@@ -215,7 +214,7 @@ exports.login = async (req, res) => {
       user: {
         username: user.username,
         email: user.email,
-        profilePic: user.profilePic || "",
+        profilePic: user.profilePic,
       },
     });
   } catch (error) {
@@ -223,42 +222,50 @@ exports.login = async (req, res) => {
   }
 };
 
-/**
- * Update user details (username, profilePic)
- */
+//Update user details (username, password)
+
 exports.updateUser = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { username, profilePic } = req.body;
+    const { username, oldPassword, newPassword } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    if (profilePic) {
-      user.profilePic = profilePic;
-    }
-
+    // Update username if provided
     if (username) {
       user.username = username;
     }
 
+    // Update password if provided
+    if (oldPassword && newPassword) {
+      // Verify old password
+      const isOldPasswordValid = await bcrypt.compare(oldPassword, user.password);
+      if (!isOldPasswordValid) {
+        return res.status(400).json({ success: false, message: "Current password is incorrect" });
+      }
+
+      // Hash and update new password
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword, salt);
+    }
+
     await user.save();
-    res.json({ success: true, message: "Profile updated successfully", user });
+    res.json({ success: true });
   } catch (error) {
-    console.error("🔥 MongoDB Update Failed:", error);
+    console.error(" MongoDB Update Failed:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-/**
- * Upload profile picture
- */
+//Upload profile picture
+
 exports.uploadProfilePic = async (req, res) => {
   try {
     if (!req.file) {
-      console.log("❌ No file uploaded.");
+      console.log(" No file uploaded.");
       return res.status(400).json({ message: "No file uploaded" });
     }
 
@@ -272,7 +279,7 @@ exports.uploadProfilePic = async (req, res) => {
       });
     }
 
-    // Validate MIME type
+    // Validate MIME type ( For the supabase errors)
     const validMimeTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!validMimeTypes.includes(req.file.mimetype)) {
       return res.status(400).json({
@@ -282,24 +289,24 @@ exports.uploadProfilePic = async (req, res) => {
 
     const fileName = `${req.user.id}-${Date.now()}-${req.file.originalname}`;
 
-    // Use hardcoded bucket name "profile-pictures" instead of environment variable
+    // Dont forget to make bucket as an ENV
     const bucketName = "profile-pictures";
 
-    const { data, error } = await supabase.storage.from(bucketName).upload(fileName, req.file.buffer, {
-      contentType: req.file.mimetype,
-      upsert: true,
+    const { error } = await supabase.storage.from(bucketName).upload(fileName, req.file.buffer, {
+      contentType: req.file.mimetype,//tell supabase the file type
+      upsert: true,//overwrite the file if it exists
     });
 
     if (error) throw error;
 
-    // Get the public URL using Supabase's getPublicUrl method
+    // Get the public URL using Supabase getPublicUrl method
     const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
-    const publicUrl = publicUrlData?.publicUrl;
+    const publicUrl = publicUrlData?.publicUrl;//use ? for null cases errors
 
     console.log("🖼️ Supabase Uploaded Image URL:", publicUrl);
 
     const userExists = await User.findById(req.user.id);
-    console.log("🔍 Does User Exist in MongoDB?", userExists ? "✅ Yes" : "❌ No");
+    console.log("🔍 Does User Exist in MongoDB?", userExists ? "Yes" : " No");
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,

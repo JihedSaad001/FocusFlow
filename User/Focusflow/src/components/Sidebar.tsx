@@ -16,7 +16,6 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
@@ -31,16 +30,8 @@ const Sidebar = () => {
       className={`h-screen bg-gradient-to-b from-[#1a1a1a] to-[#0f0f0f] text-white flex flex-col fixed z-100 left-0 top-0 border-r border-white/[0.08] transition-all duration-300 ${
         isExpanded ? "w-64" : "w-20"
       }`}
-      onMouseEnter={() => {
-        if (timeoutId) clearTimeout(timeoutId); // Clear any previous timeout
-        setIsExpanded(true);
-      }}
-      onMouseLeave={() => {
-        const id = setTimeout(() => {
-          setIsExpanded(false);
-        }, 200);
-        setTimeoutId(id);
-      }}
+      onMouseEnter={() => setIsExpanded(true)}
+      onMouseLeave={() => setIsExpanded(false)}
     >
       {/* Logo Section */}
       <div className="p-6 flex items-center space-x-3">
@@ -60,7 +51,7 @@ const Sidebar = () => {
             className="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group hover:bg-white/[0.08] active:bg-white/[0.12]"
           >
             <Home className="w-5 h-5 text-gray-400 group-hover:text-[#ff4e50] transition-colors" />
-            {isExpanded && <span className="ml-3 opacity-100">Home</span>}
+            {isExpanded && <span className="ml-3">Home</span>}
           </Link>
 
           <Link
@@ -68,7 +59,7 @@ const Sidebar = () => {
             className="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group hover:bg-white/[0.08] active:bg-white/[0.12]"
           >
             <LayoutDashboard className="w-5 h-5 text-gray-400 group-hover:text-[#ff4e50] transition-colors" />
-            {isExpanded && <span className="ml-3 opacity-100">Dashboard</span>}
+            {isExpanded && <span className="ml-3">Dashboard</span>}
           </Link>
 
           <Link
@@ -76,7 +67,7 @@ const Sidebar = () => {
             className="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group hover:bg-white/[0.08] active:bg-white/[0.12]"
           >
             <LibraryBig className="w-5 h-5 text-gray-400 group-hover:text-[#ff4e50] transition-colors" />
-            {isExpanded && <span className="ml-3 opacity-100">Workspace</span>}
+            {isExpanded && <span className="ml-3">Workspace</span>}
           </Link>
 
           <Link
@@ -84,14 +75,14 @@ const Sidebar = () => {
             className="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group hover:bg-white/[0.08] active:bg-white/[0.12]"
           >
             <Kanban className="w-5 h-5 text-gray-400 group-hover:text-[#ff4e50] transition-colors" />
-            {isExpanded && <span className="ml-3 opacity-100">Kanban</span>}
+            {isExpanded && <span className="ml-3">Kanban</span>}
           </Link>
           <Link
             to="/projects"
             className="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group hover:bg-white/[0.08] active:bg-white/[0.12]"
           >
             <FolderKanban className="w-5 h-5 text-gray-400 group-hover:text-[#ff4e50] transition-colors" />
-            {isExpanded && <span className="ml-3 opacity-100">Projects</span>}
+            {isExpanded && <span className="ml-3">Projects</span>}
           </Link>
         </div>
       </nav>
@@ -109,11 +100,11 @@ const Sidebar = () => {
                 "https://qhedchvmvmuflflstcwx.supabase.co/storage/v1/object/public/profile-pictures//image_2025-02-08_215223222.png"
               }
               alt="Profile"
-              className="w-8 h-8 rounded-full object-cover border border-white/[0.08]"
+              className="w-8 h-8 rounded-full object-cover"
             />
             {isExpanded && (
               <>
-                <span className="ml-3 flex-1 text-left font-medium opacity-100">
+                <span className="ml-3 flex-1 font-medium">
                   {user?.username || "User"}
                 </span>
                 <ChevronDown
@@ -146,7 +137,6 @@ const Sidebar = () => {
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout
                 </button>
-                <button></button>
               </div>
             </div>
           )}

@@ -18,7 +18,7 @@ function Projects() {
       navigate("/signin");
       return null;
     }
-    
+
     return axios.create({
       baseURL: "https://focusflow-production.up.railway.app/api",
       headers: {
@@ -195,15 +195,13 @@ function Projects() {
                       }
                     >
                       <div
-                        className={`${
-                          viewMode === "list" ? "flex-shrink-0 mr-6" : "mb-6"
-                        }`}
+                        className={`${viewMode === "list" ? "mr-6" : "mb-6"}`}
                       >
                         <div className="p-4 bg-red-500/10 rounded-xl group-hover:bg-red-500/20 transition-colors duration-200">
                           <Folder className="text-red-500 w-8 h-8" />
                         </div>
                       </div>
-                      <div className="flex-grow min-w-0">
+                      <div className="flex-grow">
                         <div className="flex justify-between items-start">
                           <h3 className="text-xl font-semibold text-white truncate hover:underline">
                             {project.name}

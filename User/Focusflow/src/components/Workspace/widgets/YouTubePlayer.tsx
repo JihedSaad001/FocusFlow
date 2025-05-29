@@ -18,7 +18,7 @@ const YouTubePlayer = () => {
     null
   ) as React.RefObject<HTMLDivElement>;
 
-  // Replace with your YouTube Data API key (secure in production)
+  
   const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 
   // Cleanup animation frame and timers on unmount
@@ -179,8 +179,8 @@ const YouTubePlayer = () => {
           handle=".drag-handle"
           bounds="body"
           defaultPosition={{
-            x: window.innerWidth / 2 - size.width / 2,
-            y: 100,
+            x: 30,
+            y: 50,
           }}
         >
           <div

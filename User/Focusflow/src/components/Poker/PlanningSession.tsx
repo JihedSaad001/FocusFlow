@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card } from "./Card";
@@ -81,7 +79,7 @@ export function PlanningSession() {
   const [socketConnected, setSocketConnected] = useState(false);
   const socketRef = useRef<any>(null);
 
-  // New state for validation popup
+//validation popup
   const [showValidationPopup, setShowValidationPopup] = useState(false);
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>(
     []
@@ -94,7 +92,7 @@ export function PlanningSession() {
     try {
       const decoded: DecodedToken = jwtDecode(token);
       setCurrentUserId(decoded.id);
-
+      console.log(`Stored username in localStorage: ${decoded.username}`);//still not working
       // Make sure username is stored in localStorage
       if (!localStorage.getItem("username") && decoded.username) {
         localStorage.setItem("username", decoded.username);
@@ -110,7 +108,7 @@ export function PlanningSession() {
 
   // Initialize socket connection once
   useEffect(() => {
-    if (!id) return;
+    
 
     getUserId();
 
@@ -1202,8 +1200,7 @@ export function PlanningSession() {
                     if (id) {
                       // Create axios instance with default config
                       const api = axios.create({
-                        baseURL:
-                          "https://focusflow-production.up.railway.app/api",
+                        baseURL: "https://focusflow-production.up.railway.app/api",
                         headers: {
                           "Content-Type": "application/json",
                           Authorization: `Bearer ${localStorage.getItem(

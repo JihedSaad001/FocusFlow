@@ -1,20 +1,18 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom"; //useParams extract the id from the url
 
 import { jwtDecode } from "jwt-decode";
 import io from "socket.io-client";
-import type { Project, Task, Sprint, DecodedToken } from "../../types";
+import type { Project, Sprint, DecodedToken } from "../../types";
 import axios from "axios";
-
+import { ArrowLeft } from "lucide-react";
 // Import all the components
 import ProjectHeader from "./ProjectHeader";
 import BacklogSection from "./BacklogSection";
 import SprintSection from "./SprintSection";
 import ChatSection from "./ChatSection";
 import ProjectMembers from "./ProjectMembers";
-import AssignTaskModal from "./AssignTaskModal";
 import Notification from "./Notification";
-import { ArrowLeft } from "lucide-react";
 
 function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
@@ -54,11 +52,6 @@ function ProjectDetails() {
       autoConnect: true,
     })
   );
-  const [assignTaskModalOpen, setAssignTaskModalOpen] = useState(false);
-  const [selectedTaskForAssignment, setSelectedTaskForAssignment] =
-    useState<Task | null>(null);
-  const [selectedMemberForAssignment, setSelectedMemberForAssignment] =
-    useState<string>("");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -734,64 +727,6 @@ function ProjectDetails() {
     navigate(`/projects/${id}/poker`);
   };
 
-  // Function to handle assigning a task to a user's personal kanban board
-  const handleAssignToKanban = async (taskId: string, memberId: string) => {
-    if (!project || !activeSprint) {
-      setError("Project or active sprint not loaded yet");
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    try {
-      // First update the task assignment in the sprint
-      const updateResponse = await fetch(
-        `https://focusflow-production.up.railway.app/api/projects/${id}/sprints/${activeSprint._id}/tasks/${taskId}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ assignedTo: memberId }),
-        }
-      );
-
-      if (!updateResponse.ok) {
-        const errorText = await updateResponse.text();
-        throw new Error(`Failed to assign task to member: ${errorText}`);
-      }
-
-      const updatedProject = await updateResponse.json();
-      setProject(updatedProject);
-      setActiveSprint(
-        updatedProject.sprints.find(
-          (s: Sprint) => s._id === activeSprint._id
-        ) || null
-      );
-
-      setNotification({
-        message: `Task assigned to ${
-          project.members.find((m) => m._id === memberId)?.username
-        }`,
-        type: "success",
-      });
-
-      setTimeout(() => {
-        setNotification(null);
-      }, 3000);
-
-      setAssignTaskModalOpen(false);
-      setSelectedTaskForAssignment(null);
-      setSelectedMemberForAssignment("");
-    } catch (error: any) {
-      console.error("❌ Error assigning task:", error);
-      setNotification({
-        message: "Error assigning task: " + error.message,
-        type: "error",
-      });
-    }
-  };
-
   if (loading)
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#121212] text-white">
@@ -823,19 +758,6 @@ function ProjectDetails() {
   return (
     <div className="min-h-screen bg-[#121212] text-white p-6">
       <Notification notification={notification} />
-
-      {/* Assign Task Modal */}
-      {assignTaskModalOpen && selectedTaskForAssignment && (
-        <AssignTaskModal
-          project={project}
-          selectedTaskForAssignment={selectedTaskForAssignment}
-          selectedMemberForAssignment={selectedMemberForAssignment}
-          setSelectedMemberForAssignment={setSelectedMemberForAssignment}
-          setAssignTaskModalOpen={setAssignTaskModalOpen}
-          setSelectedTaskForAssignment={setSelectedTaskForAssignment}
-          handleAssignToKanban={handleAssignToKanban}
-        />
-      )}
 
       <div className="max-w-7xl mx-auto">
         <div className="mb-4">
